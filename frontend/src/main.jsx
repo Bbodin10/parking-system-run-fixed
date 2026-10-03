@@ -100,24 +100,41 @@ function PageHead({ title, description }) {
   return <div className="page-head"><h1>{title}</h1><p>{description}</p></div>;
 }
 
-function StatCards({ slots, bookings, user }) {
+function resolveSlotState(slot, devices) {
+  if (slot.status === 'unavailable') {
+    return { status: 'unavailable', label: 'กำลังซ่อม', canBook: false };
+  }
+  const sensor = devices?.find((d) => d.type === 'sensor' && d.linked_slot === slot.id);
+  const isCarPresent = sensor?.status === 'online' && (sensor?.presence === 'occupied' || sensor?.car_present === true);
+  if (slot.status === 'booked' || isCarPresent) {
+    return {
+      status: 'booked',
+      label: isCarPresent && slot.status !== 'booked' ? 'มีรถจอด' : 'ไม่ว่าง',
+      canBook: false,
+      sensor
+    };
+  }
+  return { status: 'available', label: 'ว่าง', canBook: true, sensor };
+}
+
+function StatCards({ slots, devices, bookings, user }) {
+  const resolved = slots.map((s) => resolveSlotState(s, devices));
   const stats = [
-    ['cyan', slots.filter((slot) => slot.status === 'available').length, 'ช่องว่าง'],
-    ['amber', slots.filter((slot) => slot.status === 'booked').length, 'ถูกจองแล้ว'],
-    ['red', slots.filter((slot) => slot.status === 'unavailable').length, 'ไม่พร้อมใช้งาน'],
+    ['cyan', resolved.filter((s) => s.canBook).length, 'ช่องว่าง'],
+    ['amber', resolved.filter((s) => s.status === 'booked').length, 'ไม่ว่าง / มีรถจอด'],
+    ['red', resolved.filter((s) => s.status === 'unavailable').length, 'ไม่พร้อมใช้งาน'],
     ['violet', `฿${formatMoney(20)}`, user?.role === 'admin' ? 'รายการจองทั้งหมด' : 'ราคาต่อชั่วโมง'],
   ];
   return <div className="stats">{stats.map(([color, value, label]) => <div className={`stat ${color}`} key={label}><strong>{user?.role === 'admin' && label === 'รายการจองทั้งหมด' ? bookings.length : value}</strong><span>{label}</span></div>)}</div>;
 }
 
 function SlotGrid({ slots, devices, onSelect }) {
-  const statusText = { available: 'ว่าง', booked: 'ไม่ว่าง', unavailable: 'กำลังซ่อม' };
   return <div className="parking-lane"><div className="lane-label">↑ ทางเข้า &nbsp;/&nbsp; ทางออก</div><div className="slot-grid">{slots.map((slot) => {
-    const sensor = devices?.find((device) => device.type === 'sensor' && device.linked_slot === slot.id);
-    return <button type="button" className={`slot-card ${slot.status}`} key={slot.id} disabled={slot.status !== 'available'} onClick={() => onSelect?.(slot)} aria-label={`${slot.code} ${statusText[slot.status]}`}>
+    const { status, label, canBook, sensor } = resolveSlotState(slot, devices);
+    return <button type="button" className={`slot-card ${status}`} key={slot.id} disabled={!canBook} onClick={() => onSelect?.(slot)} aria-label={`${slot.code} ${label}`}>
       <span className={`sensor-dot ${sensor?.status === 'online' ? 'online' : 'offline'}`} />
       <strong>{slot.code}</strong>
-      <small>{statusText[slot.status]}</small>
+      <small>{label}</small>
       <em>{slot.type || 'ปกติ'}</em>
     </button>;
   })}</div></div>;
@@ -129,9 +146,9 @@ function UserBooking({ data, user, notify }) {
   const [booking, setBooking] = useState({ duration: 1 });
   const slots = data.slots.filter((slot) => slot.floor === floor).sort((a, b) => a.slot_order - b.slot_order);
   const book = async (event) => { event.preventDefault(); try { await api('/bookings', { method: 'POST', body: JSON.stringify({ ...booking, slotId: selected.id }) }); setSelected(null); setBooking({ duration: 1 }); notify('จองสำเร็จ'); } catch (err) { notify(err.message, true); } };
-  return <><PageHead title="จองที่จอดรถ" description="เลือกช่องจอดที่ว่างเพื่อทำการจอง สถานะอัปเดตจากฐานข้อมูลและเซ็นเซอร์ ESP32" /><StatCards slots={data.slots} bookings={data.bookings} user={user} />
+  return <><PageHead title="จองที่จอดรถ" description="เลือกช่องจอดที่ว่างเพื่อทำการจอง สถานะอัปเดตจากฐานข้อมูลและเซ็นเซอร์ ESP32" /><StatCards slots={data.slots} devices={data.devices} bookings={data.bookings} user={user} />
     <div className="floor-tabs"><button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1</button><button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2</button></div>
-    <section className="panel parking-panel"><div className="panel-title"><h2>ผังช่องจอด · ชั้น {floor}</h2><span className="muted">{slots.length} ช่อง</span></div><SlotGrid slots={slots} devices={data.devices} onSelect={setSelected} /><div className="legend"><span><i className="available" />ว่าง (กดเพื่อจอง)</span><span><i className="booked" />ไม่ว่าง</span><span><i className="unavailable" />กำลังซ่อม</span></div></section>
+    <section className="panel parking-panel"><div className="panel-title"><h2>ผังช่องจอด · ชั้น {floor}</h2><span className="muted">{slots.length} ช่อง</span></div><SlotGrid slots={slots} devices={data.devices} onSelect={setSelected} /><div className="legend"><span><i className="available" />ว่าง (กดเพื่อจอง)</span><span><i className="booked" />ไม่ว่าง / มีรถจอด</span><span><i className="unavailable" />กำลังซ่อม</span></div></section>
     {selected && <div className="modal-backdrop" onMouseDown={() => setSelected(null)}><form className="booking-modal" onSubmit={book} onMouseDown={(event) => event.stopPropagation()}><div className="modal-head"><div><p className="eyebrow">RESERVE PARKING</p><h2>จองช่อง {selected.code}</h2></div><button type="button" className="modal-close" onClick={() => setSelected(null)}>×</button></div><p className="muted">ชั้น {selected.floor} · {selected.type || 'ช่องปกติ'} · ฿20 ต่อชั่วโมง</p><label>วันที่จอง<input required type="date" onChange={(event) => setBooking({ ...booking, date: event.target.value })} /></label><label>เวลาเริ่ม<input required type="time" onChange={(event) => setBooking({ ...booking, time: event.target.value })} /></label><label>จำนวนชั่วโมง<input required type="number" min="1" max="12" value={booking.duration} onChange={(event) => setBooking({ ...booking, duration: Number(event.target.value) })} /></label><div className="booking-total"><span>ยอดที่ต้องใช้</span><strong>฿{formatMoney(Number(booking.duration || 0) * 20)}</strong></div><button className="button primary full">ยืนยันการจอง</button></form></div>}
   </>;
 }
@@ -159,7 +176,7 @@ function AdminDashboard({ data }) {
   const revenue = data.bookings.filter((booking) => booking.date === today && booking.status !== 'cancelled').reduce((sum, booking) => sum + Number(booking.amount || 0), 0);
   const bookings = [...data.bookings].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
   const userName = (id) => data.users.find((item) => item.id === id)?.name || id;
-  return <><PageHead title="ภาพรวมและประวัติการจอง" description="ติดตามสถานะพื้นที่จอดและตรวจสอบรายการจองทั้งหมด" /><StatCards slots={data.slots} bookings={data.bookings} user={{ role: 'admin' }} />
+  return <><PageHead title="ภาพรวมและประวัติการจอง" description="ติดตามสถานะพื้นที่จอดและตรวจสอบรายการจองทั้งหมด" /><StatCards slots={data.slots} devices={data.devices} bookings={data.bookings} user={{ role: 'admin' }} />
     <section className="panel"><div className="panel-title"><h2>รายได้วันนี้</h2><strong className="highlight">฿{formatMoney(revenue)}</strong></div><p className="muted">รวมจากรายการจองประจำวันที่ {today}</p></section>
     <section className="panel"><div className="panel-title"><h2>ประวัติการจองทั้งหมด</h2><span className="muted">{bookings.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ผู้จอง</th><th>วันที่</th><th>เวลา</th><th>ระยะเวลา</th><th>จำนวนเงิน</th><th>สถานะ</th><th>ทำรายการเมื่อ</th></tr></thead><tbody>{bookings.length ? bookings.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{userName(booking.user_id)}</td><td>{booking.date}</td><td>{String(booking.time).slice(0, 5)}</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{new Date(booking.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td></tr>) : <tr><td colSpan="8">ยังไม่มีรายการจอง</td></tr>}</tbody></table></div></section></>;
 }
