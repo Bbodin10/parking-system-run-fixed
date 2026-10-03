@@ -133,9 +133,9 @@ void loop() {
   if ((statusChangedEvent && cooldownSatisfied) || periodicTimeout) {
     const char *reason = statusChangedEvent ? "Slot Occupancy Event Triggered"
                                             : "Periodic Heartbeat Sync";
+    lastNetworkPostTime = millis();
     if (transmitBatchTelemetry(reason)) {
       statusChangedEvent = false;
-      lastNetworkPostTime = millis();
     }
   }
 
