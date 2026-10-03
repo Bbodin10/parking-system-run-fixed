@@ -69,11 +69,15 @@ function Login({ onLogin }) {
   );
 }
 
-function Header({ user, onLogout }) {
+function Header({ user, onLogout, lastUpdated }) {
+  const timeStr = lastUpdated
+    ? lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : '--:--:--';
   return <header className="topbar">
     <div className="brand"><div className="brand-mark small">P</div><div><strong>ระบบจองที่จอดรถ</strong><span>SMART PARKING · SUPABASE · ESP32</span></div></div>
     <div className="user-menu">
       <span className="connection-pill"><i />Backend ออนไลน์</span>
+      <span className="connection-pill live-pill"><span className="live-dot" />LIVE · {timeStr}</span>
       {user.role !== 'admin' && <span className="badge available credit-pill">เครดิต ฿{formatMoney(user.credit)}</span>}
       <span className={`badge line-pill ${user.line_user_id ? 'available' : 'unavailable'}`}>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
       <span className={`role ${user.role}`}>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้'}</span>
@@ -205,6 +209,7 @@ function App() {
   const [loadError, setLoadError] = useState('');
   const [view, setView] = useState(() => { try { return JSON.parse(localStorage.user || 'null')?.role === 'admin' ? 'dashboard' : 'booking'; } catch { return 'booking'; } });
   const [notice, setNotice] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   async function load() {
     if (!localStorage.token) { localStorage.clear(); setUser(null); return; }
@@ -212,6 +217,7 @@ function App() {
     try {
       const next = await api('/bootstrap');
       setData(next);
+      setLastUpdated(new Date());
       const liveUser = next.users?.find((item) => item.id === user?.id);
       if (liveUser) { localStorage.user = JSON.stringify(liveUser); setUser((current) => ({ ...current, ...liveUser })); }
     } catch (err) {
@@ -220,7 +226,12 @@ function App() {
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { if (user) load(); }, [user?.id]);
+  useEffect(() => {
+    if (!user) return;
+    load();
+    const interval = setInterval(load, 5000); // auto-refresh ทุก 5 วินาที
+    return () => clearInterval(interval);
+  }, [user?.id]);
   const notify = (text, error = false) => { setNotice({ text, error }); load(); };
   const logout = () => { localStorage.clear(); setUser(null); setData(null); setLoadError(''); };
 
@@ -233,7 +244,7 @@ function App() {
   const content = liveUser.role === 'admin'
     ? { dashboard: <AdminDashboard data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, layout: <AdminLayout data={data} notify={notify} /> }[view]
     : { booking: <UserBooking data={data} user={liveUser} notify={notify} />, control: <UserControl data={data} user={liveUser} notify={notify} />, history: <UserHistory data={data} user={liveUser} notify={notify} /> }[view];
-  return <div className="app-shell"><Header user={liveUser} onLogout={logout} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}{content}</main></div></div>;
+  return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}{content}</main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

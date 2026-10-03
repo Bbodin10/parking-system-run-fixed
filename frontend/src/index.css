@@ -19,3 +19,5 @@
 }
 @media(max-width:760px){.user-menu .line-pill{display:inline-flex;font-size:0;padding:5px 8px}.user-menu .line-pill:after{content:"LINE ✓";font-size:10px}.user-menu .line-pill.unavailable:after{content:"LINE —"}}
 .loading>div{text-align:center}.loading-spinner{width:38px;height:38px;margin:0 auto 14px;border:3px solid #303c4b;border-top-color:#36dcc9;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.load-error{width:min(520px,calc(100vw - 32px));padding:28px;background:#181f29;border:1px solid #803f42;border-radius:12px;text-align:left}.load-error h2{margin:0 0 8px}.load-error p{color:#ff8d8a;line-height:1.6}.load-error>div{display:flex;gap:8px;margin:20px 0}.load-error small{color:#8e9bae}
+.live-pill{color:var(--cyan)!important;border-color:#1f5e57!important;background:#0f2e2a!important;font-variant-numeric:tabular-nums}.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse-live 1.4s ease-in-out infinite}@keyframes pulse-live{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.75)}}
+
