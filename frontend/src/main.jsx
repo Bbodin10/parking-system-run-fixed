@@ -152,9 +152,9 @@ function resolveSlotState(slot, devices) {
 function StatCards({ slots, devices, bookings, user }) {
   const resolved = slots.map((s) => resolveSlotState(s, devices));
   const stats = [
-    ['cyan', resolved.filter((s) => s.canBook).length, 'ช่องว่าง'],
-    ['amber', resolved.filter((s) => s.status === 'booked').length, 'ไม่ว่าง / มีรถจอด'],
-    ['red', resolved.filter((s) => s.status === 'unavailable').length, 'ไม่พร้อมใช้งาน'],
+    ['green', resolved.filter((s) => s.canBook).length, 'ช่องว่าง'],
+    ['red', resolved.filter((s) => s.status === 'booked').length, 'ไม่ว่าง / มีรถจอด'],
+    ['gray', resolved.filter((s) => s.status === 'unavailable').length, 'ไม่พร้อมใช้งาน'],
     ['violet', `฿${formatMoney(20)}`, user?.role === 'admin' ? 'รายการจองทั้งหมด' : 'ราคาต่อชั่วโมง'],
   ];
   return <div className="stats">{stats.map(([color, value, label]) => <div className={`stat ${color}`} key={label}><strong>{user?.role === 'admin' && label === 'รายการจองทั้งหมด' ? bookings.length : value}</strong><span>{label}</span></div>)}</div>;
@@ -163,8 +163,8 @@ function StatCards({ slots, devices, bookings, user }) {
 function SlotGrid({ slots, devices, onSelect }) {
   return <div className="parking-lane"><div className="lane-label">↑ ทางเข้า &nbsp;/&nbsp; ทางออก</div><div className="slot-grid">{slots.map((slot) => {
     const { status, label, canBook, sensor } = resolveSlotState(slot, devices);
-    return <button type="button" className="slot-card" key={slot.id} disabled={!canBook} onClick={() => onSelect?.(slot)} aria-label={`${slot.code} ${label}`}>
-      <span className={`sensor-dot ${status}`} title={`เซ็นเซอร์: ${label} (${sensor?.status || 'offline'})`} />
+    return <button type="button" className={`slot-card ${status}`} key={slot.id} disabled={!canBook} onClick={() => onSelect?.(slot)} aria-label={`${slot.code} ${label}`}>
+      <span className={`sensor-dot ${sensor?.status === 'online' ? 'online' : 'offline'}`} />
       <strong>{slot.code}</strong>
       <small>{label}</small>
       <em>{slot.type || 'ปกติ'}</em>
@@ -1157,7 +1157,7 @@ function AdminLayout({ data, notify }) {
   async function uploadMap(event) { event.preventDefault(); const form = new FormData(event.currentTarget); form.set('floor', floor); try { await api('/admin/maps', { method: 'POST', body: form }); event.currentTarget.reset(); notify('อัปโหลดผังลานจอดแล้ว'); } catch (err) { notify(err.message, true); } }
   return <><PageHead title="จัดการผังลานจอด" description="คลิกช่อง 2 ช่องเพื่อสลับตำแหน่ง เปลี่ยนชื่อ สถานะ หรือแจ้งซ่อม" /><div className="tabs"><button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1 (A1 - A6)</button><button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2 (B1 - B6)</button></div>
     <section className="panel"><div className="panel-title"><h2>อัปโหลดรูปผังชั้น {floor}</h2></div><form className="booking-fields" onSubmit={uploadMap}><input name="name" required placeholder={`ชื่อผัง เช่น อาคาร A ชั้น ${floor}`} /><input name="image" type="file" accept="image/png,image/jpeg,image/webp" required /><button className="button primary">อัปโหลดรูป</button></form>{maps.map((item) => <img key={item.id} src={item.image_url} alt={item.name} style={{ width: '100%', maxHeight: 520, objectFit: 'contain', marginTop: 16, borderRadius: 12 }} />)}</section>
-    <section className="panel"><div className="slot-grid">{slots.map((slot) => <div className="slot-card" key={slot.id} style={selected === slot.id ? { outline: '2px solid #22d3ee' } : {}}><span className={`sensor-dot ${slot.status}`} /><div className="slot-top"><strong>{slot.code}</strong><span>{slot.status === 'available' ? 'ว่าง' : slot.status === 'booked' ? 'ถูกจอง' : 'ไม่พร้อม/ซ่อม'}</span></div><small>ลำดับ {slot.slot_order} · {slot.type}</small><button className="button compact" onClick={() => chooseSwap(slot)}>{selected ? 'เลือกเพื่อสลับ' : 'เลือกสลับตำแหน่ง'}</button> <button className="button compact" onClick={() => rename(slot)}>เปลี่ยนชื่อ</button><select value={slot.status} onChange={(e) => patchSlot(slot, { status: e.target.value })}><option value="available">ว่าง</option><option value="booked">ถูกจอง</option><option value="unavailable">ไม่พร้อม/ซ่อม</option></select><button className="button danger compact" onClick={() => maintenance(slot)}>แจ้งซ่อม</button></div>)}</div></section>
+    <section className="panel"><div className="slot-grid">{slots.map((slot) => <div className={`slot-card ${slot.status}`} key={slot.id} style={selected === slot.id ? { outline: '2px solid #22d3ee' } : {}}><div className="slot-top"><strong>{slot.code}</strong><span>{slot.status}</span></div><small>ลำดับ {slot.slot_order} · {slot.type}</small><button className="button compact" onClick={() => chooseSwap(slot)}>{selected ? 'เลือกเพื่อสลับ' : 'เลือกสลับตำแหน่ง'}</button> <button className="button compact" onClick={() => rename(slot)}>เปลี่ยนชื่อ</button><select value={slot.status} onChange={(e) => patchSlot(slot, { status: e.target.value })}><option value="available">ว่าง</option><option value="booked">ถูกจอง</option><option value="unavailable">ไม่พร้อม/ซ่อม</option></select><button className="button danger compact" onClick={() => maintenance(slot)}>แจ้งซ่อม</button></div>)}</div></section>
     <section className="panel"><div className="panel-title"><h2>ประวัติการซ่อมบำรุง</h2><span className="muted">{(data.maintenance_logs || []).length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>รายละเอียดปัญหา</th><th>สถานะ</th><th>แจ้งเมื่อ</th><th>ปิดงานเมื่อ</th><th /></tr></thead><tbody>{(data.maintenance_logs || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))).map((item) => <tr key={item.id}><td>{item.slot_id}</td><td>{item.problem_detail}</td><td><span className={`badge ${item.status === 'open' ? 'unavailable' : 'available'}`}>{item.status === 'open' ? 'กำลังซ่อม' : 'ปิดงานแล้ว'}</span></td><td>{new Date(item.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td><td>{item.resolved_at ? new Date(item.resolved_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}</td><td>{item.status === 'open' && <button className="button primary compact" onClick={() => resolve(item)}>ซ่อมเสร็จ</button>}</td></tr>)}</tbody></table></div></section></>;
 }
 
