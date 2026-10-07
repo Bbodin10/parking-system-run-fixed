@@ -183,10 +183,6 @@ app.post('/api/bookings',auth,async(req,res)=>{
     const {data:slot,error:slotError}=await db.from('slots').select('status').eq('id',slotId).maybeSingle();
     if(slotError)return res.status(500).json({error:slotError.message});
     if(!slot||slot.status!=='available')return res.status(400).json({error:'ช่องจอดนี้ไม่ว่างหรือกำลังซ่อมบำรุง'});
-    const { data: sensor } = await db.from('devices').select('presence,status').eq('type', 'sensor').eq('linked_slot', slotId).maybeSingle();
-    if (sensor && sensor.status === 'online' && sensor.presence === 'occupied') {
-      return res.status(400).json({ error: 'ช่องจอดนี้มีรถจอดอยู่จริง ไม่สามารถทำการจองได้' });
-    }
     const start=thaiDateTime(date,time);
     if(start<=new Date())return res.status(400).json({error:'เวลาเริ่มจองต้องเป็นเวลาในอนาคต'});
     const status='pending';
@@ -324,23 +320,8 @@ app.post('/api/iot/batch-telemetry', async (req, res) => {
     for (const reading of slotReadings) {
       const { slot_id, occupied } = reading;
       if (!slot_id) continue;
-      // 1. อัปเดต sensor device ที่ผูกกับ slot_id
+      // 1. อัปเดต sensor device ที่ผูกกับ slot_id (sensor dot แสดงสถานะการตรวจจับรถ)
       await db.from('devices').update({ presence: occupied ? 'occupied' : 'empty', car_present: occupied, status: 'online', updated_at: now }).eq('type', 'sensor').eq('linked_slot', slot_id);
-
-      // 2. อัปเดตสถานะ slot ในฐานข้อมูล: มีรถจอด -> 'booked' (ไม่ว่าง), รถออกและไม่มีการจองค้าง -> 'available' (ว่าง)
-      const { data: curSlot } = await db.from('slots').select('status').eq('id', slot_id).maybeSingle();
-      if (curSlot && curSlot.status !== 'unavailable') {
-        if (occupied) {
-          if (curSlot.status === 'available') {
-            await db.from('slots').update({ status: 'booked', updated_at: now }).eq('id', slot_id);
-          }
-        } else {
-          const { data: activeBooking } = await db.from('bookings').select('id').eq('slot_id', slot_id).in('status', ['pending', 'active']).limit(1).maybeSingle();
-          if (!activeBooking && curSlot.status === 'booked') {
-            await db.from('slots').update({ status: 'available', updated_at: now }).eq('id', slot_id);
-          }
-        }
-      }
 
       // 3. ดึงสถานะ barrier ของช่องนี้ส่งกลับ ESP32
       const { data: barrier } = await db.from('devices').select('state').eq('type', 'barrier').eq('linked_slot', slot_id).maybeSingle();
