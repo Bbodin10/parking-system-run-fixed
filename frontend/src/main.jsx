@@ -522,7 +522,7 @@ function UserControl({ data, user, notify }) {
         title="ควบคุมช่องจอด"
         description="กดเปิด/ปิดไม้กั้นได้ตลอดการจอง และกดยกเลิกการจองได้ทุกเมื่อก่อนถึงเวลาจอง 15 นาที"
       />
-      <div className="slot-grid">
+      <div className="slot-grid control-grid">
         {cards.length ? cards.map(({
           booking,
           slot,
@@ -540,7 +540,7 @@ function UserControl({ data, user, notify }) {
           overtimeHours,
           overtimeCost
         }) => (
-          <div className="slot-card booked" key={booking.id}>
+          <div className="slot-card booked control-card" key={booking.id}>
             <div className="slot-top">
               <strong>{slot?.code || booking.slot_id}</strong>
               <span className={`badge ${isOvertime ? 'unavailable' : booking.status === 'active' ? 'available' : 'pending'}`}>
@@ -814,7 +814,7 @@ function UserHistory({ data, user, notify }) {
       </p>
       <form className="booking-fields" onSubmit={submitCredit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="credit-form-row">
             <input
               type="number"
               min="10"
@@ -832,18 +832,18 @@ function UserHistory({ data, user, notify }) {
                   setRequest({ ...request, amount: num > 5000 ? 5000 : num });
                 }
               }}
-              style={{ minWidth: 160, maxWidth: 200, height: 42, fontWeight: 'bold' }}
+              className="credit-amount-input"
             />
             <input
-              style={{ flex: '1 1 240px', height: 42 }}
+              className="credit-reason-input"
               placeholder="เหตุผล / หลักฐาน (ไม่บังคับ เช่น โอนผ่าน PromptPay)"
               value={request.reason}
               onChange={(e) => setRequest({ ...request, reason: e.target.value })}
             />
-            <button className="button primary" style={{ height: 42, whiteSpace: 'nowrap', flex: '0 0 auto' }}>ส่งคำขอเติมเครดิต</button>
+            <button className="button primary credit-submit-btn">ส่งคำขอเติมเครดิต</button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div className="quick-chips">
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>เลือกยอดด่วน:</span>
             {[50, 100, 200, 500, 1000].map((val) => (
               <button
