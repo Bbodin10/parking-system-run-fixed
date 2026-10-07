@@ -9,8 +9,14 @@ import multer from 'multer';
 import { createClient } from '@supabase/supabase-js';
 
 const app=express();
+const configuredOrigins = [process.env.CORS_ORIGIN, process.env.CORS_ORIGIN_PROD]
+  .filter(Boolean)
+  .flatMap(s => s.split(','))
+  .map(s => s.trim())
+  .filter(Boolean);
+
 const allowedOrigins = new Set([
-  process.env.CORS_ORIGIN || 'http://localhost:5173',
+  ...configuredOrigins,
   'http://localhost:5173',
   'http://127.0.0.1:5173',
 ]);
@@ -24,7 +30,12 @@ app.use(express.json({ verify: (req, _res, buffer) => { req.rawBody = Buffer.fro
 const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);
 const RATE=Number(process.env.RATE_PER_HOUR||20), GRACE=15;
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:8*1024*1024},fileFilter(req,file,cb){cb(null,/^image\/(png|jpeg|webp)$/.test(file.mimetype));}});
-const thaiDateTime=(date,time)=>new Date(`${date}T${String(time).slice(0,5)}:00+07:00`);
+const thaiDateTime=(date,time)=>{
+  const parts=String(time||'').split(':');
+  const h=String(parts[0]||'0').padStart(2,'0');
+  const m=String(parts[1]||'00').slice(0,2).padStart(2,'0');
+  return new Date(`${date}T${h}:${m}:00+07:00`);
+};
 const sign=u=>jwt.sign({id:u.id,role:u.role},process.env.JWT_SECRET,{expiresIn:'12h'});
 function auth(req,res,next){try{const h=req.headers.authorization||'';req.user=jwt.verify(h.replace(/^Bearer /,''),process.env.JWT_SECRET);next();}catch{return res.status(401).json({error:'unauthorized'});}}
 function admin(req,res,next){if(req.user?.role!=='admin')return res.status(403).json({error:'สำหรับผู้ดูแลระบบเท่านั้น'});next();}
@@ -120,13 +131,13 @@ async function lifecycle(){
       }
       const exitDetected=b.status==='active'&&sensorFresh&&sensor?.presence==='empty'&&barrier?.state==='closed';
       if(exitDetected){await finishBooking(b,'sensor-exit');continue;}
-      if(now>=end&&b.status==='active'){await finishBooking(b,'scheduled-end');continue;}
+      // หมายเหตุ: ไม่ auto-complete เมื่อหมดเวลา เพื่อให้ผู้ใช้อยู่ต่อได้ (overtime จะถูกคิดเมื่อกดจบการจอดหรือรถออก)
     }
   }catch(error){console.error('[lifecycle]',error);}
   finally{lifecycleRunning=false;}
 }
 app.get('/api/health',(req,res)=>res.json({ok:true,time:new Date().toISOString()}));
-app.post('/api/auth/line',async(req,res)=>{try{const {code,redirectUri}=req.body;if(!code)return res.status(400).json({error:'Code จาก LINE ไม่ถูกต้อง'});const clientId=process.env.LINE_LOGIN_CHANNEL_ID,clientSecret=process.env.LINE_LOGIN_CHANNEL_SECRET;if(!clientId||!clientSecret)return res.status(500).json({error:'ยังไม่ได้ตั้งค่า LINE Login'});const params=new URLSearchParams({grant_type:'authorization_code',code,redirect_uri:redirectUri,client_id:clientId,client_secret:clientSecret});const tokenRes=await fetch('https://api.line.me/oauth2/v2.1/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()});const tokenData=await tokenRes.json();if(!tokenRes.ok){console.error('[line token exchange error]',tokenData);throw new Error(tokenData.error_description||'แลกเปลี่ยน Token กับ LINE ไม่สำเร็จ');}const profileRes=await fetch('https://api.line.me/v2/profile',{headers:{Authorization:`Bearer ${tokenData.access_token}`}});const profile=await profileRes.json();if(!profileRes.ok||!profile.userId)throw new Error('ดึงข้อมูลโปรไฟล์จาก LINE ไม่สำเร็จ');const lineUserId=profile.userId,displayName=profile.displayName||'LINE User';let currentUserId=null;const authHeader=req.headers.authorization||'';if(authHeader.startsWith('Bearer ')){try{const decoded=jwt.verify(authHeader.slice(7),process.env.JWT_SECRET);currentUserId=decoded?.id;}catch{}}if(currentUserId){const {data:existing}=await db.from('users').select('id,username,name').eq('line_user_id',lineUserId).maybeSingle();if(existing&&existing.id!==currentUserId)return res.status(400).json({error:`บัญชี LINE นี้ถูกผูกไว้กับผู้ใช้อื่นแล้ว (${existing.name||existing.username})`});await db.from('users').update({line_user_id:lineUserId}).eq('id',currentUserId);const updated=await userById(currentUserId);delete updated.password_hash;delete updated.password;const linkMsg = [
+app.post('/api/auth/line',async(req,res)=>{try{const {code,redirectUri}=req.body;if(!code)return res.status(400).json({error:'Code จาก LINE ไม่ถูกต้อง'});const clientId=process.env.LINE_LOGIN_CHANNEL_ID,clientSecret=process.env.LINE_LOGIN_CHANNEL_SECRET;if(!clientId||!clientSecret)return res.status(500).json({error:'ยังไม่ได้ตั้งค่า LINE Login'});const params=new URLSearchParams({grant_type:'authorization_code',code,redirect_uri:redirectUri,client_id:clientId,client_secret:clientSecret});const tokenRes=await fetch('https://api.line.me/oauth2/v2.1/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()});const tokenData=await tokenRes.json();if(!tokenRes.ok){console.error('[line token exchange error]',tokenData);throw new Error(tokenData.error_description||'แลกเปลี่ยน Token กับ LINE ไม่สำเร็จ');}const profileRes=await fetch('https://api.line.me/v2/profile',{headers:{Authorization:`Bearer ${tokenData.access_token}`}});const profile=await profileRes.json();if(!profileRes.ok||!profile.userId)throw new Error('ดึงข้อมูลโปรไฟล์จาก LINE ไม่สำเร็จ');const lineUserId=profile.userId,displayName=profile.displayName||'LINE User';let currentUserId=null;const authHeader=req.headers.authorization||'';if(authHeader.startsWith('Bearer ')){try{const decoded=jwt.verify(authHeader.slice(7),process.env.JWT_SECRET);currentUserId=decoded?.id;}catch{}}if(currentUserId){const {data:existing}=await db.from('users').select('id,username,name').eq('line_user_id',lineUserId).maybeSingle();if(existing&&existing.id!==currentUserId){await db.from('users').update({line_user_id:null}).eq('id',existing.id);}await db.from('users').update({line_user_id:lineUserId}).eq('id',currentUserId);const updated=await userById(currentUserId);delete updated.password_hash;delete updated.password;const linkMsg = [
         '🎉 เชื่อมต่อบัญชี LINE สำเร็จ!',
         '━━━━━━━━━━━━━━━━━━━',
         `👤 บัญชีผู้ใช้: ${updated.name}`,
@@ -186,7 +197,8 @@ app.post('/api/bookings',auth,async(req,res)=>{
         `💰 ค่าบริการ: ฿${amount.toLocaleString('th-TH')}`,
         `💳 เครดิตคงเหลือ: ฿${Number(updatedU.credit || 0).toLocaleString('th-TH')}`,
         '━━━━━━━━━━━━━━━━━━━',
-        'ℹ️ กรุณาเข้าจอดภายใน 15 นาทีหลังถึงเวลาเริ่มจอง'
+        'ℹ️ กรุณาเข้าจอดภายใน 15 นาทีหลังถึงเวลาเริ่มจอง',
+        'ℹ️ สามารถกดยกเลิกการจองได้ทุกเมื่อจนถึงก่อนเวลาเริ่มจอง 15 นาที'
       ].join('\n');
       await pushLine(updatedU.line_user_id, bookMsg);
     }
@@ -200,8 +212,18 @@ app.post('/api/bookings',auth,async(req,res)=>{
 app.post('/api/bookings/:id/cancel',auth,async(req,res)=>{
   try{
     const {data:b}=await db.from('bookings').select('*').eq('id',req.params.id).eq('user_id',req.user.id).maybeSingle();
-    if(!b||b.status!=='pending'||new Date()>=thaiDateTime(b.date,b.time))
-      return res.status(400).json({error:'ยกเลิกได้จนถึงก่อนเวลาเริ่มจองเท่านั้น'});
+    if(!b) return res.status(404).json({error:'ไม่พบรายการจอง'});
+    if(b.status!=='pending') return res.status(400).json({error:'ยกเลิกได้เฉพาะรายการที่อยู่ในสถานะรอเข้าจอดเท่านั้น'});
+    
+    const start=thaiDateTime(b.date,b.time);
+    const cutoff=new Date(start.getTime() - 15 * 60 * 1000);
+    const now=new Date();
+    if(now >= cutoff){
+      return res.status(400).json({
+        error:'ไม่สามารถยกเลิกการจองได้แล้ว เนื่องจากต้องยกเลิกก่อนถึงเวลาจองอย่างน้อย 15 นาที'
+      });
+    }
+
     await db.from('bookings').update({status:'cancelled'}).eq('id',b.id);
     await db.from('slots').update({status:'available'}).eq('id',b.slot_id);
     await credit(req.user.id,'add',b.amount,`คืนเครดิตจากการยกเลิก ${b.slot_id}`);
@@ -211,6 +233,8 @@ app.post('/api/bookings/:id/cancel',auth,async(req,res)=>{
         '↩️ ยกเลิกการจองสำเร็จ',
         '━━━━━━━━━━━━━━━━━━━',
         `🅿️ ช่องจอด: ${b.slot_id}`,
+        `📅 วันที่: ${b.date}`,
+        `⏰ เวลาเริ่ม: ${String(b.time).slice(0, 5)} น.`,
         `💰 คืนเครดิตเข้าบัญชี: +฿${Number(b.amount).toLocaleString('th-TH')}`,
         `💳 เครดิตคงเหลือ: ฿${Number(u.credit || 0).toLocaleString('th-TH')}`,
         '━━━━━━━━━━━━━━━━━━━',
@@ -218,7 +242,7 @@ app.post('/api/bookings/:id/cancel',auth,async(req,res)=>{
       ].join('\n');
       await pushLine(u.line_user_id, cancelMsg);
     }
-    res.json({ok:true});
+    res.json({ok:true,refundedAmount:b.amount});
   }catch(e){
     res.status(400).json({error:e.message});
   }
@@ -243,7 +267,7 @@ app.post('/api/auth/line/test-message',auth,async(req,res)=>{try{const u=await u
       '✅ ระบบเชื่อมต่อสมบูรณ์และพร้อมส่งการแจ้งเตือนแบบเรียลไทม์'
     ].join('\n');
     const ok=await pushLine(u.line_user_id, msg);res.json({ok,lineSent:ok});}catch(e){res.status(400).json({error:e.message});}});
-app.post('/api/devices/:id/toggle',auth,async(req,res)=>{const {data:d}=await db.from('devices').select('*').eq('id',req.params.id).maybeSingle();if(!d||d.type!=='barrier')return res.status(404).json({error:'ไม่พบอุปกรณ์ควบคุมช่องจอด'});if(req.user.role!=='admin'){const {data:b}=await db.from('bookings').select('slot_id,date,time,status').eq('user_id',req.user.id).in('status',['pending','active']);const now=new Date();const allowed=(b||[]).some(x=>x.slot_id===d.linked_slot&&(x.status==='active'||(x.status==='pending'&&(thaiDateTime(x.date,x.time)-now)/60000<=15&&(thaiDateTime(x.date,x.time)-now)/60000>-60)));if(!allowed)return res.status(403).json({error:'ควบคุมได้เฉพาะช่องที่คุณจองไว้และอยู่ในช่วงเวลาใช้งาน'});}const state=d.state==='open'?'closed':'open';const {data,error}=await db.from('devices').update({state,updated_at:new Date().toISOString()}).eq('id',d.id).select('*').single();if(error)return res.status(400).json({error:error.message});res.json(data);});
+app.post('/api/devices/:id/toggle',auth,async(req,res)=>{const {data:d}=await db.from('devices').select('*').eq('id',req.params.id).maybeSingle();if(!d||d.type!=='barrier')return res.status(404).json({error:'ไม่พบอุปกรณ์ควบคุมช่องจอด'});if(req.user.role!=='admin'){const {data:b}=await db.from('bookings').select('slot_id,status').eq('user_id',req.user.id).in('status',['pending','active']);const allowed=(b||[]).some(x=>x.slot_id===d.linked_slot);if(!allowed)return res.status(403).json({error:'ควบคุมได้เฉพาะช่องที่คุณจองไว้เท่านั้น (ต้องอยู่ในสถานะ pending หรือ active)'});}const state=d.state==='open'?'closed':'open';const {data,error}=await db.from('devices').update({state,updated_at:new Date().toISOString()}).eq('id',d.id).select('*').single();if(error)return res.status(400).json({error:error.message});res.json(data);});
 app.patch('/api/admin/users/:id',auth,admin,async(req,res)=>{try{const patch={};if(['admin','user'].includes(req.body.role))patch.role=req.body.role;if(['active','inactive'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(!Object.keys(patch).length)return res.status(400).json({error:'ไม่มีข้อมูลที่ต้องแก้ไข'});const {data,error}=await db.from('users').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.patch('/api/admin/devices/:id',auth,admin,async(req,res)=>{try{const patch={};if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(typeof req.body.linked_slot==='string'||req.body.linked_slot===null)patch.linked_slot=req.body.linked_slot;if(['online','offline','error'].includes(req.body.status))patch.status=req.body.status;patch.updated_at=new Date().toISOString();const {data,error}=await db.from('devices').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.patch('/api/admin/slots/:id',auth,admin,async(req,res)=>{try{const patch={};if(typeof req.body.code==='string'&&req.body.code.trim())patch.code=req.body.code.trim();if(['available','booked','unavailable'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.type==='string'&&req.body.type.trim())patch.type=req.body.type.trim();patch.updated_at=new Date().toISOString();const {data,error}=await db.from('slots').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
@@ -458,7 +482,7 @@ app.post('/api/bookings/:id/send-summary',auth,async(req,res)=>{
     res.json({ok:true, lineSent, actualMinutes});
   } catch(e) { res.status(400).json({error:e.message}); }
 });
-app.post('/api/line/webhook',async(req,res)=>{res.sendStatus(200);const sig=req.headers['x-line-signature']||'';const raw=req.rawBody||Buffer.from(JSON.stringify(req.body));if(process.env.LINE_CHANNEL_SECRET){const h=crypto.createHmac('sha256',process.env.LINE_CHANNEL_SECRET).update(raw).digest('base64');if(h!==sig)return;}for(const e of req.body.events||[]){if(e.type==='message'&&e.message?.type==='text'){const code=e.message.text.trim().toUpperCase();const {data:u}=await db.from('users').select('id,name').eq('line_link_code',code).maybeSingle();if(u){await db.from('users').update({line_user_id:e.source.userId}).eq('id',u.id);const webMsg = [
+app.post('/api/line/webhook',async(req,res)=>{res.sendStatus(200);const sig=req.headers['x-line-signature']||'';const raw=req.rawBody||Buffer.from(JSON.stringify(req.body));if(process.env.LINE_CHANNEL_SECRET){const h=crypto.createHmac('sha256',process.env.LINE_CHANNEL_SECRET).update(raw).digest('base64');if(h!==sig)return;}for(const e of req.body.events||[]){if(e.type==='message'&&e.message?.type==='text'){const code=e.message.text.trim().toUpperCase();const {data:u}=await db.from('users').select('id,name').eq('line_link_code',code).maybeSingle();if(u){await db.from('users').update({line_user_id:null}).eq('line_user_id',e.source.userId);await db.from('users').update({line_user_id:e.source.userId}).eq('id',u.id);const webMsg = [
         '🎉 เชื่อมต่อบัญชีสำเร็จ!',
         '━━━━━━━━━━━━━━━━━━━',
         `👤 บัญชีผู้ใช้: ${u.name}`,

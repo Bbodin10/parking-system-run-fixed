@@ -25,6 +25,22 @@ async function api(path, options = {}) {
 const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH');
 const formatDate = (value) => value ? new Date(value).toLocaleDateString('th-TH') : '-';
 
+function parseThaiDateTime(date, time) {
+  if (!date || !time) return new Date();
+  const parts = String(time).split(':');
+  const h = String(parts[0] || '0').padStart(2, '0');
+  const m = String(parts[1] || '00').slice(0, 2).padStart(2, '0');
+  return new Date(`${date}T${h}:${m}:00+07:00`);
+}
+
+function formatThaiTime(time) {
+  if (!time) return '--:--';
+  const parts = String(time).split(':');
+  const h = String(parts[0] || '0').padStart(2, '0');
+  const m = String(parts[1] || '00').slice(0, 2).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
 const LINE_LOGIN_CLIENT_ID = '2011816169';
 function redirectToLine(state = 'login') {
   const redirectUri = window.location.origin;
@@ -88,12 +104,11 @@ function Login({ onLogin }) {
 
 function Header({ user, onLogout, lastUpdated }) {
   const timeStr = lastUpdated
-    ? lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    ? lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' })
     : '--:--:--';
   return <header className="topbar">
     <div className="brand"><div className="brand-mark small">P</div><div><strong>ระบบจองที่จอดรถ</strong><span>SMART PARKING · SUPABASE · ESP32</span></div></div>
     <div className="user-menu">
-      <span className="connection-pill"><i />Backend ออนไลน์</span>
       <span className="connection-pill live-pill"><span className="live-dot" />LIVE · {timeStr}</span>
       {user.role !== 'admin' && <span className={`badge credit-pill ${Number(user.credit || 0) > 0 ? 'available' : 'unavailable'}`}>เครดิต ฿{formatMoney(user.credit)}</span>}
       <span className={`badge line-pill ${user.line_user_id ? 'available' : 'unavailable'}`}>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
@@ -259,6 +274,7 @@ function UserBooking({ data, user, notify, setView }) {
               <input
                 required
                 type="date"
+                min={new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())}
                 value={booking.date || ''}
                 onChange={(event) => { setBooking({ ...booking, date: event.target.value }); setModalError(''); }}
               />
@@ -285,6 +301,20 @@ function UserBooking({ data, user, notify, setView }) {
                 onChange={(event) => { setBooking({ ...booking, duration: Number(event.target.value) }); setModalError(''); }}
               />
             </label>
+
+            {/* นโยบายการยกเลิก */}
+            <div style={{
+              background: 'rgba(54, 220, 201, 0.08)',
+              border: '1px solid rgba(54, 220, 201, 0.25)',
+              borderRadius: 8,
+              padding: '10px 12px',
+              fontSize: 12,
+              lineHeight: 1.5,
+              color: '#94a3b8'
+            }}>
+              <strong style={{ color: 'var(--cyan)', display: 'block', marginBottom: 2 }}>ℹ️ นโยบายการยกเลิกการจอง:</strong>
+              สามารถกดยกเลิกการจองและรับเงินคืนเต็มจำนวนได้ทุกเมื่อ <strong>จนถึงก่อนเวลาเริ่มจอง 15 นาที</strong> (หากเหลือน้อยกว่า 15 นาทีจะไม่สามารถยกเลิกได้)
+            </div>
 
             {/* Credit & Fee Box */}
             <div className="booking-credit-summary" style={{
@@ -377,17 +407,240 @@ function UserBooking({ data, user, notify, setView }) {
 }
 
 function UserControl({ data, user, notify }) {
+  const RATE_PER_HOUR = 20;
   const bookings = data.bookings.filter((item) => item.user_id === user.id && ['pending', 'active'].includes(item.status));
-  const cards = bookings.map((booking) => ({ booking, slot: data.slots.find((slot) => slot.id === booking.slot_id), device: data.devices.find((device) => device.type === 'barrier' && device.linked_slot === booking.slot_id) }));
-  async function toggle(device) { try { await api(`/devices/${device.id}/toggle`, { method: 'POST' }); notify(`สั่ง${device.state === 'open' ? 'ปิด' : 'เปิด'}ช่องจอดแล้ว`); } catch (err) { notify(err.message, true); } }
-  return <><PageHead title="ควบคุมช่องจอด" description="คุณสามารถควบคุมได้เฉพาะช่องที่จองไว้และอยู่ในช่วงเวลาใช้งาน" /><div className="slot-grid">{cards.length ? cards.map(({ booking, slot, device }) => <div className="slot-card booked" key={booking.id}><div className="slot-top"><strong>{slot?.code || booking.slot_id}</strong><span>{booking.status}</span></div><small>{device ? `${device.name} · ${device.status}` : 'ยังไม่ได้ผูกอุปกรณ์ควบคุมกับช่องนี้'}</small>{device && <button className="button primary full" onClick={() => toggle(device)}>{device.state === 'open' ? 'ล็อกช่องจอด' : 'ปลดล็อกช่องจอด'}</button>}</div>) : <section className="panel"><p className="muted">ยังไม่มีรายการจองที่ควบคุมได้</p></section>}</div></>;
+  const cards = bookings.map((booking) => {
+    const slot = data.slots.find((s) => s.id === booking.slot_id);
+    const device = data.devices.find((d) => d.type === 'barrier' && d.linked_slot === booking.slot_id);
+    const now = new Date();
+    const start = parseThaiDateTime(booking.date, booking.time);
+    const endTime = new Date(start.getTime() + Number(booking.duration) * 3600000);
+    const cancelCutoff = new Date(start.getTime() - 15 * 60 * 1000);
+    const minutesUntilStart = (start.getTime() - now.getTime()) / 60000;
+    const canCancel = booking.status === 'pending' && minutesUntilStart >= 15;
+    const startTimeStr = formatThaiTime(booking.time);
+    const endTimeStr = endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
+    const cutoffTimeStr = cancelCutoff.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
+    const minutesLeft = (endTime - now) / 60000;
+    const isOvertime = now > endTime;
+    // คำนวณ overtime แบบ ceiling per hour (เกิน 1 นาที = คิด 1 ชม.)
+    const overtimeMinutes = isOvertime ? Math.max(0, Math.ceil((now - endTime) / 60000)) : 0;
+    const overtimeHours = overtimeMinutes > 0 ? Math.ceil(overtimeMinutes / 60) : 0;
+    const overtimeCost = overtimeHours * RATE_PER_HOUR;
+    return {
+      booking,
+      slot,
+      device,
+      now,
+      start,
+      endTime,
+      cancelCutoff,
+      minutesUntilStart,
+      canCancel,
+      startTimeStr,
+      endTimeStr,
+      cutoffTimeStr,
+      minutesLeft,
+      isOvertime,
+      overtimeMinutes,
+      overtimeHours,
+      overtimeCost
+    };
+  });
+
+  async function toggle(device) {
+    try {
+      await api(`/devices/${device.id}/toggle`, { method: 'POST' });
+      notify(`สั่ง${device.state === 'open' ? 'ปิด' : 'เปิด'}ไม้กั้นช่องจอดแล้ว`);
+    } catch (err) {
+      notify(err.message, true);
+    }
+  }
+
+  async function cancelBooking(booking) {
+    const confirmMsg = `ยืนยันการยกเลิกการจองช่อง ${booking.slot_id} หรือไม่?\n\n💰 ระบบจะคืนเครดิต ฿${formatMoney(booking.amount)} เข้าบัญชีของคุณทันที`;
+    if (!window.confirm(confirmMsg)) return;
+    try {
+      await api(`/bookings/${booking.id}/cancel`, { method: 'POST' });
+      notify(`ยกเลิกการจองช่อง ${booking.slot_id} สำเร็จ! คืนเครดิต ฿${formatMoney(booking.amount)} เรียบร้อยแล้ว 🎉`);
+    } catch (err) {
+      notify(err.message, true);
+    }
+  }
+
+  async function finishBooking(booking) {
+    if (!window.confirm(`ยืนยันการจบการจอดช่อง ${booking.slot_id} หรือไม่? ระบบจะคำนวณค่าบริการและส่งสลิปให้คุณ`)) return;
+    try {
+      await api(`/bookings/${booking.id}/finish`, { method: 'POST' });
+      notify(`จบการจอดช่อง ${booking.slot_id} สำเร็จ สรุปยอดและรับสลิปเรียบร้อย`);
+    } catch (err) {
+      notify(err.message, true);
+    }
+  }
+
+  return (
+    <>
+      <PageHead
+        title="ควบคุมช่องจอด"
+        description="กดเปิด/ปิดไม้กั้นได้ตลอดการจอง และกดยกเลิกการจองได้ทุกเมื่อก่อนถึงเวลาจอง 15 นาที"
+      />
+      <div className="slot-grid">
+        {cards.length ? cards.map(({
+          booking,
+          slot,
+          device,
+          minutesUntilStart,
+          canCancel,
+          startTimeStr,
+          endTimeStr,
+          cutoffTimeStr,
+          minutesLeft,
+          isOvertime,
+          overtimeMinutes,
+          overtimeHours,
+          overtimeCost
+        }) => (
+          <div className="slot-card booked" key={booking.id}>
+            <div className="slot-top">
+              <strong>{slot?.code || booking.slot_id}</strong>
+              <span className={`badge ${isOvertime ? 'unavailable' : booking.status === 'active' ? 'available' : 'pending'}`}>
+                {isOvertime ? '⚠️ เกินเวลา' : booking.status === 'active' ? '🚗 กำลังจอด' : '⏳ รอเข้าจอด'}
+              </span>
+            </div>
+
+            {/* ข้อมูลเวลา */}
+            <div style={{ marginTop: 8, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ color: '#e2e8f0', fontWeight: 600 }}>
+                📅 {booking.date} · 🕐 {startTimeStr} - {endTimeStr} น.
+              </div>
+              <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                ระยะเวลาจอง: {booking.duration} ชม. · ยอดที่ชำระ: ฿{formatMoney(booking.amount)}
+              </div>
+            </div>
+
+            {/* สถานะกรณีรอเข้าจอด (pending) */}
+            {booking.status === 'pending' && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {minutesUntilStart > 0 && (
+                  <small style={{ color: '#38bdf8', display: 'block', fontWeight: 500 }}>
+                    ⏳ จะถึงเวลาเริ่มจองในอีก {Math.ceil(minutesUntilStart)} นาที
+                  </small>
+                )}
+
+                {canCancel ? (
+                  <div style={{
+                    background: 'rgba(52, 211, 153, 0.08)',
+                    border: '1px solid rgba(52, 211, 153, 0.28)',
+                    borderRadius: 8,
+                    padding: '8px 10px',
+                    fontSize: 12
+                  }}>
+                    <div style={{ color: '#34d399', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>✓ ยกเลิกได้ทุกเมื่อ</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>ถึง {cutoffTimeStr} น.</span>
+                    </div>
+                    <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
+                      ยกเลิกก่อนเวลาจอง 15 นาที ระบบจะคืนเครดิตเต็มจำนวน ฿{formatMoney(booking.amount)}
+                    </div>
+                    <button
+                      type="button"
+                      className="button danger compact full"
+                      style={{ marginTop: 8 }}
+                      onClick={() => cancelBooking(booking)}
+                    >
+                      ✕ ยกเลิกการจอง (คืนเครดิต ฿{formatMoney(booking.amount)})
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.28)',
+                    borderRadius: 8,
+                    padding: '8px 10px',
+                    fontSize: 12
+                  }}>
+                    <div style={{ color: '#f87171', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>🔒 หมดเวลายกเลิกการจอง</span>
+                    </div>
+                    <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
+                      เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ({startTimeStr} น.) จึงไม่สามารถยกเลิกได้แล้ว
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* สถานะกรณีจอดอยู่ (active) */}
+            {booking.status === 'active' && (
+              <div style={{ marginTop: 10 }}>
+                {isOvertime ? (
+                  <div style={{ background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, padding: '8px 10px', fontSize: 12 }}>
+                    <div style={{ color: '#f87171', fontWeight: 'bold', marginBottom: 4 }}>⚠️ เกินเวลาจอด {overtimeMinutes} นาที</div>
+                    <div style={{ color: 'var(--muted)' }}>ค่าจอดเพิ่มเติม: <strong style={{ color: '#fbbf24' }}>฿{overtimeCost.toLocaleString('th-TH')}</strong> (คิด {overtimeHours} ชม. × ฿{RATE_PER_HOUR})</div>
+                    <div style={{ color: 'var(--muted)', marginTop: 2 }}>กดจบการจอดเพื่อหยุดคิดเงินและรับสลิป</div>
+                  </div>
+                ) : minutesLeft <= 15 && minutesLeft > 0 ? (
+                  <div style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#fbbf24' }}>
+                    ⏳ ใกล้หมดเวลา เหลือ {Math.ceil(minutesLeft)} นาที
+                  </div>
+                ) : (
+                  <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#38bdf8' }}>
+                    🚗 กำลังจอด เหลือเวลา {Math.ceil(minutesLeft)} นาที
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="button secondary compact full"
+                  style={{ marginTop: 8 }}
+                  onClick={() => finishBooking(booking)}
+                >
+                  🏁 จบการจอด (รับสลิปสรุปค่าบริการ)
+                </button>
+              </div>
+            )}
+
+            {/* อุปกรณ์ควบคุมไม้กั้น */}
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <small style={{ display: 'block', color: device ? (device.status === 'online' ? 'var(--cyan)' : 'var(--muted)') : 'var(--muted)' }}>
+                {device ? `⌁ ${device.name} · ${device.status === 'online' ? 'ออนไลน์' : 'ออฟไลน์'}` : 'ยังไม่ได้ผูกอุปกรณ์ควบคุมกับช่องนี้'}
+              </small>
+
+              {device && (
+                <button
+                  className={`button full ${device.state === 'open' ? 'danger' : 'primary'}`}
+                  style={{ marginTop: 8 }}
+                  onClick={() => toggle(device)}
+                >
+                  {device.state === 'open' ? '🔒 ล็อกไม้กั้น (ปิด)' : '🔓 ปลดล็อกไม้กั้น (เปิด)'}
+                </button>
+              )}
+            </div>
+          </div>
+        )) : (
+          <section className="panel">
+            <p className="muted">ยังไม่มีรายการจองที่ควบคุมได้ กรุณาจองช่องจอดก่อน</p>
+          </section>
+        )}
+      </div>
+    </>
+  );
 }
 
 function UserHistory({ data, user, notify }) {
   const [request, setRequest] = useState({ amount: '', reason: '' });
   const mine = data.bookings.filter((booking) => booking.user_id === user.id).sort((a, b) => b.created_at.localeCompare(a.created_at));
   const requests = (data.credit_requests || []).filter((item) => item.user_id === user.id).sort((a, b) => b.created_at.localeCompare(a.created_at));
-  async function action(id, type) { try { await api(`/bookings/${id}/${type}`, { method: 'POST' }); notify(type === 'cancel' ? 'ยกเลิกและคืนเครดิตแล้ว' : 'จบการจอดแล้ว'); } catch (err) { notify(err.message, true); } }
+  async function action(id, type) {
+    if (type === 'cancel' && !window.confirm('คุณต้องการยกเลิกการจองและรับคืนเครดิตเข้าบัญชีใช่หรือไม่?')) return;
+    if (type === 'finish' && !window.confirm('ยืนยันจบการจอดและสรุปค่าบริการใช่หรือไม่?')) return;
+    try {
+      await api(`/bookings/${id}/${type}`, { method: 'POST' });
+      notify(type === 'cancel' ? 'ยกเลิกการจองและคืนเครดิตแล้ว 🎉' : 'จบการจอดแล้ว');
+    } catch (err) {
+      notify(err.message, true);
+    }
+  }
   async function submitCredit(event) {
     event.preventDefault();
     const amount = Number(request.amount);
@@ -465,6 +718,11 @@ function UserHistory({ data, user, notify }) {
                 <span>เชื่อมต่อ LINE ของคุณ</span>
               </button>
               <span className="line-cta-subtext">เพิ่มเพื่อนบอท @302ypwvm อัตโนมัติ</span>
+              {user.line_link_code && (
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
+                  หรือแอดไลน์ <strong>@302ypwvm</strong> แล้วส่งรหัส: <strong style={{ color: 'var(--cyan)', background: 'rgba(54, 220, 201, 0.1)', padding: '2px 8px', borderRadius: 6, letterSpacing: 1 }}>{user.line_link_code}</strong>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -558,7 +816,11 @@ function UserHistory({ data, user, notify }) {
         </div>
       )}
     </section>
-    <section className="panel"><div className="panel-title"><h2>รายการจองล่าสุด</h2><span className="muted">{mine.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>วันเวลา</th><th>ระยะเวลา</th><th>ยอดเงิน</th><th>สถานะ</th><th /></tr></thead><tbody>{mine.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.date} {String(booking.time).slice(0, 5)}</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="button compact secondary" title="ทดสอบยิงเตือนเวลาใกล้หมด 15 นาทีเข้า LINE ทันที" onClick={async () => { try { await api(`/bookings/${booking.id}/test-remind`, { method: 'POST' }); notify(`ยิงแจ้งเตือนใกล้หมดเวลาช่อง ${booking.slot_id} เข้า LINE แล้ว ⏰`); } catch (err) { notify(err.message, true); } }}>⏰ เทสเตือนหมดเวลา</button><button type="button" className="button primary compact" onClick={() => action(booking.id, 'finish')}>จบการจอด (รับสลิป)</button>{booking.status === 'pending' && new Date(`${booking.date}T${String(booking.time).slice(0, 5)}:00+07:00`) > new Date() && <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel')}>ยกเลิก</button>}</div>}</td></tr>)}</tbody></table></div></section></>;
+    <section className="panel"><div className="panel-title"><h2>รายการจองล่าสุด</h2><span className="muted">{mine.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>วันเวลา</th><th>ระยะเวลา</th><th>ยอดเงิน</th><th>สถานะ</th><th /></tr></thead><tbody>{mine.map((booking) => {
+      const start = parseThaiDateTime(booking.date, booking.time);
+      const canCancel = booking.status === 'pending' && (start.getTime() - Date.now()) >= 15 * 60 * 1000;
+      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="button compact secondary" title="ทดสอบยิงเตือนเวลาใกล้หมด 15 นาทีเข้า LINE ทันที" onClick={async () => { try { await api(`/bookings/${booking.id}/test-remind`, { method: 'POST' }); notify(`ยิงแจ้งเตือนใกล้หมดเวลาช่อง ${booking.slot_id} เข้า LINE แล้ว ⏰`); } catch (err) { notify(err.message, true); } }}>⏰ เทสเตือนหมดเวลา</button><button type="button" className="button primary compact" onClick={() => action(booking.id, 'finish')}>จบการจอด (รับสลิป)</button>{booking.status === 'pending' && (canCancel ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel')}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว">🔒 หมดเวลายกเลิก</button>)}</div>}</td></tr>;
+    })}</tbody></table></div></section></>;
 }
 
 function AdminDashboard({ data }) {
@@ -568,7 +830,7 @@ function AdminDashboard({ data }) {
   const userName = (id) => data.users.find((item) => item.id === id)?.name || id;
   return <><PageHead title="ภาพรวมและประวัติการจอง" description="ติดตามสถานะพื้นที่จอดและตรวจสอบรายการจองทั้งหมด" /><StatCards slots={data.slots} devices={data.devices} bookings={data.bookings} user={{ role: 'admin' }} />
     <section className="panel"><div className="panel-title"><h2>รายได้วันนี้</h2><strong className="highlight">฿{formatMoney(revenue)}</strong></div><p className="muted">รวมจากรายการจองประจำวันที่ {today}</p></section>
-    <section className="panel"><div className="panel-title"><h2>ประวัติการจองทั้งหมด</h2><span className="muted">{bookings.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ผู้จอง</th><th>วันที่</th><th>เวลา</th><th>ระยะเวลา</th><th>จำนวนเงิน</th><th>สถานะ</th><th>ทำรายการเมื่อ</th></tr></thead><tbody>{bookings.length ? bookings.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{userName(booking.user_id)}</td><td>{booking.date}</td><td>{String(booking.time).slice(0, 5)}</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{new Date(booking.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td></tr>) : <tr><td colSpan="8">ยังไม่มีรายการจอง</td></tr>}</tbody></table></div></section></>;
+    <section className="panel"><div className="panel-title"><h2>ประวัติการจองทั้งหมด</h2><span className="muted">{bookings.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ผู้จอง</th><th>วันที่</th><th>เวลา</th><th>ระยะเวลา</th><th>จำนวนเงิน</th><th>สถานะ</th><th>ทำรายการเมื่อ</th></tr></thead><tbody>{bookings.length ? bookings.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{userName(booking.user_id)}</td><td>{booking.date}</td><td>{formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{new Date(booking.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td></tr>) : <tr><td colSpan="8">ยังไม่มีรายการจอง</td></tr>}</tbody></table></div></section></>;
 }
 
 function AdminUsers({ data, notify }) {
