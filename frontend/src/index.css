@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Prompt:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
-:root{font-family:Inter,system-ui,sans-serif;color:#edf1f7;background:#0f141b;font-synthesis:none;--bg:#0f141b;--surface:#181f29;--surface2:#202936;--raised:#263140;--border:#303c4b;--muted:#8e9bae;--cyan:#36dcc9;--cyan2:#24bbaa;--green:#22c55e;--green2:#16a34a;--amber:#f4c44e;--red:#ef4444;--violet:#8e82ff;--gray:#8b97a8}
-*{box-sizing:border-box}html{background:var(--bg)}body{margin:0;min-width:320px;background:radial-gradient(circle at 80% -10%,#1a2a3b 0,transparent 32%),var(--bg)}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}.app-shell{min-height:100vh}
+:root{font-family:'Prompt',Inter,system-ui,sans-serif;color:#edf1f7;background:#0c1017;font-synthesis:none;--bg:#0c1017;--surface:#151c26;--surface2:#1c2533;--raised:#232f40;--border:#2a3647;--muted:#8e9bae;--cyan:#36dcc9;--cyan2:#24bbaa;--green:#22c55e;--green2:#16a34a;--amber:#f4c44e;--red:#ef4444;--violet:#8e82ff;--gray:#8b97a8}
+*{box-sizing:border-box}html{background:var(--bg)}body{margin:0;min-width:320px;background:radial-gradient(circle at 80% -10%,#1a2a3b 0,transparent 32%),radial-gradient(circle at 10% 110%,#122b3b 0,transparent 35%),var(--bg);color:#edf1f7;-webkit-font-smoothing:antialiased}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}.app-shell{min-height:100vh}
 .topbar{height:86px;padding:0 28px;border-bottom:1px solid var(--border);background:#141a22eF;backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}.brand,.user-menu{display:flex;align-items:center;gap:12px}.brand strong{display:block;font:800 28px/1 'Barlow Condensed';letter-spacing:.02em}.brand span{display:block;margin-top:5px;color:#91a0b5;font:11px 'JetBrains Mono';letter-spacing:.12em}.brand-mark{width:48px;height:48px;border-radius:10px;display:grid;place-items:center;color:#10151c;font:800 26px 'Barlow Condensed';background:repeating-linear-gradient(135deg,var(--amber),var(--amber) 5px,#18202a 5px,#18202a 10px);box-shadow:0 0 0 1px #f4c44e33}.brand-mark.small{width:44px;height:44px;font-size:22px}.connection-pill{display:flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid #304452;border-radius:999px;color:#9eacbd;font:11px 'JetBrains Mono'}.connection-pill i{width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}.avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#344154;font-weight:700}.role,.badge{display:inline-flex;align-items:center;white-space:nowrap;font-size:11px;padding:5px 10px;border-radius:999px;border:1px solid;text-transform:uppercase}.role.admin{color:#b6afff;background:#302d5e;border-color:#5550a3}.role.user{color:var(--cyan);background:#163e3a;border-color:#227368}.badge.available,.badge.active{color:var(--green);background:#133324;border-color:#1e7049}.badge.booked{color:var(--red);background:#381619;border-color:#832328}.badge.pending{color:var(--amber);background:#433a1c;border-color:#7e691d}.badge.completed{color:var(--cyan);background:#163e3a;border-color:#227368}.badge.cancelled,.badge.no_show,.badge.offline,.badge.unavailable{color:#ff8885;background:#442529;border-color:#834347}
 .body-shell{display:flex;min-height:calc(100vh - 86px)}.sidebar{width:260px;flex:none;padding:20px 14px;background:#121820;border-right:1px solid var(--border);position:sticky;top:86px;height:calc(100vh - 86px)}.nav-item{width:100%;min-height:54px;display:flex;align-items:center;gap:13px;margin-bottom:7px;padding:13px 16px;color:#a4afbf;background:none;border:1px solid transparent;border-radius:8px;text-align:left;font-weight:600}.nav-item span{width:22px;text-align:center;color:#c4d0df}.nav-item:hover{color:#fff;background:#1c2430}.nav-item.active{color:#b6b0ff;background:#302d5e;border-color:#4b478a;box-shadow:inset 3px 0 0 var(--violet)}
 .content{flex:1;min-width:0;padding:38px 38px 64px;overflow:auto}.content>*{max-width:1180px;margin-left:auto;margin-right:auto}.page-head{margin-bottom:24px}.page-head h1{margin:0 0 8px;font:800 40px/1 'Barlow Condensed';letter-spacing:.02em}.page-head p,.muted{margin:0;color:var(--muted);font-size:14px;line-height:1.6}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:26px}.stat,.panel{padding:22px 24px;background:linear-gradient(145deg,#1a222d,#181f29);border:1px solid var(--border);border-radius:12px}.stat{position:relative;overflow:hidden;min-height:116px;display:flex;flex-direction:column;justify-content:center}.stat:after{content:"";position:absolute;width:100px;height:100px;right:-28px;top:-35px;border-radius:50%;opacity:.13;background:currentColor}.stat strong{display:block;font:700 34px 'JetBrains Mono'}.stat span{margin-top:7px;font-size:13px;color:var(--muted)}.stat.green{color:var(--green)}.stat.cyan{color:var(--cyan)}.stat.amber{color:var(--amber)}.stat.red{color:var(--red)}.stat.violet{color:var(--violet)}.stat.gray{color:var(--gray)}.panel{margin-bottom:22px}.panel-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.panel-title h2{margin:0;font:700 23px 'Barlow Condensed'}.highlight{color:var(--cyan);font:700 22px 'JetBrains Mono'}
@@ -9,7 +9,35 @@
 .parking-panel{padding:22px 28px}.parking-lane{position:relative;padding:32px 28px 28px;border:1px solid #334151;border-radius:12px;background-color:#141b24;background-image:linear-gradient(90deg,transparent 49%,#26313d 50%,transparent 51%),linear-gradient(#26313d 1px,transparent 1px);background-size:200px 100%,100% 100%}.lane-label{position:absolute;left:24px;top:-12px;padding:3px 10px;background:#141b24;color:#738298;font:11px 'JetBrains Mono'}.slot-grid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:20px 26px}.slot-card{position:relative;min-height:160px;padding:20px;border-radius:7px;border:2px solid #2d3947;background:#1b2430;color:#dfe6ef;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.18s ease;overflow:hidden}.slot-card:before{content:"";position:absolute;inset:0;border:1px dashed #5a6878;opacity:.34;pointer-events:none}.slot-card strong{font:800 42px/1 'Barlow Condensed';letter-spacing:.03em}.slot-card small{margin-top:10px;font:700 13px 'JetBrains Mono'}.slot-card em{position:absolute;bottom:11px;font-style:normal;color:#718095;font-size:11px}.slot-card.available{border-color:#166534;background:linear-gradient(145deg,#11261d 0%,#0d1e17 100%);color:var(--green)}.slot-card.available:hover{border-color:var(--green);background:linear-gradient(145deg,#143326 0%,#0f241b 100%);box-shadow:0 0 0 3px rgba(34,197,94,0.22),0 14px 28px #0005;transform:translateY(-2px)}.slot-card.booked{border-color:#991b1b;background:linear-gradient(145deg,#2b1316 0%,#1f0c0f 100%);color:var(--red)}.slot-card.booked:hover{border-color:var(--red);box-shadow:0 0 0 3px rgba(239,68,68,0.22),0 14px 28px #0005}.slot-card.unavailable{border-color:#4b5563;background:#252d37;color:#9ca3af}.slot-card:disabled{cursor:not-allowed}.sensor-dot{position:absolute;right:13px;top:12px;width:11px;height:11px;border-radius:50%;background:#64748b;transition:background .2s,box-shadow .2s}.sensor-dot.empty,.sensor-dot.online{background:var(--green);box-shadow:0 0 10px var(--green)}.sensor-dot.occupied{background:var(--red);box-shadow:0 0 10px var(--red)}.sensor-dot.offline{background:#64748b;box-shadow:none}.legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:18px;color:#a3afbf;font-size:12px}.legend span{display:flex;align-items:center;gap:7px}.legend i{width:13px;height:13px;border-radius:3px}.legend i.available{background:var(--green);box-shadow:0 0 8px rgba(34,197,94,0.6)}.legend i.booked{background:var(--red);box-shadow:0 0 8px rgba(239,68,68,0.6)}.legend i.unavailable{background:#64748b}
 .booking-fields{margin-top:14px;display:grid;gap:9px}.booking-fields input,.booking-fields select,.login-card input,.booking-modal input,select{width:100%;padding:10px 12px;color:#eef2f7;background:#202a37;border:1px solid var(--border);border-radius:7px}.two-columns{display:grid;grid-template-columns:1fr 1.4fr;gap:20px}.list-row{display:grid;grid-template-columns:90px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid #2a3440;font-size:13px}.list-row span{color:var(--muted)}table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;padding:11px 12px;color:#93a0b1;font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--border);letter-spacing:.04em}td{padding:13px 12px;border-bottom:1px solid #27313d}.table-wrap{overflow-x:auto}.alert{display:flex;justify-content:space-between;gap:10px;padding:12px 15px;margin-bottom:18px;border-radius:8px;border:1px solid}.alert.success{color:var(--cyan);background:#173c39;border-color:#27796f}.alert.error{color:#ff8d8a;background:#3e2529;border-color:#803f42}.alert button{color:inherit;background:none;border:0;font-size:18px}.loading{min-height:100vh;display:grid;place-items:center;color:var(--muted)}
 .modal-backdrop{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:#06090dbd;backdrop-filter:blur(7px)}.booking-modal{width:min(460px,100%);padding:28px;background:#19212b;border:1px solid #3a4758;border-radius:14px;box-shadow:0 28px 80px #000a}.modal-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px}.modal-head h2{margin:2px 0 0;font:800 30px 'Barlow Condensed'}.modal-close{width:38px;height:38px;border:1px solid var(--border);border-radius:8px;background:#232d3a;color:#dfe6ef;font-size:24px}.booking-modal label{display:block;margin-top:16px;color:#a7b2c1;font-size:12px;font-weight:700}.booking-modal input{display:block;margin-top:7px}.booking-total{display:flex;justify-content:space-between;align-items:center;margin:20px 0;padding:15px;border:1px solid #304252;border-radius:9px;background:#152126}.booking-total span{color:#96a4b5}.booking-total strong{color:var(--cyan);font:700 22px 'JetBrains Mono'}
-.login-page{min-height:100vh;display:grid;grid-template-columns:1.15fr 430px;gap:72px;align-items:center;max-width:1120px;margin:auto;padding:48px}.login-brand h1{font:800 68px/.94 'Barlow Condensed';margin:24px 0 18px}.login-brand p{max-width:500px;color:var(--muted);line-height:1.8}.login-card{padding:34px;background:#18202a;border:1px solid var(--border);border-radius:14px;box-shadow:0 26px 80px #0006}.login-card h2{margin:0 0 7px;font:800 32px 'Barlow Condensed'}.login-card label{display:block;margin-top:16px;color:#9faabc;font-size:12px;font-weight:700}.login-card input{display:block;margin-top:7px}.eyebrow{margin:0;color:var(--cyan);font:11px 'JetBrains Mono';letter-spacing:.12em}.link-button{width:100%;margin-top:16px;padding:9px;color:var(--muted);background:none;border:0}
+/* ================= LOGIN PAGE (MODERN & RESPONSIVE) ================= */
+.login-page{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:40px 24px;position:relative;overflow:hidden;background:radial-gradient(circle at 20% 20%,rgba(54,220,201,0.08) 0%,transparent 45%),radial-gradient(circle at 80% 80%,rgba(142,130,255,0.08) 0%,transparent 45%),radial-gradient(circle at 50% 50%,rgba(15,23,34,0.6) 0%,transparent 100%),#0c1017}
+.login-page:before{content:"";position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:620px;height:360px;background:radial-gradient(ellipse at center,rgba(54,220,201,0.12) 0%,transparent 70%);pointer-events:none;filter:blur(40px)}
+.login-container{display:grid;grid-template-columns:1.15fr 430px;gap:56px;align-items:center;max-width:1080px;width:100%;margin:auto;position:relative;z-index:1}
+.login-brand{display:flex;flex-direction:column;align-items:flex-start}
+.login-brand .brand-mark{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#36dcc9 0%,#2087ff 100%);color:#071b19;box-shadow:0 0 30px rgba(54,220,201,0.4),0 8px 18px rgba(0,0,0,0.3);margin-bottom:16px;border:1px solid rgba(255,255,255,0.2)}
+.login-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:rgba(54,220,201,0.08);border:1px solid rgba(54,220,201,0.3);color:#36dcc9;font:700 11px/1 'JetBrains Mono',monospace;letter-spacing:.08em;margin-bottom:12px}
+.login-brand h1{margin:0 0 12px;font-size:38px;font-weight:700;line-height:1.2;color:#ffffff;letter-spacing:-.01em}
+.login-brand p{margin:0 0 24px;max-width:460px;color:#8fa0b5;font-size:14.5px;line-height:1.65}
+.login-features{display:flex;flex-direction:column;gap:10px;width:100%;max-width:440px}
+.feature-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(22,30,42,0.55);border:1px solid rgba(255,255,255,0.06);border-radius:10px;color:#b3c2d4;font-size:13px;backdrop-filter:blur(10px)}
+.feature-item span{font-size:14px;line-height:1}
+.login-card-wrap{width:100%}
+.login-card{padding:30px 28px;background:rgba(21,28,38,0.85);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.09);border-radius:18px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.65),0 0 0 1px rgba(255,255,255,0.04),inset 0 1px 1px rgba(255,255,255,0.1)}
+.login-tabs{display:flex;background:rgba(12,17,24,0.8);border:1px solid rgba(255,255,255,0.08);border-radius:11px;padding:4px;gap:4px;margin-bottom:20px}
+.login-tab{flex:1;min-height:38px;display:flex;align-items:center;justify-content:center;border:0;border-radius:8px;background:transparent;color:#8595a8;font-size:13.5px;font-weight:600;transition:all .2s ease;cursor:pointer}
+.login-tab:hover{color:#ffffff}
+.login-tab.active{background:rgba(54,220,201,0.14);color:#36dcc9;border:1px solid rgba(54,220,201,0.3);font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.25)}
+.login-card-header{margin-bottom:16px}
+.login-card-header h2{margin:0 0 4px;font-size:21px;font-weight:700;color:#ffffff}
+.login-card-header p{margin:0;font-size:13px;color:#7b8d9f;line-height:1.5}
+.login-card label{display:block;margin-top:14px;color:#9ab0c5;font-size:12px;font-weight:600}
+.login-card input{display:block;width:100%;margin-top:6px;padding:11px 14px;background:rgba(12,17,24,0.7);border:1px solid rgba(255,255,255,0.1);border-radius:9px;color:#eef2f7;font-size:14px;transition:all .18s ease}
+.login-card input:focus{outline:none;background:rgba(12,17,24,0.95);border-color:#36dcc9;box-shadow:0 0 0 3px rgba(54,220,201,0.2)}
+.login-card input::placeholder{color:#55677b;font-size:13px}
+.login-submit-btn{margin-top:20px;min-height:44px;font-size:14.5px;font-weight:700;border-radius:9px;background:linear-gradient(135deg,#36dcc9 0%,#20b8a7 100%);color:#061917;box-shadow:0 4px 18px rgba(54,220,201,0.35);border:0;transition:all .2s ease}
+.login-submit-btn:hover{transform:translateY(-1px);box-shadow:0 6px 22px rgba(54,220,201,0.45);filter:brightness(1.05)}
+.eyebrow{margin:0;color:var(--cyan);font:11px 'JetBrains Mono';letter-spacing:.12em}
+.link-button{width:100%;margin-top:16px;padding:9px;color:var(--muted);background:none;border:0}
 /* Utility & Specialized Component Layouts */
 .slot-top{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
 .slot-top strong{font:800 36px/1 'Barlow Condensed';letter-spacing:.02em}
@@ -28,10 +56,11 @@
   .content{padding:28px 20px}
   .slot-grid{grid-template-columns:repeat(2,minmax(160px,1fr));gap:16px}
   .stats{grid-template-columns:repeat(2,1fr);gap:14px}
-  .login-page{grid-template-columns:1fr;gap:36px;padding:32px 24px;max-width:540px}
-  .login-brand{text-align:center}
-  .login-brand .brand-mark{margin:0 auto}
-  .login-brand p{margin:0 auto}
+  .login-container{grid-template-columns:1fr;gap:32px;max-width:460px}
+  .login-brand{align-items:center;text-align:center}
+  .login-brand .brand-mark{margin-left:auto;margin-right:auto}
+  .login-brand p{margin-left:auto;margin-right:auto}
+  .login-features{margin-left:auto;margin-right:auto}
 }
 
 /* Mobile Screens (max-width: 768px) */
@@ -106,12 +135,23 @@
   td{padding:10px 10px}
 
   .two-columns{grid-template-columns:1fr;gap:14px}
-  .login-page{padding:24px 14px;gap:20px}
-  .login-brand h1{font-size:38px;margin:12px 0 8px;line-height:1.05}
-  .login-card{padding:20px 16px;border-radius:12px}
-  .login-card h2{font-size:26px}
-  .login-card input{font-size:16px!important;min-height:44px}
-  .button.line-button{min-height:46px;font-size:14.5px}
+  .login-page{min-height:100dvh;padding:16px 14px 24px;align-items:center;justify-content:center}
+  .login-container{display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;width:100%;max-width:420px;margin:auto}
+  .login-brand{align-items:center;text-align:center;gap:0}
+  .login-brand .brand-mark{width:44px;height:44px;border-radius:12px;margin-bottom:8px}
+  .login-badge{font-size:10px;padding:3px 9px;margin-bottom:6px}
+  .login-brand h1{font-size:24px;margin:2px 0 6px;line-height:1.2;letter-spacing:-.01em}
+  .login-brand p{font-size:12.5px;max-width:320px;margin:0;line-height:1.45;color:#8b9baa}
+  .login-features{display:none}
+  .login-card{padding:20px 18px;border-radius:16px;background:rgba(21,28,38,0.92)}
+  .login-card-header{margin-bottom:12px}
+  .login-card-header h2{font-size:19px}
+  .login-card-header p{font-size:12px}
+  .login-card input{font-size:15px!important;min-height:42px;padding:9px 12px}
+  .login-card label{margin-top:10px}
+  .login-submit-btn{margin-top:16px;min-height:44px;font-size:14px}
+  .line-login-divider{margin:14px 0 12px}
+  .button.line-button{min-height:44px;font-size:13.5px;padding:10px 16px}
 }
 
 /* Compact Mobile (max-width: 420px) */

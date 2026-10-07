@@ -99,32 +99,87 @@ function Login({ onLogin }) {
 
   return (
     <main className="login-page">
-      <div className="login-brand">
-        <div className="brand-mark">P</div>
-        <h1>ระบบจอง<br />ที่จอดรถอัจฉริยะ</h1>
-        <p>ตรวจสอบช่องจอดแบบเรียลไทม์ จองล่วงหน้า และจัดการอุปกรณ์ IoT ได้จากที่เดียว</p>
+      <div className="login-container">
+        <div className="login-brand">
+          <div className="brand-mark">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+              <path d="M5 3h7c3.866 0 7 3.134 7 7s-3.134 7-7 7H9v4H5V3zm4 4v6h3c1.657 0 3-1.343 3-3s-1.343-3-3-3H9z" />
+            </svg>
+          </div>
+          <span className="login-badge">⚡ SMART IOT PARKING</span>
+          <h1>ระบบจองที่จอดรถอัจฉริยะ</h1>
+          <p>ตรวจสอบสถานะช่องจอดแบบเรียลไทม์ จองล่วงหน้าง่ายดาย พร้อมระบบควบคุมไม้กั้นอัตโนมัติ</p>
+          <div className="login-features">
+            <div className="feature-item"><span>🟢</span> ตรวจจับสถานะว่าง/มีรถจอดเรียลไทม์</div>
+            <div className="feature-item"><span>🔒</span> ไม้กั้นประจำช่องอัตโนมัติ 12 จุด</div>
+            <div className="feature-item"><span>💬</span> แจ้งเตือนเวลาจอดและรับสลิปผ่าน LINE</div>
+          </div>
+        </div>
+
+        <div className="login-card-wrap">
+          <form className="login-card" onSubmit={submit}>
+            <div className="login-tabs">
+              <button
+                type="button"
+                className={`login-tab ${mode === 'login' ? 'active' : ''}`}
+                onClick={() => { setMode('login'); setError(''); }}
+              >
+                เข้าสู่ระบบ
+              </button>
+              <button
+                type="button"
+                className={`login-tab ${mode === 'register' ? 'active' : ''}`}
+                onClick={() => { setMode('register'); setError(''); }}
+              >
+                สมัครสมาชิก
+              </button>
+            </div>
+
+            <div className="login-card-header">
+              <h2>{mode === 'login' ? 'ยินดีต้อนรับ 👋' : 'สร้างบัญชีใหม่ ✨'}</h2>
+              <p className="muted">{mode === 'login' ? 'กรอกข้อมูลเพื่อเข้าสู่ระบบจัดการที่จอดรถ' : 'กรอกข้อมูลเพื่อเริ่มต้นใช้งานระบบ Smart Parking'}</p>
+            </div>
+
+            {mode === 'register' && (
+              <label>
+                ชื่อ-นามสกุล / ชื่อที่แสดง
+                <input required placeholder="เช่น สมชาย ใจดี" onChange={update('name')} />
+              </label>
+            )}
+            <label>
+              ชื่อผู้ใช้หรืออีเมล
+              <input required placeholder="username หรือ email" onChange={update('username')} />
+            </label>
+            {mode === 'register' && (
+              <label>
+                อีเมล
+                <input type="email" placeholder="name@example.com" onChange={update('email')} />
+              </label>
+            )}
+            <label>
+              รหัสผ่าน
+              <input required type="password" placeholder="••••••••" onChange={update('password')} />
+            </label>
+
+            {error && <div className="alert error">{error}</div>}
+
+            <button className="button primary full login-submit-btn">
+              {mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}
+            </button>
+
+            <div className="line-login-divider"><span>หรือเข้าสู่ระบบด้วย</span></div>
+
+            <button type="button" className="button line-button full" onClick={() => redirectToLine('login')}>
+              <span className="line-icon-badge" style={{ width: 28, height: 28, borderRadius: 6 }}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff">
+                  <path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" />
+                </svg>
+              </span>
+              <span>เข้าสู่ระบบด้วย LINE</span>
+            </button>
+          </form>
+        </div>
       </div>
-      <form className="login-card" onSubmit={submit}>
-        <p className="eyebrow">SMART PARKING CONTROL</p>
-        <h2>{mode === 'login' ? 'เข้าสู่ระบบ' : 'สร้างบัญชีผู้ใช้'}</h2>
-        <p className="muted">กรอกข้อมูลเพื่อเข้าสู่ระบบจัดการที่จอดรถ</p>
-        {mode === 'register' && <label>ชื่อที่แสดง<input required onChange={update('name')} /></label>}
-        <label>ชื่อผู้ใช้หรืออีเมล<input required onChange={update('username')} /></label>
-        {mode === 'register' && <label>อีเมล<input type="email" onChange={update('email')} /></label>}
-        <label>รหัสผ่าน<input required type="password" onChange={update('password')} /></label>
-        {error && <div className="alert error">{error}</div>}
-        <button className="button primary full">{mode === 'login' ? 'เข้าสู่ระบบ' : 'สมัครสมาชิก'}</button>
-        <div className="line-login-divider"><span>หรือ</span></div>
-        <button type="button" className="button line-button full" onClick={() => redirectToLine('login')}>
-          <span className="line-icon-badge" style={{ width: 28, height: 28, borderRadius: 6 }}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
-          </span>
-          <span>เข้าสู่ระบบด้วย LINE</span>
-        </button>
-        <button type="button" className="link-button" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
-          {mode === 'login' ? 'ยังไม่มีบัญชี? สมัครสมาชิก' : 'กลับไปเข้าสู่ระบบ'}
-        </button>
-      </form>
     </main>
   );
 }
