@@ -61,10 +61,10 @@ function Login({ onLogin }) {
       localStorage.token = result.token;
       localStorage.user = JSON.stringify(result.user);
       onLogin(result.user);
-      } catch (err) {
-        setError(err instanceof TypeError
-          ? 'เชื่อมต่อ Backend ไม่ได้ กรุณาตรวจสอบว่าเปิด backend ที่พอร์ต 3000 แล้ว'
-          : err.message);
+    } catch (err) {
+      setError(err instanceof TypeError
+        ? 'เชื่อมต่อ Backend ไม่ได้ กรุณาตรวจสอบว่าเปิด backend ที่พอร์ต 3000 แล้ว'
+        : err.message);
     }
   }
 
@@ -90,7 +90,7 @@ function Login({ onLogin }) {
         <div className="line-login-divider"><span>หรือ</span></div>
         <button type="button" className="button line-button full" onClick={() => redirectToLine('login')}>
           <span className="line-icon-badge" style={{ width: 28, height: 28, borderRadius: 6 }}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z"/></svg>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
           </span>
           <span>เข้าสู่ระบบด้วย LINE</span>
         </button>
@@ -235,12 +235,12 @@ function UserBooking({ data, user, notify, setView }) {
       />
       <StatCards slots={data.slots} devices={data.devices} bookings={data.bookings} user={user} />
       <div className="floor-tabs">
-        <button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1</button>
-        <button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2</button>
+        <button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1 (A1 - A6)</button>
+        <button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2 (B1 - B6)</button>
       </div>
       <section className="panel parking-panel">
         <div className="panel-title">
-          <h2>ผังช่องจอด · ชั้น {floor}</h2>
+          <h2>ผังช่องจอด · ชั้น {floor} ({floor === 1 ? 'A1 - A6' : 'B1 - B6'})</h2>
           <span className="muted">{slots.length} ช่อง</span>
         </div>
         <SlotGrid slots={slots} devices={data.devices} onSelect={handleSelectSlot} />
@@ -563,7 +563,7 @@ function UserControl({ data, user, notify }) {
                       <span>🔒 หมดเวลายกเลิกการจอง</span>
                     </div>
                     <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
-                      เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ({startTimeStr} น.) จึงไม่สามารถยกเลิกได้แล้ว
+                      เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ({startTimeStr} น.) จึงไม่สามารถยกเลิกได้
                     </div>
                   </div>
                 )}
@@ -664,7 +664,7 @@ function UserHistory({ data, user, notify }) {
         <div className="line-panel-info">
           <div className="line-avatar-wrap">
             <div className={`line-status-avatar ${user.line_user_id ? 'online' : 'offline'}`}>
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z"/></svg>
+              <svg viewBox="0 0 24 24" width="28" height="28" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
             </div>
           </div>
           <div className="line-panel-texts">
@@ -713,7 +713,7 @@ function UserHistory({ data, user, notify }) {
             <>
               <button type="button" className="button line-button large" onClick={() => redirectToLine('link')}>
                 <span className="line-icon-badge">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z"/></svg>
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
                 </span>
                 <span>เชื่อมต่อ LINE ของคุณ</span>
               </button>
@@ -1044,10 +1044,63 @@ function AdminUsers({ data, notify }) {
 }
 
 function AdminDevices({ data, reload, notify }) {
+  const [filterType, setFilterType] = useState('all');
   async function toggle(device) { try { await api(`/devices/${device.id}/toggle`, { method: 'POST' }); await reload(); notify('อัปเดตสถานะอุปกรณ์แล้ว'); } catch (err) { notify(err.message, true); } }
   async function rename(device) { const name = window.prompt('ชื่ออุปกรณ์ใหม่', device.name); if (!name) return; try { await api(`/admin/devices/${device.id}`, { method: 'PATCH', body: JSON.stringify({ name }) }); notify('เปลี่ยนชื่ออุปกรณ์แล้ว'); } catch (err) { notify(err.message, true); } }
   async function link(device) { const linked_slot = window.prompt('รหัสช่องจอดที่ต้องการผูก เช่น A1 (เว้นว่างเพื่อล้าง)', device.linked_slot || ''); try { await api(`/admin/devices/${device.id}`, { method: 'PATCH', body: JSON.stringify({ linked_slot: linked_slot || null }) }); notify('อัปเดตช่องที่เชื่อมโยงแล้ว'); } catch (err) { notify(err.message, true); } }
-  return <><PageHead title="อุปกรณ์ / ไม้กั้น" description="ตรวจสอบ เปลี่ยนชื่อ ผูกช่องจอด และสั่งงานอุปกรณ์ IoT" /><section className="panel table-wrap"><table><thead><tr><th>ชื่ออุปกรณ์</th><th>ประเภท</th><th>ช่องที่ผูก</th><th>ชั้น</th><th>สถานะ</th><th>การทำงาน</th><th /></tr></thead><tbody>{data.devices.map((device) => <tr key={device.id}><td>{device.name}</td><td>{device.type}</td><td>{device.linked_slot || '-'}</td><td>{device.floor}</td><td><span className={`badge ${device.status}`}>{device.status}</span></td><td>{device.state || device.presence || '-'}</td><td><button className="button compact" onClick={() => rename(device)}>เปลี่ยนชื่อ</button> <button className="button compact" onClick={() => link(device)}>ผูกช่อง</button> {device.type === 'barrier' && <button className="button primary compact" onClick={() => toggle(device)}>เปิด/ปิด</button>}</td></tr>)}</tbody></table></section></>;
+
+  const sortedDevices = (data.devices || []).slice().sort((a, b) => {
+    if (a.type !== b.type) return a.type === 'barrier' ? -1 : 1;
+    if (a.floor !== b.floor) return a.floor - b.floor;
+    return String(a.linked_slot || '').localeCompare(String(b.linked_slot || ''));
+  });
+
+  const filtered = sortedDevices.filter((d) => {
+    if (filterType !== 'all' && d.type !== filterType) return false;
+    return true;
+  });
+
+  const barrierCount = sortedDevices.filter((d) => d.type === 'barrier').length;
+  const sensorCount = sortedDevices.filter((d) => d.type === 'sensor').length;
+
+  return <>
+    <PageHead title="อุปกรณ์ / ไม้กั้นประจำช่อง" description={`ไม้กั้นประจำช่อง ${barrierCount} จุด (เท่ากับ 12 ช่องจอดพอดี ไม่มีไม้กั้นประจำชั้น) และเซ็นเซอร์ ${sensorCount} จุด`} />
+    <div className="tabs" style={{ marginBottom: 16 }}>
+      <button className={filterType === 'all' ? 'active' : ''} onClick={() => setFilterType('all')}>ทั้งหมด ({sortedDevices.length})</button>
+      <button className={filterType === 'barrier' ? 'active' : ''} onClick={() => setFilterType('barrier')}>ไม้กั้นประจำช่อง ({barrierCount})</button>
+      <button className={filterType === 'sensor' ? 'active' : ''} onClick={() => setFilterType('sensor')}>เซ็นเซอร์ ({sensorCount})</button>
+    </div>
+    <section className="panel table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ชื่ออุปกรณ์</th>
+            <th>ประเภท</th>
+            <th>ช่องที่ผูก</th>
+            <th>ชั้น</th>
+            <th>สถานะ</th>
+            <th>การทำงาน</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map((device) => (
+            <tr key={device.id}>
+              <td>{device.name}</td>
+              <td>{device.type === 'barrier' ? 'ไม้กั้นช่อง' : 'เซ็นเซอร์'}</td>
+              <td><strong>{device.linked_slot || '-'}</strong></td>
+              <td>ชั้น {device.floor}</td>
+              <td><span className={`badge ${device.status}`}>{device.status}</span></td>
+              <td>{device.type === 'barrier' ? (device.state === 'open' ? '🔓 เปิด' : '🔒 ปิด') : (device.presence === 'occupied' ? '🚗 มีรถ' : 'ว่าง')}</td>
+              <td>
+                <button className="button compact" onClick={() => rename(device)}>เปลี่ยนชื่อ</button> <button className="button compact" onClick={() => link(device)}>ผูกช่อง</button> {device.type === 'barrier' && <button className="button primary compact" onClick={() => toggle(device)}>เปิด/ปิด</button>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  </>;
 }
 
 function AdminLayout({ data, notify }) {
@@ -1062,7 +1115,7 @@ function AdminLayout({ data, notify }) {
   async function maintenance(slot) { const problemDetail = window.prompt(`รายละเอียดการซ่อมช่อง ${slot.code}`); if (!problemDetail) return; try { await api('/admin/maintenance', { method: 'POST', body: JSON.stringify({ slotId: slot.id, problemDetail }) }); notify('แจ้งซ่อมแล้ว ช่องถูกเปลี่ยนเป็นสีเทา'); } catch (err) { notify(err.message, true); } }
   async function resolve(item) { try { await api(`/admin/maintenance/${item.id}/resolve`, { method: 'POST' }); notify('ปิดงานซ่อมและคืนสถานะช่องว่างแล้ว'); } catch (err) { notify(err.message, true); } }
   async function uploadMap(event) { event.preventDefault(); const form = new FormData(event.currentTarget); form.set('floor', floor); try { await api('/admin/maps', { method: 'POST', body: form }); event.currentTarget.reset(); notify('อัปโหลดผังลานจอดแล้ว'); } catch (err) { notify(err.message, true); } }
-  return <><PageHead title="จัดการผังลานจอด" description="คลิกช่อง 2 ช่องเพื่อสลับตำแหน่ง เปลี่ยนชื่อ สถานะ หรือแจ้งซ่อม" /><div className="tabs"><button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1</button><button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2</button></div>
+  return <><PageHead title="จัดการผังลานจอด" description="คลิกช่อง 2 ช่องเพื่อสลับตำแหน่ง เปลี่ยนชื่อ สถานะ หรือแจ้งซ่อม" /><div className="tabs"><button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1 (A1 - A6)</button><button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2 (B1 - B6)</button></div>
     <section className="panel"><div className="panel-title"><h2>อัปโหลดรูปผังชั้น {floor}</h2></div><form className="booking-fields" onSubmit={uploadMap}><input name="name" required placeholder={`ชื่อผัง เช่น อาคาร A ชั้น ${floor}`} /><input name="image" type="file" accept="image/png,image/jpeg,image/webp" required /><button className="button primary">อัปโหลดรูป</button></form>{maps.map((item) => <img key={item.id} src={item.image_url} alt={item.name} style={{ width: '100%', maxHeight: 520, objectFit: 'contain', marginTop: 16, borderRadius: 12 }} />)}</section>
     <section className="panel"><div className="slot-grid">{slots.map((slot) => <div className={`slot-card ${slot.status}`} key={slot.id} style={selected === slot.id ? { outline: '2px solid #22d3ee' } : {}}><div className="slot-top"><strong>{slot.code}</strong><span>{slot.status}</span></div><small>ลำดับ {slot.slot_order} · {slot.type}</small><button className="button compact" onClick={() => chooseSwap(slot)}>{selected ? 'เลือกเพื่อสลับ' : 'เลือกสลับตำแหน่ง'}</button> <button className="button compact" onClick={() => rename(slot)}>เปลี่ยนชื่อ</button><select value={slot.status} onChange={(e) => patchSlot(slot, { status: e.target.value })}><option value="available">ว่าง</option><option value="booked">ถูกจอง</option><option value="unavailable">ไม่พร้อม/ซ่อม</option></select><button className="button danger compact" onClick={() => maintenance(slot)}>แจ้งซ่อม</button></div>)}</div></section>
     <section className="panel"><div className="panel-title"><h2>ประวัติการซ่อมบำรุง</h2><span className="muted">{(data.maintenance_logs || []).length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>รายละเอียดปัญหา</th><th>สถานะ</th><th>แจ้งเมื่อ</th><th>ปิดงานเมื่อ</th><th /></tr></thead><tbody>{(data.maintenance_logs || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))).map((item) => <tr key={item.id}><td>{item.slot_id}</td><td>{item.problem_detail}</td><td><span className={`badge ${item.status === 'open' ? 'unavailable' : 'available'}`}>{item.status === 'open' ? 'กำลังซ่อม' : 'ปิดงานแล้ว'}</span></td><td>{new Date(item.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td><td>{item.resolved_at ? new Date(item.resolved_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}</td><td>{item.status === 'open' && <button className="button primary compact" onClick={() => resolve(item)}>ซ่อมเสร็จ</button>}</td></tr>)}</tbody></table></div></section></>;
