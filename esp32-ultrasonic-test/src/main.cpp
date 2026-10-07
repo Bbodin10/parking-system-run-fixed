@@ -21,7 +21,8 @@ const char *WIFI_SSID = "B03_WIFI";
 const char *WIFI_PASSWORD = "6121040067";
 
 // ✅ ส่งข้อมูลมาที่ Backend (Railway) แทนการ POST ตรงไป Supabase
-const char *BACKEND_URL = "https://enchanting-endurance-production.up.railway.app";
+const char *BACKEND_URL =
+    "https://enchanting-endurance-production.up.railway.app";
 
 const char *CONTROLLER_DEVICE_ID = "A-Left";
 const int NUM_SLOTS = 3;
@@ -33,7 +34,7 @@ const unsigned long DEBOUNCE_TIME_MS = 2000; // สถานะต้องน�
 const unsigned long TERMINAL_LOG_INTERVAL =
     2000;                                       // รายงานหน้า Terminal ทุก 2 วินาที
 const unsigned long NETWORK_COOLDOWN_MS = 2000; // ป้องกันการส่งข้อมูลถี่เกินไป
-const unsigned long PERIODIC_SYNC_MS = 15000;   // รอบส่งข้อมูลซ้ำเมื่อไม่มีการเคลื่อนไหว
+const unsigned long PERIODIC_SYNC_MS = 2000;    // รอบส่งข้อมูลซ้ำเมื่อไม่มีการเคลื่อนไหว
 const int SERVO_CLOSED_ANGLE = 0;
 const int SERVO_OPEN_ANGLE = 90;
 
