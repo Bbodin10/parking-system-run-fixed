@@ -23,6 +23,33 @@ async function api(path, options = {}) {
 }
 
 const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH');
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('[UI Crash Caught]:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <section className="panel" style={{ border: '1px solid #ef4444', background: '#201215', padding: 24, borderRadius: 12, margin: '20px auto', maxWidth: 600 }}>
+          <h2 style={{ color: '#ef4444', margin: '0 0 10px' }}>⚠️ เกิดข้อผิดพลาดในการแสดงผล</h2>
+          <p style={{ color: '#cbd5e1', fontSize: 14 }}>{this.state.error?.message || 'เกิดข้อผิดพลาดภายในหน้านี้'}</p>
+          <button className="button primary compact" style={{ marginTop: 12 }} onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}>
+            🔄 โหลดหน้านี้ใหม่
+          </button>
+        </section>
+      );
+    }
+    return this.props.children;
+  }
+}
 const formatDate = (value) => value ? new Date(value).toLocaleDateString('th-TH') : '-';
 
 function parseThaiDateTime(date, time) {
@@ -494,6 +521,8 @@ function UserControl({ data, user, notify }) {
           slot,
           device,
           minutesUntilStart,
+          minutesSinceStart,
+          isNoShowExpired,
           canCancel,
           startTimeStr,
           endTimeStr,
@@ -1236,7 +1265,7 @@ function App() {
   const content = liveUser.role === 'admin'
     ? { dashboard: <AdminDashboard data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, layout: <AdminLayout data={data} notify={notify} /> }[view]
     : { booking: <UserBooking data={data} user={liveUser} notify={notify} setView={setView} />, control: <UserControl data={data} user={liveUser} notify={notify} />, history: <UserHistory data={data} user={liveUser} notify={notify} /> }[view];
-  return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}{content}</main></div></div>;
+  return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
