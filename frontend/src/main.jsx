@@ -417,6 +417,8 @@ function UserControl({ data, user, notify }) {
     const endTime = new Date(start.getTime() + Number(booking.duration) * 3600000);
     const cancelCutoff = new Date(start.getTime() - 15 * 60 * 1000);
     const minutesUntilStart = (start.getTime() - now.getTime()) / 60000;
+    const minutesSinceStart = (now.getTime() - start.getTime()) / 60000;
+    const isNoShowExpired = booking.status === 'pending' && minutesSinceStart >= 15;
     const canCancel = booking.status === 'pending' && minutesUntilStart >= 15;
     const startTimeStr = formatThaiTime(booking.time);
     const endTimeStr = endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
@@ -436,6 +438,8 @@ function UserControl({ data, user, notify }) {
       endTime,
       cancelCutoff,
       minutesUntilStart,
+      minutesSinceStart,
+      isNoShowExpired,
       canCancel,
       startTimeStr,
       endTimeStr,
@@ -521,10 +525,40 @@ function UserControl({ data, user, notify }) {
             {/* สถานะกรณีรอเข้าจอด (pending) */}
             {booking.status === 'pending' && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {minutesUntilStart > 0 && (
+                {minutesUntilStart > 0 ? (
                   <small style={{ color: '#38bdf8', display: 'block', fontWeight: 500 }}>
                     ⏳ จะถึงเวลาเริ่มจองในอีก {Math.ceil(minutesUntilStart)} นาที
                   </small>
+                ) : minutesSinceStart < 15 ? (
+                  <div style={{
+                    background: 'rgba(251, 191, 36, 0.1)',
+                    border: '1px solid rgba(251, 191, 36, 0.35)',
+                    borderRadius: 8,
+                    padding: '8px 10px',
+                    fontSize: 12
+                  }}>
+                    <div style={{ color: '#fbbf24', fontWeight: 600 }}>
+                      🚗 ถึงเวลาเริ่มจองแล้ว! กรุณานำรถเข้าจอด
+                    </div>
+                    <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
+                      เหลือเวลาอีก {Math.ceil(15 - minutesSinceStart)} นาที หากเกิน 15 นาทีระบบจะตัดเป็น No-Show ปิดไม้กั้น และคืนช่องว่าง
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    background: 'rgba(239, 68, 68, 0.12)',
+                    border: '1px solid rgba(239, 68, 68, 0.35)',
+                    borderRadius: 8,
+                    padding: '8px 10px',
+                    fontSize: 12
+                  }}>
+                    <div style={{ color: '#f87171', fontWeight: 600 }}>
+                      ❌ หมดเวลาเข้าจอด (No-Show เกิน 15 นาที)
+                    </div>
+                    <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
+                      ระบบตัดสิทธิ์การควบคุม ปิดไม้กั้น และคืนสถานะช่องจอดเป็น "ว่าง" เรียบร้อยแล้ว
+                    </div>
+                  </div>
                 )}
 
                 {canCancel ? (
@@ -551,7 +585,7 @@ function UserControl({ data, user, notify }) {
                       ✕ ยกเลิกการจอง (คืนเครดิต ฿{formatMoney(booking.amount)})
                     </button>
                   </div>
-                ) : (
+                ) : !isNoShowExpired ? (
                   <div style={{
                     background: 'rgba(239, 68, 68, 0.08)',
                     border: '1px solid rgba(239, 68, 68, 0.28)',
@@ -566,7 +600,7 @@ function UserControl({ data, user, notify }) {
                       เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ({startTimeStr} น.) จึงไม่สามารถยกเลิกได้
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
             )}
 
@@ -607,13 +641,19 @@ function UserControl({ data, user, notify }) {
               </small>
 
               {device && (
-                <button
-                  className={`button full ${device.state === 'open' ? 'danger' : 'primary'}`}
-                  style={{ marginTop: 8 }}
-                  onClick={() => toggle(device)}
-                >
-                  {device.state === 'open' ? '🔒 ล็อกไม้กั้น (ปิด)' : '🔓 ปลดล็อกไม้กั้น (เปิด)'}
-                </button>
+                isNoShowExpired ? (
+                  <button className="button full" disabled style={{ marginTop: 8, opacity: 0.5, cursor: 'not-allowed' }}>
+                    🔒 ตัดการควบคุมแล้ว (No-Show เกิน 15 นาที)
+                  </button>
+                ) : (
+                  <button
+                    className={`button full ${device.state === 'open' ? 'danger' : 'primary'}`}
+                    style={{ marginTop: 8 }}
+                    onClick={() => toggle(device)}
+                  >
+                    {device.state === 'open' ? '🔒 ล็อกไม้กั้น (ปิด)' : '🔓 ปลดล็อกไม้กั้น (เปิด)'}
+                  </button>
+                )
               )}
             </div>
           </div>

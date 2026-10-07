@@ -92,18 +92,27 @@ async function lifecycle(){
       const {data:sensor}=await db.from('devices').select('*').eq('type','sensor').eq('linked_slot',b.slot_id).limit(1).maybeSingle();
       const {data:barrier}=await db.from('devices').select('*').eq('type','barrier').eq('linked_slot',b.slot_id).limit(1).maybeSingle();
       const sensorFresh=sensor?.updated_at&&now-new Date(sensor.updated_at)<120000;
-      const entry=b.entry_verified||(sensorFresh&&sensor?.status==='online'&&sensor?.presence==='occupied');
-      const u=await userById(b.user_id);
+      const isCarOccupied = sensorFresh && sensor?.status === 'online' && (sensor?.presence === 'occupied' || sensor?.car_present === true);
+      const entry = b.entry_verified || isCarOccupied;
+      const u = await userById(b.user_id);
 
-      if(b.status==='pending'&&now>=new Date(start.getTime()+GRACE*60000)&&sensorFresh&&sensor?.status==='online'&&!entry){
-        await db.from('bookings').update({status:'no_show',no_show_checked:true}).eq('id',b.id).eq('status','pending');
-        await db.from('slots').update({status:'available',updated_at:now.toISOString()}).eq('id',b.slot_id);
-        if(u?.line_user_id){
+      // เงื่อนไข No-Show: เกินเวลาเริ่มจอง 15 นาทีแล้วยังไม่มีการเข้าจอด
+      const noShowCutoff = new Date(start.getTime() + GRACE * 60000);
+      if (b.status === 'pending' && now >= noShowCutoff && !entry) {
+        // 1. ปรับสถานะเป็น no_show (ตัดการควบคุมของผู้ใช้)
+        await db.from('bookings').update({ status: 'no_show', no_show_checked: true }).eq('id', b.id).eq('status', 'pending');
+        // 2. ปิดไม้กั้นช่องจอดลงมาทันที
+        await db.from('devices').update({ state: 'closed', updated_at: now.toISOString() }).eq('type', 'barrier').eq('linked_slot', b.slot_id);
+        // 3. เปลี่ยนสถานะช่องจอดกลับมาเป็นว่าง (available)
+        await db.from('slots').update({ status: 'available', updated_at: now.toISOString() }).eq('id', b.slot_id);
+
+        if (u?.line_user_id) {
           const noShowMsg = [
             '❌ ยกเลิกการจองอัตโนมัติ (No-Show)',
             '━━━━━━━━━━━━━━━━━━━',
             `🅿️ ช่องจอด: ${b.slot_id}`,
-            'ℹ️ ระบบยกเลิกการจองเนื่องจากไม่มีการเข้าจอดภายใน 15 นาทีหลังถึงเวลาเริ่มจอง',
+            'ℹ️ ระบบตรวจไม่พบการเข้าจอดภายใน 15 นาทีหลังถึงเวลาเริ่มจอง',
+            '🔒 ระบบตัดสิทธิ์การควบคุม ปิดไม้กั้น และคืนสถานะช่องจอดเป็น "ว่าง" เรียบร้อยแล้ว',
             '━━━━━━━━━━━━━━━━━━━',
             'หากต้องการใช้งาน กรุณาทำรายการจองใหม่อีกครั้งครับ'
           ].join('\n');
@@ -111,8 +120,8 @@ async function lifecycle(){
         }
         continue;
       }
-      if(b.status==='pending'&&now>=start&&entry){
-        await db.from('bookings').update({status:'active',entry_verified:true,entry_time:b.entry_time||now.toISOString()}).eq('id',b.id).eq('status','pending');
+      if (b.status === 'pending' && now >= start && entry) {
+        await db.from('bookings').update({ status: 'active', entry_verified: true, entry_time: b.entry_time || now.toISOString() }).eq('id', b.id).eq('status', 'pending');
       }
       const left=(end-now)/60000;
       if(left>0&&left<=Number(b.notify_before_min||15)&&!b.notified){
@@ -156,7 +165,7 @@ app.post('/api/auth/line',async(req,res)=>{try{const {code,redirectUri}=req.body
 app.post('/api/auth/line/unlink',auth,async(req,res)=>{try{await db.from('users').update({line_user_id:null}).eq('id',req.user.id);const updated=await userById(req.user.id);delete updated.password_hash;delete updated.password;res.json({ok:true,user:updated});}catch(error){res.status(400).json({error:error.message});}});
 app.post('/api/auth/register',async(req,res)=>{try{const {username,email,password,name}=req.body;if(!username||!password||!name)return res.status(400).json({error:'ข้อมูลไม่ครบถ้วน'});const u={id:id(),username,email:email?.toLowerCase(),password_hash:await bcrypt.hash(password,10),name,role:'user',credit:0,status:'active',line_link_code:crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase()};const {data,error}=await db.from('users').insert(u).select('*').single();if(error)throw error;delete data.password_hash;res.json({user:data,token:sign(data)});}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/auth/login',async(req,res)=>{try{const username=String(req.body.username||'').trim(),password=String(req.body.password||'');if(!username||!password)return res.status(400).json({error:'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'});const {data,error}=await db.from('users').select('*').or(`username.eq.${username},email.eq.${username}`).maybeSingle();if(error)throw error;if(!data||data.status!=='active'||!(data.password_hash?await bcrypt.compare(password,data.password_hash):data.password===password))return res.status(401).json({error:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'});delete data.password_hash;delete data.password;res.json({user:data,token:sign(data)});}catch(error){console.error('[login]',error);res.status(500).json({error:'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Backend และ Supabase'});}});
-app.get('/api/bootstrap',auth,async(req,res)=>{try{const out={};const required=['slots','bookings','credit_history','devices'];const optional=['credit_requests','maintenance_logs','parking_maps'];const userFields='id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at';let usersQuery=db.from('users').select(userFields);if(req.user.role!=='admin')usersQuery=usersQuery.eq('id',req.user.id);const {data:users,error:userError}=await usersQuery;if(userError)throw userError;out.users=users||[];for(const table of required){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['bookings','credit_history'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error)throw error;out[table]=data||[];}for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&table==='credit_requests')query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);out[table]=[];}else out[table]=data||[];}res.json(out);}catch(error){console.error('[bootstrap]',error);res.status(500).json({error:`โหลดข้อมูลไม่สำเร็จ: ${error.message}`});}});
+app.get('/api/bootstrap',auth,async(req,res)=>{try{await lifecycle();const out={};const required=['slots','bookings','credit_history','devices'];const optional=['credit_requests','maintenance_logs','parking_maps'];const userFields='id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at';let usersQuery=db.from('users').select(userFields);if(req.user.role!=='admin')usersQuery=usersQuery.eq('id',req.user.id);const {data:users,error:userError}=await usersQuery;if(userError)throw userError;out.users=users||[];for(const table of required){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['bookings','credit_history'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error)throw error;out[table]=data||[];}for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&table==='credit_requests')query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);out[table]=[];}else out[table]=data||[];}res.json(out);}catch(error){console.error('[bootstrap]',error);res.status(500).json({error:`โหลดข้อมูลไม่สำเร็จ: ${error.message}`});}});
 app.post('/api/bookings',auth,async(req,res)=>{
   try{
     const {slotId,date,time,duration}=req.body;
@@ -267,7 +276,32 @@ app.post('/api/auth/line/test-message',auth,async(req,res)=>{try{const u=await u
       '✅ ระบบเชื่อมต่อสมบูรณ์และพร้อมส่งการแจ้งเตือนแบบเรียลไทม์'
     ].join('\n');
     const ok=await pushLine(u.line_user_id, msg);res.json({ok,lineSent:ok});}catch(e){res.status(400).json({error:e.message});}});
-app.post('/api/devices/:id/toggle',auth,async(req,res)=>{const {data:d}=await db.from('devices').select('*').eq('id',req.params.id).maybeSingle();if(!d||d.type!=='barrier')return res.status(404).json({error:'ไม่พบอุปกรณ์ควบคุมช่องจอด'});if(req.user.role!=='admin'){const {data:b}=await db.from('bookings').select('slot_id,status').eq('user_id',req.user.id).in('status',['pending','active']);const allowed=(b||[]).some(x=>x.slot_id===d.linked_slot);if(!allowed)return res.status(403).json({error:'ควบคุมได้เฉพาะช่องที่คุณจองไว้เท่านั้น (ต้องอยู่ในสถานะ pending หรือ active)'});}const state=d.state==='open'?'closed':'open';const {data,error}=await db.from('devices').update({state,updated_at:new Date().toISOString()}).eq('id',d.id).select('*').single();if(error)return res.status(400).json({error:error.message});res.json(data);});
+app.post('/api/devices/:id/toggle',auth,async(req,res)=>{
+  const {data:d}=await db.from('devices').select('*').eq('id',req.params.id).maybeSingle();
+  if(!d||d.type!=='barrier')return res.status(404).json({error:'ไม่พบอุปกรณ์ควบคุมช่องจอด'});
+  if(req.user.role!=='admin'){
+    const {data:bookings}=await db.from('bookings').select('*').eq('user_id',req.user.id).in('status',['pending','active']);
+    const b=(bookings||[]).find(x=>x.slot_id===d.linked_slot);
+    if(!b)return res.status(403).json({error:'ควบคุมได้เฉพาะช่องที่คุณจองไว้เท่านั้น (ต้องอยู่ในสถานะ pending หรือ active)'});
+    
+    // ตรวจสอบ No-Show ทันทีเมื่อกดปุ่มควบคุม
+    if(b.status==='pending'){
+      const now=new Date();
+      const start=thaiDateTime(b.date,b.time);
+      const noShowCutoff=new Date(start.getTime()+GRACE*60000);
+      if(now>=noShowCutoff&&!b.entry_verified){
+        await db.from('bookings').update({status:'no_show',no_show_checked:true}).eq('id',b.id);
+        await db.from('devices').update({state:'closed',updated_at:now.toISOString()}).eq('id',d.id);
+        await db.from('slots').update({status:'available',updated_at:now.toISOString()}).eq('id',d.linked_slot);
+        return res.status(403).json({error:'เกินเวลาเริ่มจอง 15 นาทีแล้ว (No-Show) ระบบตัดการควบคุม ปิดไม้กั้น และคืนสถานะช่องจอดเป็นว่างแล้ว'});
+      }
+    }
+  }
+  const state=d.state==='open'?'closed':'open';
+  const {data,error}=await db.from('devices').update({state,updated_at:new Date().toISOString()}).eq('id',d.id).select('*').single();
+  if(error)return res.status(400).json({error:error.message});
+  res.json(data);
+});
 app.patch('/api/admin/users/:id',auth,admin,async(req,res)=>{try{const patch={};if(['admin','user'].includes(req.body.role))patch.role=req.body.role;if(['active','inactive'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(!Object.keys(patch).length)return res.status(400).json({error:'ไม่มีข้อมูลที่ต้องแก้ไข'});const {data,error}=await db.from('users').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.patch('/api/admin/devices/:id',auth,admin,async(req,res)=>{try{const patch={};if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(typeof req.body.linked_slot==='string'||req.body.linked_slot===null)patch.linked_slot=req.body.linked_slot;if(['online','offline','error'].includes(req.body.status))patch.status=req.body.status;patch.updated_at=new Date().toISOString();const {data,error}=await db.from('devices').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.patch('/api/admin/slots/:id',auth,admin,async(req,res)=>{try{const patch={};if(typeof req.body.code==='string'&&req.body.code.trim())patch.code=req.body.code.trim();if(['available','booked','unavailable'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.type==='string'&&req.body.type.trim())patch.type=req.body.type.trim();patch.updated_at=new Date().toISOString();const {data,error}=await db.from('slots').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
