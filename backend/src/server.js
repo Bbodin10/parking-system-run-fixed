@@ -305,36 +305,172 @@ app.post('/api/admin/slots/swap',auth,admin,async(req,res)=>{try{const {firstId,
 app.post('/api/admin/maintenance',auth,admin,async(req,res)=>{try{const {slotId,problemDetail}=req.body;if(!slotId||!String(problemDetail||'').trim())return res.status(400).json({error:'กรุณาระบุช่องจอดและรายละเอียด'});const {data,error}=await db.from('maintenance_logs').insert({id:id(),slot_id:slotId,problem_detail:String(problemDetail).trim(),status:'open'}).select('*').single();if(error)throw error;await db.from('slots').update({status:'unavailable',updated_at:new Date().toISOString()}).eq('id',slotId);res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/admin/maintenance/:id/resolve',auth,admin,async(req,res)=>{try{const {data:m,error}=await db.from('maintenance_logs').select('*').eq('id',req.params.id).maybeSingle();if(error)throw error;if(!m)return res.status(404).json({error:'ไม่พบรายการซ่อม'});await db.from('maintenance_logs').update({status:'resolved',resolved_at:new Date().toISOString()}).eq('id',m.id);await db.from('slots').update({status:'available',updated_at:new Date().toISOString()}).eq('id',m.slot_id);res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/admin/maps',auth,admin,upload.single('image'),async(req,res)=>{try{if(!req.file)return res.status(400).json({error:'กรุณาเลือกไฟล์ PNG, JPG หรือ WebP'});const floor=Number(req.body.floor||1);const ext=req.file.mimetype==='image/png'?'png':req.file.mimetype==='image/webp'?'webp':'jpg';const path=`floor-${floor}/${Date.now()}-${crypto.randomUUID()}.${ext}`;const {error:uploadError}=await db.storage.from('parking-maps').upload(path,req.file.buffer,{contentType:req.file.mimetype,upsert:false});if(uploadError)throw uploadError;const {data:urlData}=db.storage.from('parking-maps').getPublicUrl(path);const {data,error}=await db.from('parking_maps').insert({id:id(),name:String(req.body.name||`ผังชั้น ${floor}`),floor,image_url:urlData.publicUrl,created_by:req.user.id}).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
+app.patch('/api/admin/maps/:id',auth,admin,upload.single('image'),async(req,res)=>{try{const {data:map,error:fetchError}=await db.from('parking_maps').select('*').eq('id',req.params.id).maybeSingle();if(fetchError)throw fetchError;if(!map)return res.status(404).json({error:'ไม่พบผังลานจอด'});const updates={};if(req.body.name&&String(req.body.name).trim()){updates.name=String(req.body.name).trim();}if(req.body.floor){updates.floor=Number(req.body.floor);}if(req.file){const floor=updates.floor||map.floor||1;const ext=req.file.mimetype==='image/png'?'png':req.file.mimetype==='image/webp'?'webp':'jpg';const path=`floor-${floor}/${Date.now()}-${crypto.randomUUID()}.${ext}`;const {error:uploadError}=await db.storage.from('parking-maps').upload(path,req.file.buffer,{contentType:req.file.mimetype,upsert:false});if(uploadError)throw uploadError;const {data:urlData}=db.storage.from('parking-maps').getPublicUrl(path);updates.image_url=urlData.publicUrl;try{const url=new URL(map.image_url);const pathParts=url.pathname.split('/object/public/parking-maps/');if(pathParts.length>1){const storagePath=decodeURIComponent(pathParts[1]);await db.storage.from('parking-maps').remove([storagePath]);}}catch(storageErr){console.warn('[map update] old storage remove warning:',storageErr.message);}}if(Object.keys(updates).length===0){return res.status(400).json({error:'ไม่มีข้อมูลที่ต้องอัปเดต'});}const {data,error}=await db.from('parking_maps').update(updates).eq('id',map.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
+app.delete('/api/admin/maps/:id',auth,admin,async(req,res)=>{try{const {data:map,error:fetchError}=await db.from('parking_maps').select('*').eq('id',req.params.id).maybeSingle();if(fetchError)throw fetchError;if(!map)return res.status(404).json({error:'ไม่พบผังลานจอด'});try{const url=new URL(map.image_url);const pathParts=url.pathname.split('/object/public/parking-maps/');if(pathParts.length>1){const storagePath=decodeURIComponent(pathParts[1]);await db.storage.from('parking-maps').remove([storagePath]);}}catch(storageErr){console.warn('[map delete] storage remove warning:',storageErr.message);}const {error:dbError}=await db.from('parking_maps').delete().eq('id',map.id);if(dbError)throw dbError;res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
 
-// ─── IoT: Batch Telemetry จาก ESP32 Controller (A-Left, A-Right ฯลฯ) ──────────
-// Body: { device_id: "A-Left", slots: [{ slot_id, distance_cm, occupied, status }] }
-// Response: { ok: true, barriers: [{ slot_id, gate_open }] }
+// ─── IoT: Batch Telemetry จาก ESP32 Controller (esp32-f1-left, esp32-f1-right, esp32-f2-left, esp32-f2-right) ───
+// รองรับทั้ง Floor-1 (A1-A6), Floor-2 (B1-B6) และบอร์ดเดี่ยวทุกตัว
+// Body: { device_id: string, slots: [{ slot_id: string, distance_cm?: number, occupied: boolean, status?: string, stale?: boolean }] }
+// Response: { ok: true, barriers: [{ slot_id: string, gate_open: boolean }] }
+async function processBatchTelemetry(deviceId, slotReadings) {
+  const now = new Date().toISOString();
+  const barrierCommands = [];
+
+  await Promise.all(
+    slotReadings.map(async (reading) => {
+      const slotId = reading.slot_id || reading.slotId;
+      if (!slotId) return;
+
+      const isOnline = !reading.stale;
+      const isOccupied = Boolean(reading.occupied);
+
+      // 1. อัปเดตสถานะเซ็นเซอร์ประจำช่องจอด (online/offline ตามสถานะบอร์ด และ occupied ตามระยะ)
+      const sensorUpdate = db
+        .from('devices')
+        .update({
+          presence: isOccupied ? 'occupied' : 'empty',
+          car_present: isOccupied,
+          status: isOnline ? 'online' : 'offline',
+          updated_at: now,
+        })
+        .eq('type', 'sensor')
+        .eq('linked_slot', slotId);
+
+      // 2. อัปเดตสถานะไม้กั้นประจำช่องจอดให้ online พร้อมรับคำสั่ง
+      const barrierUpdate = db
+        .from('devices')
+        .update({
+          status: isOnline ? 'online' : 'offline',
+          updated_at: now,
+        })
+        .eq('type', 'barrier')
+        .eq('linked_slot', slotId);
+
+      // 3. ดึงสถานะไม้กั้นปัจจุบันเพื่อส่งกลับไปยัง ESP32
+      const barrierQuery = db
+        .from('devices')
+        .select('state')
+        .eq('type', 'barrier')
+        .eq('linked_slot', slotId)
+        .maybeSingle();
+
+      const [, , { data: barrier }] = await Promise.all([
+        sensorUpdate,
+        barrierUpdate,
+        barrierQuery,
+      ]);
+
+      if (barrier) {
+        barrierCommands.push({
+          slot_id: slotId,
+          gate_open: barrier.state === 'open',
+        });
+      }
+    })
+  );
+
+  // เรียงลำดับคำสั่งไม้กั้นตามรหัสช่องจอด
+  barrierCommands.sort((a, b) => String(a.slot_id).localeCompare(String(b.slot_id)));
+
+  // สั่ง lifecycle ให้ตรวจสอบสถานะการจองทันทีที่มีรถเข้า/ออก
+  lifecycle().catch((err) => console.error('[batch-telemetry lifecycle error]', err));
+
+  return barrierCommands;
+}
+
 app.post('/api/iot/batch-telemetry', async (req, res) => {
   try {
-    const { device_id, slots: slotReadings } = req.body;
-    if (!device_id || !Array.isArray(slotReadings)) {
+    const { device_id, deviceId, slots: slotReadings } = req.body;
+    const id = device_id || deviceId;
+    if (!id || !Array.isArray(slotReadings)) {
       return res.status(400).json({ error: 'device_id และ slots array จำเป็น' });
     }
-    const now = new Date().toISOString();
-    const barrierCommands = [];
-    for (const reading of slotReadings) {
-      const { slot_id, occupied } = reading;
-      if (!slot_id) continue;
-      // 1. อัปเดต sensor device ที่ผูกกับ slot_id (sensor dot แสดงสถานะการตรวจจับรถ)
-      await db.from('devices').update({ presence: occupied ? 'occupied' : 'empty', car_present: occupied, status: 'online', updated_at: now }).eq('type', 'sensor').eq('linked_slot', slot_id);
-
-      // 3. ดึงสถานะ barrier ของช่องนี้ส่งกลับ ESP32
-      const { data: barrier } = await db.from('devices').select('state').eq('type', 'barrier').eq('linked_slot', slot_id).maybeSingle();
-      if (barrier) barrierCommands.push({ slot_id, gate_open: barrier.state === 'open' });
-    }
-    res.json({ ok: true, barriers: barrierCommands });
-  } catch (e) { console.error('[iot/batch-telemetry]', e); res.status(500).json({ error: e.message }); }
+    const barriers = await processBatchTelemetry(id, slotReadings);
+    res.json({ ok: true, barriers });
+  } catch (e) {
+    console.error('[iot/batch-telemetry]', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
-app.post('/api/iot/telemetry',async(req,res)=>{try{const deviceId=String(req.body.device_id||'').trim(),slots=req.body.slots;if(!deviceId||!Array.isArray(slots))return res.status(400).json({error:'device_id และ slots array จำเป็นต้องระบุ'});const {data,error}=await db.rpc('handle_sensor_telemetry',{device_id:deviceId,slots});if(error)throw error;res.json(data);}catch(e){console.error('[iot telemetry]',e);res.status(400).json({error:e.message});}});
-app.post('/api/iot/sensors/presence',async(req,res)=>{const {deviceId,presence,carPresent}=req.body;const {data,error}=await db.from('devices').update({presence,car_present:carPresent,status:'online',updated_at:new Date().toISOString()}).eq('id',deviceId).eq('type','sensor').select('*').single();if(error)return res.status(400).json({error:error.message});res.json(data);});
-app.get('/api/iot/barriers/:id',async(req,res)=>{try{const {data,error}=await db.from('devices').select('id,state,status,linked_slot').eq('id',req.params.id).eq('type','barrier').maybeSingle();if(error)throw error;if(!data)return res.status(404).json({error:'ไม่พบอุปกรณ์ไม้กั้น'});await db.from('devices').update({status:'online',updated_at:new Date().toISOString()}).eq('id',req.params.id);res.json(data);}catch(e){res.status(500).json({error:e.message});}});
-app.post('/api/iot/barriers/status',async(req,res)=>{const {deviceId,state}=req.body;const {data,error}=await db.from('devices').update({state,status:'online',updated_at:new Date().toISOString()}).eq('id',deviceId).eq('type','barrier').select('*').single();if(error)return res.status(400).json({error:error.message});res.json(data);});
+app.post('/api/iot/telemetry', async (req, res) => {
+  try {
+    const id = String(req.body.device_id || req.body.deviceId || '').trim();
+    const slots = req.body.slots;
+    if (!id || !Array.isArray(slots)) {
+      return res.status(400).json({ error: 'device_id และ slots array จำเป็นต้องระบุ' });
+    }
+    const barriers = await processBatchTelemetry(id, slots);
+    res.json({ ok: true, barriers });
+  } catch (e) {
+    console.error('[iot telemetry]', e);
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/iot/sensors/presence', async (req, res) => {
+  try {
+    const { deviceId, device_id, presence, carPresent, car_present } = req.body;
+    const devId = deviceId || device_id;
+    const isOccupied = typeof carPresent === 'boolean' ? carPresent : (typeof car_present === 'boolean' ? car_present : presence === 'occupied');
+    const { data, error } = await db
+      .from('devices')
+      .update({
+        presence: isOccupied ? 'occupied' : 'empty',
+        car_present: isOccupied,
+        status: 'online',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('type', 'sensor')
+      .or(`id.eq.${devId},linked_slot.eq.${devId}`)
+      .select('*')
+      .maybeSingle();
+
+    if (error) return res.status(400).json({ error: error.message });
+    lifecycle().catch(() => {});
+    res.json(data || { ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/iot/barriers/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { data, error } = await db
+      .from('devices')
+      .select('id,state,status,linked_slot')
+      .eq('type', 'barrier')
+      .or(`id.eq.${id},linked_slot.eq.${id}`)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'ไม่พบอุปกรณ์ไม้กั้น' });
+    await db.from('devices').update({ status: 'online', updated_at: new Date().toISOString() }).eq('id', data.id);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/iot/barriers/status', async (req, res) => {
+  try {
+    const { deviceId, device_id, state } = req.body;
+    const id = deviceId || device_id;
+    const { data, error } = await db
+      .from('devices')
+      .update({ state, status: 'online', updated_at: new Date().toISOString() })
+      .eq('type', 'barrier')
+      .or(`id.eq.${id},linked_slot.eq.${id}`)
+      .select('*')
+      .maybeSingle();
+
+    if (error) return res.status(400).json({ error: error.message });
+    res.json(data || { ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
 app.post('/api/credit-requests',auth,async(req,res)=>{
   try{
     const amount=Number(req.body.amount);

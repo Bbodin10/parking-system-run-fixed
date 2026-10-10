@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../esp32-f2-left"
+		},
+		{
+			"path": "../esp32-f1-right"
+		}
+	]
+}

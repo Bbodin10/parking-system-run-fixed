@@ -1,6 +1,20 @@
 node_modules/
+**/node_modules/
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
 dist/
+**/dist/
 .vercel/
+
+# PlatformIO & VSCode & Build artifacts
+.pio/
+**/.pio/
+.cache/
+**/.cache/
+compile_commands.json
+.vscode/
+**/.vscode/

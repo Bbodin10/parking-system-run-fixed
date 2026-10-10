@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 
 const rawApi = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
-const API = rawApi
-  ? (rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`)
-  : (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3000/api' : '/api');
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API = (isLocal && (import.meta.env.DEV || rawApi.includes('localhost') || !rawApi))
+  ? 'http://localhost:3000/api'
+  : (rawApi ? (rawApi.endsWith('/api') ? rawApi : `${rawApi}/api`) : (isLocal ? 'http://localhost:3000/api' : '/api'));
 
 async function api(path, options = {}) {
   const isForm = options.body instanceof FormData;
@@ -1234,27 +1235,225 @@ function AdminDevices({ data, reload, notify }) {
   </>;
 }
 
-function AdminLayout({ data, notify }) {
+function AdminLayout({ data, reload, notify }) {
   const [selected, setSelected] = useState(null);
   const [floor, setFloor] = useState(1);
-  const slots = data.slots.filter((slot) => slot.floor === floor).sort((a, b) => a.slot_order - b.slot_order);
-  const maps = (data.parking_maps || []).filter((item) => item.floor === floor);
+  const [lightboxMap, setLightboxMap] = useState(null);
+  const slots = data.slots.filter((slot) => Number(slot.floor) === Number(floor)).sort((a, b) => a.slot_order - b.slot_order);
+  const maps = (data.parking_maps || []).filter((item) => Number(item.floor) === Number(floor)).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
   const openMaintenance = (data.maintenance_logs || []).filter((item) => item.status === 'open');
+
   async function patchSlot(slot, patch) { try { await api(`/admin/slots/${slot.id}`, { method: 'PATCH', body: JSON.stringify(patch) }); notify('อัปเดตช่องจอดแล้ว'); } catch (err) { notify(err.message, true); } }
   async function rename(slot) { const code = window.prompt('ชื่อช่องจอดใหม่', slot.code); if (code) patchSlot(slot, { code }); }
   async function chooseSwap(slot) { if (!selected) return setSelected(slot.id); if (selected === slot.id) return setSelected(null); try { await api('/admin/slots/swap', { method: 'POST', body: JSON.stringify({ firstId: selected, secondId: slot.id }) }); setSelected(null); notify('สลับตำแหน่งช่องจอดแล้ว'); } catch (err) { notify(err.message, true); } }
   async function maintenance(slot) { const problemDetail = window.prompt(`รายละเอียดการซ่อมช่อง ${slot.code}`); if (!problemDetail) return; try { await api('/admin/maintenance', { method: 'POST', body: JSON.stringify({ slotId: slot.id, problemDetail }) }); notify('แจ้งซ่อมแล้ว ช่องถูกเปลี่ยนเป็นสีเทา'); } catch (err) { notify(err.message, true); } }
   async function resolve(item) { try { await api(`/admin/maintenance/${item.id}/resolve`, { method: 'POST' }); notify('ปิดงานซ่อมและคืนสถานะช่องว่างแล้ว'); } catch (err) { notify(err.message, true); } }
-  async function uploadMap(event) { event.preventDefault(); const form = new FormData(event.currentTarget); form.set('floor', floor); try { await api('/admin/maps', { method: 'POST', body: form }); event.currentTarget.reset(); notify('อัปโหลดผังลานจอดแล้ว'); } catch (err) { notify(err.message, true); } }
-  return <><PageHead title="จัดการผังลานจอด" description="คลิกช่อง 2 ช่องเพื่อสลับตำแหน่ง เปลี่ยนชื่อ สถานะ หรือแจ้งซ่อม" /><div className="tabs"><button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1 (A1 - A6)</button><button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2 (B1 - B6)</button></div>
-    <section className="panel"><div className="panel-title"><h2>อัปโหลดรูปผังชั้น {floor}</h2></div><form className="booking-fields" onSubmit={uploadMap}><input name="name" required placeholder={`ชื่อผัง เช่น อาคาร A ชั้น ${floor}`} /><input name="image" type="file" accept="image/png,image/jpeg,image/webp" required /><button className="button primary">อัปโหลดรูป</button></form>{maps.map((item) => <img key={item.id} src={item.image_url} alt={item.name} style={{ width: '100%', maxHeight: 520, objectFit: 'contain', marginTop: 16, borderRadius: 12 }} />)}</section>
-    <section className="panel"><div className="slot-grid">{slots.map((slot) => {
-      const sensor = (data.devices || []).find((d) => d.type === 'sensor' && d.linked_slot === slot.id);
-      const isCarPresent = sensor?.status === 'online' && (sensor?.presence === 'occupied' || sensor?.car_present === true);
-      const sensorDotClass = !sensor || sensor.status !== 'online' ? 'offline' : (isCarPresent ? 'occupied' : 'empty');
-      return <div className={`slot-card ${slot.status}`} key={slot.id} style={selected === slot.id ? { outline: '2px solid #22d3ee' } : {}}><span className={`sensor-dot ${sensorDotClass}`} title={isCarPresent ? 'เซ็นเซอร์: ตรวจพบวัตถุ (สีแดง)' : 'เซ็นเซอร์: ว่าง (สีเขียว)'} /><div className="slot-top"><strong>{slot.code}</strong><span>{slot.status === 'available' ? 'ว่าง' : slot.status === 'booked' ? 'ถูกจอง' : 'ไม่พร้อม/ซ่อม'}</span></div><small>ลำดับ {slot.slot_order} · {slot.type}</small><button className="button compact" onClick={() => chooseSwap(slot)}>{selected ? 'เลือกเพื่อสลับ' : 'เลือกสลับตำแหน่ง'}</button> <button className="button compact" onClick={() => rename(slot)}>เปลี่ยนชื่อ</button><select value={slot.status} onChange={(e) => patchSlot(slot, { status: e.target.value })}><option value="available">ว่าง</option><option value="booked">ถูกจอง</option><option value="unavailable">ไม่พร้อม/ซ่อม</option></select><button className="button danger compact" onClick={() => maintenance(slot)}>แจ้งซ่อม</button></div>;
-    })}</div></section>
-    <section className="panel"><div className="panel-title"><h2>ประวัติการซ่อมบำรุง</h2><span className="muted">{(data.maintenance_logs || []).length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>รายละเอียดปัญหา</th><th>สถานะ</th><th>แจ้งเมื่อ</th><th>ปิดงานเมื่อ</th><th /></tr></thead><tbody>{(data.maintenance_logs || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))).map((item) => <tr key={item.id}><td>{item.slot_id}</td><td>{item.problem_detail}</td><td><span className={`badge ${item.status === 'open' ? 'unavailable' : 'available'}`}>{item.status === 'open' ? 'กำลังซ่อม' : 'ปิดงานแล้ว'}</span></td><td>{new Date(item.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td><td>{item.resolved_at ? new Date(item.resolved_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}</td><td>{item.status === 'open' && <button className="button primary compact" onClick={() => resolve(item)}>ซ่อมเสร็จ</button>}</td></tr>)}</tbody></table></div></section></>;
+  async function uploadMap(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    form.set('floor', floor);
+    try { await api('/admin/maps', { method: 'POST', body: form }); event.currentTarget.reset(); await reload?.(); notify('อัปโหลดผังลานจอดแล้ว ✅'); }
+    catch (err) { notify(err.message, true); }
+  }
+  async function renameMap(item) {
+    const newName = window.prompt('ชื่อผังใหม่', item.name);
+    if (!newName || newName === item.name) return;
+    try { await api(`/admin/maps/${item.id}`, { method: 'PATCH', body: JSON.stringify({ name: newName }) }); await reload?.(); notify('เปลี่ยนชื่อผังแล้ว ✅'); }
+    catch (err) { notify(err.message, true); }
+  }
+  async function replaceMapImage(item, file) {
+    if (!file) return;
+    const form = new FormData();
+    form.append('image', file);
+    try {
+      notify('กำลังอัปโหลดเปลี่ยนรูปผังใหม่...');
+      await api(`/admin/maps/${item.id}`, { method: 'PATCH', body: form });
+      await reload?.();
+      notify('เปลี่ยนรูปภาพผังลานจอดสำเร็จแล้ว ✅');
+    } catch (err) {
+      notify(err.message, true);
+    }
+  }
+  async function deleteMap(item) {
+    if (!window.confirm(`ยืนยันการลบผัง "${item.name}" หรือไม่?\nรูปภาพจะถูกลบออกจากระบบถาวร`)) return;
+    try { await api(`/admin/maps/${item.id}`, { method: 'DELETE' }); await reload?.(); notify('ลบผังลานจอดแล้ว ✅'); }
+    catch (err) { notify(err.message, true); }
+  }
+
+  return (
+    <>
+      <PageHead title="จัดการผังลานจอด" description="คลิกช่อง 2 ช่องเพื่อสลับตำแหน่ง เปลี่ยนชื่อ สถานะ หรือแจ้งซ่อม" />
+      <div className="tabs">
+        <button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1 (A1 - A6)</button>
+        <button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2 (B1 - B6)</button>
+      </div>
+
+      {/* ─── รูปผังลานจอด ─── */}
+      <section className="panel">
+        <div className="panel-title">
+          <h2>ผังลานจอด · ชั้น {floor}</h2>
+          <span className="muted">{maps.length} รูป</span>
+        </div>
+
+        {/* อัปโหลดรูปใหม่ */}
+        <form className="booking-fields" onSubmit={uploadMap} style={{ marginBottom: maps.length ? 24 : 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, alignItems: 'end' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 5, fontWeight: 600 }}>ชื่อผัง</label>
+              <input name="name" required placeholder={`เช่น ผังชั้น ${floor} อาคาร A`} style={{ margin: 0 }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 5, fontWeight: 600 }}>ไฟล์รูปภาพ (PNG / JPG / WebP)</label>
+              <input name="image" type="file" accept="image/png,image/jpeg,image/webp" required style={{ margin: 0 }} />
+            </div>
+            <button type="submit" className="button primary" style={{ alignSelf: 'end', whiteSpace: 'nowrap' }}>+ อัปโหลดรูป</button>
+          </div>
+        </form>
+
+        {/* รายการรูปที่มีอยู่ */}
+        {maps.length === 0 ? (
+          <p className="muted" style={{ marginTop: 8 }}>ยังไม่มีรูปผังชั้น {floor} กรุณาอัปโหลด</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 20, marginTop: 4 }}>
+            {maps.map((item) => (
+              <div key={item.id} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <strong style={{ fontSize: 15 }}>{item.name}</strong>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, fontFamily: 'JetBrains Mono, monospace' }}>
+                      อัปโหลด {new Date(item.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="button compact"
+                      onClick={() => setLightboxMap(item)}
+                      title="ดูรูปเต็มหน้าจอ"
+                    >🔍 ดูภาพ</button>
+                    <label
+                      className="button compact"
+                      style={{ cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center' }}
+                      title="เลือกไฟล์รูปใหม่เพื่อเปลี่ยนแทนรูปนี้"
+                    >
+                      📷 เปลี่ยนรูปภาพ
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          if (e.target.files?.[0]) {
+                            replaceMapImage(item, e.target.files[0]);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="button compact"
+                      onClick={() => renameMap(item)}
+                      title="เปลี่ยนชื่อผัง"
+                    >✏️ เปลี่ยนชื่อ</button>
+                    <button
+                      type="button"
+                      className="button danger compact"
+                      onClick={() => deleteMap(item)}
+                      title="ลบรูปผังนี้"
+                    >🗑 ลบ</button>
+                  </div>
+                </div>
+                {/* รูปภาพ */}
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  onClick={() => setLightboxMap(item)}
+                  style={{ width: '100%', maxHeight: 420, objectFit: 'contain', display: 'block', background: '#101820', cursor: 'zoom-in' }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Lightbox */}
+      {lightboxMap && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={() => setLightboxMap(null)}
+          style={{ alignItems: 'center', padding: 20 }}
+        >
+          <div onMouseDown={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <strong style={{ color: '#fff', fontSize: 16 }}>{lightboxMap.name}</strong>
+              <button className="button compact" onClick={() => setLightboxMap(null)}>✕ ปิด</button>
+            </div>
+            <img
+              src={lightboxMap.image_url}
+              alt={lightboxMap.name}
+              style={{ maxWidth: '100%', maxHeight: 'calc(90vh - 60px)', objectFit: 'contain', borderRadius: 12, background: '#101820' }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ─── ผังช่องจอด ─── */}
+      <section className="panel">
+        <div className="slot-grid">
+          {slots.map((slot) => {
+            const sensor = (data.devices || []).find((d) => d.type === 'sensor' && d.linked_slot === slot.id);
+            const isCarPresent = sensor?.status === 'online' && (sensor?.presence === 'occupied' || sensor?.car_present === true);
+            const sensorDotClass = !sensor || sensor.status !== 'online' ? 'offline' : (isCarPresent ? 'occupied' : 'empty');
+            return (
+              <div className={`slot-card ${slot.status}`} key={slot.id} style={selected === slot.id ? { outline: '2px solid #22d3ee' } : {}}>
+                <span className={`sensor-dot ${sensorDotClass}`} title={isCarPresent ? 'เซ็นเซอร์: ตรวจพบวัตถุ (สีแดง)' : 'เซ็นเซอร์: ว่าง (สีเขียว)'} />
+                <div className="slot-top">
+                  <strong>{slot.code}</strong>
+                  <span>{slot.status === 'available' ? 'ว่าง' : slot.status === 'booked' ? 'ถูกจอง' : 'ไม่พร้อม/ซ่อม'}</span>
+                </div>
+                <small>ลำดับ {slot.slot_order} · {slot.type}</small>
+                <button className="button compact" onClick={() => chooseSwap(slot)}>{selected ? 'เลือกเพื่อสลับ' : 'เลือกสลับตำแหน่ง'}</button>
+                {' '}
+                <button className="button compact" onClick={() => rename(slot)}>เปลี่ยนชื่อ</button>
+                <select value={slot.status} onChange={(e) => patchSlot(slot, { status: e.target.value })}>
+                  <option value="available">ว่าง</option>
+                  <option value="booked">ถูกจอง</option>
+                  <option value="unavailable">ไม่พร้อม/ซ่อม</option>
+                </select>
+                <button className="button danger compact" onClick={() => maintenance(slot)}>แจ้งซ่อม</button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ─── ประวัติการซ่อมบำรุง ─── */}
+      <section className="panel">
+        <div className="panel-title">
+          <h2>ประวัติการซ่อมบำรุง</h2>
+          <span className="muted">{(data.maintenance_logs || []).length} รายการ</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>ช่องจอด</th><th>รายละเอียดปัญหา</th><th>สถานะ</th><th>แจ้งเมื่อ</th><th>ปิดงานเมื่อ</th><th /></tr></thead>
+            <tbody>
+              {(data.maintenance_logs || []).slice().sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || ''))).map((item) => (
+                <tr key={item.id}>
+                  <td>{item.slot_id}</td>
+                  <td>{item.problem_detail}</td>
+                  <td><span className={`badge ${item.status === 'open' ? 'unavailable' : 'available'}`}>{item.status === 'open' ? 'กำลังซ่อม' : 'ปิดงานแล้ว'}</span></td>
+                  <td>{new Date(item.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td>
+                  <td>{item.resolved_at ? new Date(item.resolved_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }) : '-'}</td>
+                  <td>{item.status === 'open' && <button className="button primary compact" onClick={() => resolve(item)}>ซ่อมเสร็จ</button>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
 }
 
 function App() {
@@ -1330,7 +1529,7 @@ function App() {
 
   const liveUser = data.users.find((item) => item.id === user.id) || user;
   const content = liveUser.role === 'admin'
-    ? { dashboard: <AdminDashboard data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, layout: <AdminLayout data={data} notify={notify} /> }[view]
+    ? { dashboard: <AdminDashboard data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, layout: <AdminLayout data={data} reload={load} notify={notify} /> }[view]
     : { booking: <UserBooking data={data} user={liveUser} notify={notify} setView={setView} />, control: <UserControl data={data} user={liveUser} notify={notify} />, history: <UserHistory data={data} user={liveUser} notify={notify} /> }[view];
   return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
 }
