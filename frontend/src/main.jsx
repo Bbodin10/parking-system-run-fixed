@@ -1250,10 +1250,17 @@ function AdminLayout({ data, reload, notify }) {
   async function resolve(item) { try { await api(`/admin/maintenance/${item.id}/resolve`, { method: 'POST' }); notify('ปิดงานซ่อมและคืนสถานะช่องว่างแล้ว'); } catch (err) { notify(err.message, true); } }
   async function uploadMap(event) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formEl = event.currentTarget;
+    const form = new FormData(formEl);
     form.set('floor', floor);
-    try { await api('/admin/maps', { method: 'POST', body: form }); event.currentTarget.reset(); await reload?.(); notify('อัปโหลดผังลานจอดแล้ว ✅'); }
-    catch (err) { notify(err.message, true); }
+    try {
+      await api('/admin/maps', { method: 'POST', body: form });
+      formEl?.reset();
+      await reload?.();
+      notify('อัปโหลดผังลานจอดแล้ว ✅');
+    } catch (err) {
+      notify(err.message, true);
+    }
   }
   async function renameMap(item) {
     const newName = window.prompt('ชื่อผังใหม่', item.name);
