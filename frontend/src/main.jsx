@@ -1246,7 +1246,19 @@ function AdminLayout({ data, reload, notify }) {
   async function patchSlot(slot, patch) { try { await api(`/admin/slots/${slot.id}`, { method: 'PATCH', body: JSON.stringify(patch) }); notify('อัปเดตช่องจอดแล้ว'); } catch (err) { notify(err.message, true); } }
   async function rename(slot) { const code = window.prompt('ชื่อช่องจอดใหม่', slot.code); if (code) patchSlot(slot, { code }); }
   async function chooseSwap(slot) { if (!selected) return setSelected(slot.id); if (selected === slot.id) return setSelected(null); try { await api('/admin/slots/swap', { method: 'POST', body: JSON.stringify({ firstId: selected, secondId: slot.id }) }); setSelected(null); notify('สลับตำแหน่งช่องจอดแล้ว'); } catch (err) { notify(err.message, true); } }
-  async function maintenance(slot) { const problemDetail = window.prompt(`รายละเอียดการซ่อมช่อง ${slot.code}`); if (!problemDetail) return; try { await api('/admin/maintenance', { method: 'POST', body: JSON.stringify({ slotId: slot.id, problemDetail }) }); notify('แจ้งซ่อมแล้ว ช่องถูกเปลี่ยนเป็นสีเทา'); } catch (err) { notify(err.message, true); } }
+  async function maintenance(slot, defaultReason = 'ปิดปรับปรุง / ซ่อมบำรุง') {
+    const input = window.prompt(`รายละเอียดการแจ้งซ่อมช่อง ${slot.code}`, defaultReason);
+    if (input === null) return false;
+    const problemDetail = input.trim() || defaultReason;
+    try {
+      await api('/admin/maintenance', { method: 'POST', body: JSON.stringify({ slotId: slot.id, problemDetail }) });
+      notify(`แจ้งซ่อมช่อง ${slot.code} แล้ว (${problemDetail})`);
+      return true;
+    } catch (err) {
+      notify(err.message, true);
+      return false;
+    }
+  }
   async function resolve(item) { try { await api(`/admin/maintenance/${item.id}/resolve`, { method: 'POST' }); notify('ปิดงานซ่อมและคืนสถานะช่องว่างแล้ว'); } catch (err) { notify(err.message, true); } }
   async function uploadMap(event) {
     event.preventDefault();
@@ -1423,12 +1435,44 @@ function AdminLayout({ data, reload, notify }) {
                 <button className="button compact" onClick={() => chooseSwap(slot)}>{selected ? 'เลือกเพื่อสลับ' : 'เลือกสลับตำแหน่ง'}</button>
                 {' '}
                 <button className="button compact" onClick={() => rename(slot)}>เปลี่ยนชื่อ</button>
-                <select value={slot.status} onChange={(e) => patchSlot(slot, { status: e.target.value })}>
+                <select
+                  value={slot.status}
+                  onChange={async (e) => {
+                    const nextVal = e.target.value;
+                    if (nextVal === 'unavailable') {
+                      await maintenance(slot);
+                    } else if (slot.status === 'unavailable' && nextVal === 'available') {
+                      const openJob = (data.maintenance_logs || []).find((m) => m.slot_id === slot.id && m.status === 'open');
+                      if (openJob) {
+                        await resolve(openJob);
+                      } else {
+                        await patchSlot(slot, { status: 'available' });
+                      }
+                    } else {
+                      await patchSlot(slot, { status: nextVal });
+                    }
+                  }}
+                >
                   <option value="available">ว่าง</option>
                   <option value="booked">ถูกจอง</option>
                   <option value="unavailable">ไม่พร้อม/ซ่อม</option>
                 </select>
-                <button className="button danger compact" onClick={() => maintenance(slot)}>แจ้งซ่อม</button>
+                {openMaintenance.some((m) => m.slot_id === slot.id) ? (
+                  <button
+                    className="button primary compact"
+                    title="ปิดงานซ่อมและคืนสถานะช่องว่าง"
+                    onClick={() => {
+                      const openJob = openMaintenance.find((m) => m.slot_id === slot.id);
+                      if (openJob) resolve(openJob);
+                    }}
+                  >
+                    ซ่อมเสร็จ
+                  </button>
+                ) : (
+                  <button className="button danger compact" onClick={() => maintenance(slot)}>
+                    แจ้งซ่อม
+                  </button>
+                )}
               </div>
             );
           })}
