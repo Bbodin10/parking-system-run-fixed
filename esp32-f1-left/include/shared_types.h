@@ -17,8 +17,8 @@ const float HYSTERESIS_ENTER_CM = 9.0f;       // ต่ำกว่านี้ 
 const float HYSTERESIS_EXIT_CM = 10.0f;       // สูงกว่านี้ = ช่องว่าง
 const unsigned long DEBOUNCE_TIME_MS = 2000;  // สถานะต้องนิ่ง 2 วินาที
 const unsigned long TERMINAL_LOG_INTERVAL = 2000;
-const unsigned long NETWORK_COOLDOWN_MS = 2000;
-const unsigned long PERIODIC_SYNC_MS = 15000;
+const unsigned long NETWORK_COOLDOWN_MS = 1500;
+const unsigned long PERIODIC_SYNC_MS = 2500;  // ซิงค์สถานะไม้กั้นและเซ็นเซอร์ทุก 2.5 วินาที (ตอบสนองภายใน 2-3 วิ)
 const int SERVO_CLOSED_ANGLE = 0;
 const int SERVO_OPEN_ANGLE = 90;
 

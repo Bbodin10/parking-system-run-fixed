@@ -392,7 +392,7 @@ bool transmitBatchTelemetry(const char *reason) {
 
   http.begin(client, url);
   http.addHeader("Content-Type", "application/json");
-  http.setTimeout(5000);
+  http.setTimeout(3000);
 
   // สร้าง Batch JSON Payload รวมทั้ง 6 ช่องของ Floor 2 (B1-B6)
   JsonDocument outDoc;
