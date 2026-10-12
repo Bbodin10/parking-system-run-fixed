@@ -599,9 +599,16 @@ function UserControl({ data, user, notify }) {
           <div className="slot-card booked control-card" key={booking.id}>
             <div className="slot-top">
               <strong>{slot?.code || booking.slot_id}</strong>
-              <span className={`badge ${isOvertime ? 'unavailable' : booking.status === 'active' ? 'available' : 'pending'}`}>
-                {isOvertime ? '⚠️ เกินเวลา' : booking.status === 'active' ? '🚗 กำลังจอด' : '⏳ รอเข้าจอด'}
-              </span>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {device && (
+                  <span className={`badge ${device.state === 'open' ? 'available' : 'unavailable'}`}>
+                    {device.state === 'open' ? '🔓 ไม้กั้นเปิด' : '🔒 ไม้กั้นปิด'}
+                  </span>
+                )}
+                <span className={`badge ${isOvertime ? 'unavailable' : booking.status === 'active' ? 'available' : 'pending'}`}>
+                  {isOvertime ? '⚠️ เกินเวลา' : booking.status === 'active' ? '🚗 กำลังจอด' : '⏳ รอเข้าจอด'}
+                </span>
+              </div>
             </div>
 
             {/* ข้อมูลเวลา */}
@@ -728,22 +735,51 @@ function UserControl({ data, user, notify }) {
 
             {/* อุปกรณ์ควบคุมไม้กั้น */}
             <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-              <small style={{ display: 'block', color: device ? (device.status === 'online' ? 'var(--cyan)' : 'var(--muted)') : 'var(--muted)' }}>
-                {device ? `⌁ ${device.name} · ${device.status === 'online' ? 'ออนไลน์' : 'ออฟไลน์'}` : 'ยังไม่ได้ผูกอุปกรณ์ควบคุมกับช่องนี้'}
-              </small>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <small style={{ color: device ? (device.status === 'online' ? 'var(--cyan)' : 'var(--muted)') : 'var(--muted)' }}>
+                  {device ? `⌁ ${device.name} · ${device.status === 'online' ? 'ออนไลน์' : 'ออฟไลน์'}` : 'ยังไม่ได้ผูกอุปกรณ์ควบคุมกับช่องนี้'}
+                </small>
+              </div>
+
+              {device && (
+                <div style={{
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  marginBottom: 8,
+                  background: device.state === 'open' ? 'rgba(34, 197, 94, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                  border: `1px solid ${device.state === 'open' ? 'rgba(34, 197, 94, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>{device.state === 'open' ? '🔓' : '🔒'}</span>
+                    <span>สถานะไม้กั้น:</span>
+                  </span>
+                  <span style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: device.state === 'open' ? 'var(--green)' : '#f87171',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5
+                  }}>
+                    {device.state === 'open' ? '🟢 เปิดอยู่ (ยกขึ้น)' : '🔴 ปิดอยู่ (กั้นช่อง)'}
+                  </span>
+                </div>
+              )}
 
               {device && (
                 isNoShowExpired ? (
-                  <button className="button full" disabled style={{ marginTop: 8, opacity: 0.5, cursor: 'not-allowed' }}>
+                  <button className="button full" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                     🔒 ตัดการควบคุมแล้ว (No-Show เกิน 15 นาที)
                   </button>
                 ) : (
                   <button
                     className={`button full ${device.state === 'open' ? 'danger' : 'primary'}`}
-                    style={{ marginTop: 8 }}
                     onClick={() => toggle(device)}
                   >
-                    {device.state === 'open' ? '🔒 ล็อกไม้กั้น (ปิด)' : '🔓 ปลดล็อกไม้กั้น (เปิด)'}
+                    {device.state === 'open' ? '🔒 สั่งปิดไม้กั้น' : '🔓 สั่งเปิดไม้กั้น'}
                   </button>
                 )
               )}
@@ -1534,7 +1570,7 @@ function App() {
   useEffect(() => {
     if (!user) return;
     load();
-    const interval = setInterval(load, 2000);
+    const interval = setInterval(load, 1000);
     return () => clearInterval(interval);
   }, [user?.id]);
 
