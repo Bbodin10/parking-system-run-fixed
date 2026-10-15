@@ -404,28 +404,30 @@ function UserBooking({ data, user, notify, setView }) {
               </div>
             )}
 
-            <label>
-              วันที่จอง
-              <input
-                required
-                type="date"
-                min={new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())}
-                value={booking.date || ''}
-                onChange={(event) => { setBooking({ ...booking, date: event.target.value }); setModalError(''); }}
-              />
-            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10, marginTop: 10 }}>
+              <label style={{ margin: 0 }}>
+                วันที่จอง
+                <input
+                  required
+                  type="date"
+                  min={new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())}
+                  value={booking.date || ''}
+                  onChange={(event) => { setBooking({ ...booking, date: event.target.value }); setModalError(''); }}
+                />
+              </label>
 
-            <label>
-              เวลาเริ่ม
-              <input
-                required
-                type="time"
-                value={booking.time || ''}
-                onChange={(event) => { setBooking({ ...booking, time: event.target.value }); setModalError(''); }}
-              />
-            </label>
+              <label style={{ margin: 0 }}>
+                เวลาเริ่ม
+                <input
+                  required
+                  type="time"
+                  value={booking.time || ''}
+                  onChange={(event) => { setBooking({ ...booking, time: event.target.value }); setModalError(''); }}
+                />
+              </label>
+            </div>
 
-            <label>
+            <label style={{ marginTop: 10 }}>
               จำนวนชั่วโมง (ชั่วโมงละ ฿20)
               <input
                 required
@@ -438,7 +440,7 @@ function UserBooking({ data, user, notify, setView }) {
             </label>
 
             {/* ส่วนเลือกรถยนต์ที่จะเข้าจอด */}
-            <div style={{ marginTop: 4, marginBottom: 8 }}>
+            <div style={{ marginTop: 8, marginBottom: 8 }}>
               <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13, color: '#e2e8f0' }}>
                 🚗 เลือกรถที่จะเข้าจอด <span style={{ color: '#f87171' }}>*</span>
               </label>
@@ -539,28 +541,29 @@ function UserBooking({ data, user, notify, setView }) {
 
             {/* นโยบายการยกเลิก */}
             <div style={{
+              marginTop: 10,
               background: 'rgba(54, 220, 201, 0.08)',
               border: '1px solid rgba(54, 220, 201, 0.25)',
               borderRadius: 8,
-              padding: '10px 12px',
-              fontSize: 12,
-              lineHeight: 1.5,
+              padding: '8px 10px',
+              fontSize: 11.5,
+              lineHeight: 1.45,
               color: '#94a3b8'
             }}>
               <strong style={{ color: 'var(--cyan)', display: 'block', marginBottom: 2 }}>ℹ️ นโยบายการยกเลิกการจอง:</strong>
-              สามารถกดยกเลิกการจองและรับเงินคืนเต็มจำนวนได้ทุกเมื่อ <strong>จนถึงก่อนเวลาเริ่มจอง 15 นาที</strong> (หากเหลือน้อยกว่า 15 นาทีจะไม่สามารถยกเลิกได้)
+              ยกเลิกและรับเงินคืนเต็มจำนวนได้ทุกเมื่อ <strong>จนถึงก่อนเวลาเริ่มจอง 15 นาที</strong>
             </div>
 
             {/* Credit & Fee Box */}
             <div className="booking-credit-summary" style={{
-              marginTop: 18,
-              padding: '14px 16px',
+              marginTop: 12,
+              padding: '12px 14px',
               borderRadius: 10,
               background: isInsufficient ? 'rgba(239, 68, 68, 0.08)' : 'rgba(21, 33, 38, 0.85)',
               border: `1px solid ${isInsufficient ? 'rgba(239, 68, 68, 0.35)' : 'rgba(48, 66, 82, 0.8)'}`,
               display: 'flex',
               flexDirection: 'column',
-              gap: 10
+              gap: 8
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span className="muted" style={{ fontSize: 13 }}>ยอดที่ต้องชำระ ({booking.duration || 1} ชม.)</span>
