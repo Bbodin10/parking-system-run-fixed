@@ -69,6 +69,14 @@ function formatThaiTime(time) {
   return `${h}:${m}`;
 }
 
+const VEHICLE_TYPES = [
+  'รถเก๋ง (Sedan)',
+  'รถกระบะ (Pickup)',
+  'รถสปอร์ต (Sport)',
+  'รถตู้ (Van)',
+  'รถอเนกประสงค์ (SUV)'
+];
+
 const LINE_LOGIN_CLIENT_ID = '2011816169';
 function redirectToLine(state = 'login') {
   const redirectUri = window.location.origin;
@@ -280,10 +288,24 @@ function UserBooking({ data, user, notify, setView }) {
   const userCredit = Number(user?.credit || 0);
   const isInsufficient = userCredit < totalAmount;
 
+  const userVehicles = useMemo(() => (data.vehicles || []).filter((v) => v.user_id === user.id), [data.vehicles, user.id]);
+  const defaultVehicle = useMemo(() => userVehicles.find((v) => v.is_default) || userVehicles[0] || null, [userVehicles]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [manualPlate, setManualPlate] = useState('');
+  const [manualType, setManualType] = useState('รถเก๋ง (Sedan)');
+  const [saveManualVehicle, setSaveManualVehicle] = useState(true);
+
   const handleSelectSlot = (slot) => {
     setSelected(slot);
     setModalError('');
     setBooking(getInitialBookingTime());
+    const dVehicle = userVehicles.find((v) => v.is_default) || userVehicles[0];
+    if (dVehicle) {
+      setSelectedVehicleId(dVehicle.id);
+      setManualPlate('');
+    } else {
+      setSelectedVehicleId('manual');
+    }
   };
 
   const book = async (event) => {
@@ -295,11 +317,34 @@ function UserBooking({ data, user, notify, setView }) {
       return;
     }
 
+    let vehiclePayload = {};
+    if (selectedVehicleId && selectedVehicleId !== 'manual') {
+      const chosen = userVehicles.find((v) => v.id === selectedVehicleId);
+      if (chosen) {
+        vehiclePayload = {
+          vehicleId: chosen.id,
+          licensePlate: chosen.license_plate,
+          vehicleType: chosen.vehicle_type
+        };
+      }
+    } else {
+      const trimmed = manualPlate.trim();
+      if (!trimmed) {
+        setModalError('กรุณาระบุเลขทะเบียนรถยนต์');
+        return;
+      }
+      vehiclePayload = {
+        licensePlate: trimmed,
+        vehicleType: manualType,
+        saveVehicle: saveManualVehicle
+      };
+    }
+
     setSubmitting(true);
     try {
       await api('/bookings', {
         method: 'POST',
-        body: JSON.stringify({ ...booking, slotId: selected.id })
+        body: JSON.stringify({ ...booking, slotId: selected.id, ...vehiclePayload })
       });
       setSelected(null);
       setBooking(getInitialBookingTime());
@@ -391,6 +436,106 @@ function UserBooking({ data, user, notify, setView }) {
                 onChange={(event) => { setBooking({ ...booking, duration: Number(event.target.value) }); setModalError(''); }}
               />
             </label>
+
+            {/* ส่วนเลือกรถยนต์ที่จะเข้าจอด */}
+            <div style={{ marginTop: 4, marginBottom: 8 }}>
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13, color: '#e2e8f0' }}>
+                🚗 เลือกรถที่จะเข้าจอด <span style={{ color: '#f87171' }}>*</span>
+              </label>
+              {userVehicles.length > 0 ? (
+                <>
+                  <select
+                    value={selectedVehicleId}
+                    onChange={(event) => {
+                      setSelectedVehicleId(event.target.value);
+                      setModalError('');
+                    }}
+                    style={{ width: '100%', marginBottom: selectedVehicleId === 'manual' ? 8 : 0 }}
+                  >
+                    {userVehicles.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.license_plate} · {v.vehicle_type} {v.is_default ? '(คันหลัก)' : ''}
+                      </option>
+                    ))}
+                    <option value="manual">+ ใช้รถคันอื่น / กรอกทะเบียนใหม่</option>
+                  </select>
+                  {selectedVehicleId === 'manual' && (
+                    <div style={{
+                      background: 'rgba(21, 28, 38, 0.7)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 8,
+                      padding: 12,
+                      marginTop: 8,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10
+                    }}>
+                      <label style={{ fontSize: 12, margin: 0 }}>
+                        เลขทะเบียนรถ
+                        <input
+                          type="text"
+                          placeholder="เช่น 1กข 9999 หรือ กข 1234 กทม."
+                          value={manualPlate}
+                          onChange={(e) => { setManualPlate(e.target.value); setModalError(''); }}
+                          required
+                        />
+                      </label>
+                      <label style={{ fontSize: 12, margin: 0 }}>
+                        ชนิดรถยนต์
+                        <select value={manualType} onChange={(e) => setManualType(e.target.value)}>
+                          {VEHICLE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', margin: '2px 0 0' }}>
+                        <input
+                          type="checkbox"
+                          checked={saveManualVehicle}
+                          onChange={(e) => setSaveManualVehicle(e.target.checked)}
+                          style={{ width: 'auto' }}
+                        />
+                        <span>บันทึกรถคันนี้ไว้ในรายการยานพาหนะของฉัน</span>
+                      </label>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{
+                  background: 'rgba(21, 28, 38, 0.7)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  padding: 12,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10
+                }}>
+                  <label style={{ fontSize: 12, margin: 0 }}>
+                    เลขทะเบียนรถ
+                    <input
+                      type="text"
+                      placeholder="เช่น 1กข 9999 หรือ กข 1234 กทม."
+                      value={manualPlate}
+                      onChange={(e) => { setManualPlate(e.target.value); setModalError(''); }}
+                      required
+                    />
+                  </label>
+                  <label style={{ fontSize: 12, margin: 0 }}>
+                    ชนิดรถยนต์
+                    <select value={manualType} onChange={(e) => setManualType(e.target.value)}>
+                      {VEHICLE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', margin: '2px 0 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={saveManualVehicle}
+                      onChange={(e) => setSaveManualVehicle(e.target.checked)}
+                      style={{ width: 'auto' }}
+                    />
+                    <span>บันทึกรถคันนี้ไว้ในรายการยานพาหนะของฉัน</span>
+                  </label>
+                </div>
+              )}
+            </div>
 
             {/* นโยบายการยกเลิก */}
             <div style={{
@@ -619,6 +764,25 @@ function UserControl({ data, user, notify }) {
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>
                 ระยะเวลาจอง: {booking.duration} ชม. · ยอดที่ชำระ: ฿{formatMoney(booking.amount)}
               </div>
+              {booking.license_plate && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <span style={{
+                    background: 'rgba(54, 220, 201, 0.1)',
+                    border: '1px solid rgba(54, 220, 201, 0.25)',
+                    borderRadius: 6,
+                    padding: '2px 8px',
+                    fontSize: 12,
+                    color: 'var(--cyan)',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontWeight: 600
+                  }}>
+                    🚗 {booking.license_plate}
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    ({booking.vehicle_type || 'รถเก๋ง (Sedan)'})
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* สถานะกรณีรอเข้าจอด (pending) */}
@@ -797,8 +961,92 @@ function UserControl({ data, user, notify }) {
 
 function UserHistory({ data, user, notify }) {
   const [request, setRequest] = useState({ amount: '', reason: '' });
+  const [vehicleModal, setVehicleModal] = useState(null); // 'add' | 'edit' | null
+  const [vehicleForm, setVehicleForm] = useState({ license_plate: '', vehicle_type: 'รถเก๋ง (Sedan)', brand: '', model: '', color: '', is_default: false });
+  const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
+  const [vehicleError, setVehicleError] = useState('');
+
+  const myVehicles = useMemo(() => (data.vehicles || []).filter((v) => v.user_id === user.id), [data.vehicles, user.id]);
   const mine = data.bookings.filter((booking) => booking.user_id === user.id).sort((a, b) => b.created_at.localeCompare(a.created_at));
   const requests = (data.credit_requests || []).filter((item) => item.user_id === user.id).sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+  function openAddVehicle() {
+    setVehicleForm({
+      license_plate: '',
+      vehicle_type: 'รถเก๋ง (Sedan)',
+      brand: '',
+      model: '',
+      color: '',
+      is_default: myVehicles.length === 0
+    });
+    setVehicleError('');
+    setVehicleModal('add');
+  }
+
+  function openEditVehicle(veh) {
+    setVehicleForm({
+      id: veh.id,
+      license_plate: veh.license_plate,
+      vehicle_type: veh.vehicle_type || 'รถเก๋ง (Sedan)',
+      brand: veh.brand || '',
+      model: veh.model || '',
+      color: veh.color || '',
+      is_default: Boolean(veh.is_default)
+    });
+    setVehicleError('');
+    setVehicleModal('edit');
+  }
+
+  async function handleSaveVehicle(e) {
+    e.preventDefault();
+    setVehicleError('');
+    const plate = vehicleForm.license_plate?.trim();
+    if (!plate) return setVehicleError('กรุณากรอกเลขทะเบียนรถยนต์');
+    setVehicleSubmitting(true);
+    try {
+      if (vehicleModal === 'add') {
+        await api('/vehicles', {
+          method: 'POST',
+          body: JSON.stringify(vehicleForm)
+        });
+        notify('เพิ่มยานพาหนะสำเร็จแล้ว 🚗');
+      } else {
+        await api(`/vehicles/${vehicleForm.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify(vehicleForm)
+        });
+        notify('อัปเดตข้อมูลยานพาหนะแล้ว 🚗');
+      }
+      setVehicleModal(null);
+    } catch (err) {
+      setVehicleError(err.message || 'บันทึกข้อมูลไม่สำเร็จ');
+    } finally {
+      setVehicleSubmitting(false);
+    }
+  }
+
+  async function handleSetDefaultVehicle(id) {
+    try {
+      await api(`/vehicles/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_default: true })
+      });
+      notify('ตั้งเป็นรถคันหลักเรียบร้อยแล้ว ⭐');
+    } catch (err) {
+      notify(err.message, true);
+    }
+  }
+
+  async function handleDeleteVehicle(id, plate) {
+    if (!window.confirm(`ยืนยันการลบรถทะเบียน "${plate}" ออกจากระบบ?`)) return;
+    try {
+      await api(`/vehicles/${id}`, { method: 'DELETE' });
+      notify('ลบข้อมูลรถเรียบร้อยแล้ว');
+    } catch (err) {
+      notify(err.message, true);
+    }
+  }
+
   async function action(id, type) {
     if (type === 'cancel' && !window.confirm('คุณต้องการยกเลิกการจองและรับคืนเครดิตเข้าบัญชีใช่หรือไม่?')) return;
     if (type === 'finish' && !window.confirm('ยืนยันจบการจอดและสรุปค่าบริการใช่หรือไม่?')) return;
@@ -898,6 +1146,88 @@ function UserHistory({ data, user, notify }) {
     </section>
     <section className="panel">
       <div className="panel-title">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22 }}>🚗</span>
+          <div>
+            <h2 style={{ margin: 0 }}>ยานพาหนะของฉัน</h2>
+            <span className="muted" style={{ fontSize: 13 }}>{myVehicles.length} คันในระบบ</span>
+          </div>
+        </div>
+        <button type="button" className="button primary compact" onClick={openAddVehicle}>
+          + เพิ่มรถยนต์
+        </button>
+      </div>
+      <p className="muted" style={{ marginBottom: 14 }}>
+        บันทึกข้อมูลป้ายทะเบียนและชนิดรถยนต์ของคุณ เพื่อความสะดวก รวดเร็ว และแม่นยำในการจองที่จอดรถ
+      </p>
+
+      {myVehicles.length > 0 ? (
+        <div className="vehicle-grid">
+          {myVehicles.map((v) => (
+            <div className={`vehicle-card ${v.is_default ? 'is-default' : ''}`} key={v.id}>
+              <div className="vehicle-header">
+                <span className="vehicle-plate">{v.license_plate}</span>
+                {v.is_default ? (
+                  <span className="badge available">⭐ คันหลัก</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="button compact secondary"
+                    style={{ fontSize: 11, padding: '2px 8px' }}
+                    onClick={() => handleSetDefaultVehicle(v.id)}
+                    title="ตั้งเป็นรถคันหลักสำหรับเลือกจองอัตโนมัติ"
+                  >
+                    ตั้งเป็นคันหลัก
+                  </button>
+                )}
+              </div>
+              <div className="vehicle-type">
+                🏷️ {v.vehicle_type || 'รถเก๋ง (Sedan)'}
+              </div>
+              {(v.brand || v.model || v.color) && (
+                <div className="vehicle-meta">
+                  {v.brand && <span>ยี่ห้อ: {v.brand}</span>}
+                  {v.model && <span>รุ่น: {v.model}</span>}
+                  {v.color && <span>สี: {v.color}</span>}
+                </div>
+              )}
+              <div className="vehicle-actions">
+                <button
+                  type="button"
+                  className="button compact secondary"
+                  onClick={() => openEditVehicle(v)}
+                >
+                  ✏️ แก้ไข
+                </button>
+                <button
+                  type="button"
+                  className="button compact danger"
+                  onClick={() => handleDeleteVehicle(v.id, v.license_plate)}
+                >
+                  🗑️ ลบ
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{
+          textAlign: 'center',
+          padding: '24px 16px',
+          color: 'var(--muted)',
+          background: 'rgba(255,255,255,0.02)',
+          borderRadius: 8,
+          border: '1px dashed var(--border)'
+        }}>
+          <p style={{ margin: '0 0 10px', fontSize: 14 }}>🚗 ยังไม่มีข้อมูลยานพาหนะที่บันทึกไว้</p>
+          <button type="button" className="button secondary compact" onClick={openAddVehicle}>
+            + กดเพิ่มรถยนต์ของคุณตอนนี้
+          </button>
+        </div>
+      )}
+    </section>
+    <section className="panel">
+      <div className="panel-title">
         <h2>ขอเติมเครดิต</h2>
         <span className="muted">เครดิตปัจจุบัน <strong>฿{formatMoney(user.credit)}</strong></span>
       </div>
@@ -984,11 +1314,105 @@ function UserHistory({ data, user, notify }) {
         </div>
       )}
     </section>
-    <section className="panel"><div className="panel-title"><h2>รายการจองล่าสุด</h2><span className="muted">{mine.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>วันเวลา</th><th>ระยะเวลา</th><th>ยอดเงิน</th><th>สถานะ</th><th /></tr></thead><tbody>{mine.map((booking) => {
+    <section className="panel"><div className="panel-title"><h2>รายการจองล่าสุด</h2><span className="muted">{mine.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ยานพาหนะ</th><th>วันเวลา</th><th>ระยะเวลา</th><th>ยอดเงิน</th><th>สถานะ</th><th /></tr></thead><tbody>{mine.map((booking) => {
       const start = parseThaiDateTime(booking.date, booking.time);
       const canCancel = booking.status === 'pending' && (start.getTime() - Date.now()) >= 15 * 60 * 1000;
-      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="button compact secondary" title="ทดสอบยิงเตือนเวลาใกล้หมด 15 นาทีเข้า LINE ทันที" onClick={async () => { try { await api(`/bookings/${booking.id}/test-remind`, { method: 'POST' }); notify(`ยิงแจ้งเตือนใกล้หมดเวลาช่อง ${booking.slot_id} เข้า LINE แล้ว ⏰`); } catch (err) { notify(err.message, true); } }}>⏰ เทสเตือนหมดเวลา</button><button type="button" className="button primary compact" onClick={() => action(booking.id, 'finish')}>จบการจอด (รับสลิป)</button>{booking.status === 'pending' && (canCancel ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel')}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว">🔒 หมดเวลายกเลิก</button>)}</div>}</td></tr>;
-    })}</tbody></table></div></section></>;
+      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: '#fff', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="button compact secondary" title="ทดสอบยิงเตือนเวลาใกล้หมด 15 นาทีเข้า LINE ทันที" onClick={async () => { try { await api(`/bookings/${booking.id}/test-remind`, { method: 'POST' }); notify(`ยิงแจ้งเตือนใกล้หมดเวลาช่อง ${booking.slot_id} เข้า LINE แล้ว ⏰`); } catch (err) { notify(err.message, true); } }}>⏰ เทสเตือนหมดเวลา</button><button type="button" className="button primary compact" onClick={() => action(booking.id, 'finish')}>จบการจอด (รับสลิป)</button>{booking.status === 'pending' && (canCancel ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel')}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว">🔒 หมดเวลายกเลิก</button>)}</div>}</td></tr>;
+    })}</tbody></table></div></section>
+
+    {vehicleModal && (
+      <div className="modal-backdrop" onMouseDown={() => setVehicleModal(null)}>
+        <form className="booking-modal" onSubmit={handleSaveVehicle} onMouseDown={(e) => e.stopPropagation()}>
+          <div className="modal-head">
+            <div>
+              <p className="eyebrow">{vehicleModal === 'add' ? 'ADD VEHICLE' : 'EDIT VEHICLE'}</p>
+              <h2>{vehicleModal === 'add' ? 'เพิ่มยานพาหนะใหม่' : 'แก้ไขข้อมูลยานพาหนะ'}</h2>
+            </div>
+            <button type="button" className="modal-close" onClick={() => setVehicleModal(null)}>×</button>
+          </div>
+          <p className="muted">ระบุเลขทะเบียนและเลือกชนิดรถยนต์</p>
+
+          {vehicleError && (
+            <div className="alert error" style={{ margin: '14px 0 10px', fontSize: 13 }}>
+              <span>⚠️ {vehicleError}</span>
+            </div>
+          )}
+
+          <label>
+            เลขทะเบียนรถ <span style={{ color: '#f87171' }}>*</span>
+            <input
+              type="text"
+              required
+              placeholder="เช่น 1กข 9999 หรือ กข 1234 กทม."
+              value={vehicleForm.license_plate}
+              onChange={(e) => setVehicleForm({ ...vehicleForm, license_plate: e.target.value })}
+            />
+          </label>
+
+          <label>
+            ชนิดรถยนต์ <span style={{ color: '#f87171' }}>*</span>
+            <select
+              value={vehicleForm.vehicle_type}
+              onChange={(e) => setVehicleForm({ ...vehicleForm, vehicle_type: e.target.value })}
+            >
+              {VEHICLE_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </label>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <label>
+              ยี่ห้อ (ถ้ามี)
+              <input
+                type="text"
+                placeholder="เช่น Toyota, Honda"
+                value={vehicleForm.brand}
+                onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value })}
+              />
+            </label>
+            <label>
+              รุ่น (ถ้ามี)
+              <input
+                type="text"
+                placeholder="เช่น Civic, Camry"
+                value={vehicleForm.model}
+                onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+              />
+            </label>
+          </div>
+
+          <label>
+            สีรถยนต์ (ถ้ามี)
+            <input
+              type="text"
+              placeholder="เช่น ขาว, ดำ, เทา, บรอนซ์"
+              value={vehicleForm.color}
+              onChange={(e) => setVehicleForm({ ...vehicleForm, color: e.target.value })}
+            />
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: '8px 0' }}>
+            <input
+              type="checkbox"
+              checked={vehicleForm.is_default}
+              onChange={(e) => setVehicleForm({ ...vehicleForm, is_default: e.target.checked })}
+              style={{ width: 'auto' }}
+            />
+            <span style={{ fontSize: 13 }}>ตั้งเป็นรถคันหลัก (เลือกอัตโนมัติเมื่อทำการจอง)</span>
+          </label>
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+            <button type="submit" className="button primary full" disabled={vehicleSubmitting}>
+              {vehicleSubmitting ? 'กำลังบันทึก...' : 'บันทึกข้อมูลรถ'}
+            </button>
+            <button type="button" className="button" onClick={() => setVehicleModal(null)}>
+              ยกเลิก
+            </button>
+          </div>
+        </form>
+      </div>
+    )}</>;
 }
 
 function AdminDashboard({ data }) {
@@ -998,7 +1422,7 @@ function AdminDashboard({ data }) {
   const userName = (id) => data.users.find((item) => item.id === id)?.name || id;
   return <><PageHead title="ภาพรวมและประวัติการจอง" description="ติดตามสถานะพื้นที่จอดและตรวจสอบรายการจองทั้งหมด" /><StatCards slots={data.slots} devices={data.devices} bookings={data.bookings} user={{ role: 'admin' }} />
     <section className="panel"><div className="panel-title"><h2>รายได้วันนี้</h2><strong className="highlight">฿{formatMoney(revenue)}</strong></div><p className="muted">รวมจากรายการจองประจำวันที่ {today}</p></section>
-    <section className="panel"><div className="panel-title"><h2>ประวัติการจองทั้งหมด</h2><span className="muted">{bookings.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ผู้จอง</th><th>วันที่</th><th>เวลา</th><th>ระยะเวลา</th><th>จำนวนเงิน</th><th>สถานะ</th><th>ทำรายการเมื่อ</th></tr></thead><tbody>{bookings.length ? bookings.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{userName(booking.user_id)}</td><td>{booking.date}</td><td>{formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{new Date(booking.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td></tr>) : <tr><td colSpan="8">ยังไม่มีรายการจอง</td></tr>}</tbody></table></div></section></>;
+    <section className="panel"><div className="panel-title"><h2>ประวัติการจองทั้งหมด</h2><span className="muted">{bookings.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ผู้จอง</th><th>ยานพาหนะ</th><th>วันที่</th><th>เวลา</th><th>ระยะเวลา</th><th>จำนวนเงิน</th><th>สถานะ</th><th>ทำรายการเมื่อ</th></tr></thead><tbody>{bookings.length ? bookings.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{userName(booking.user_id)}</td><td>{booking.license_plate ? <div><strong style={{ color: '#fff', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || '-'}</div></div> : '-'}</td><td>{booking.date}</td><td>{formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{new Date(booking.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td></tr>) : <tr><td colSpan="9">ยังไม่มีรายการจอง</td></tr>}</tbody></table></div></section></>;
 }
 
 function AdminUsers({ data, notify }) {

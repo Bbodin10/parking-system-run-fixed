@@ -243,3 +243,16 @@
 
 
 .live-pill{color:var(--cyan)!important;border-color:#1f5e57!important;background:#0f2e2a!important;font-variant-numeric:tabular-nums}.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse-live 1.4s ease-in-out infinite}@keyframes pulse-live{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.75)}}
+
+/* ================= VEHICLE MANAGEMENT STYLES ================= */
+.vehicle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:14px}
+.vehicle-card{background:linear-gradient(145deg,rgba(26,34,45,0.8),rgba(20,27,36,0.9));border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;position:relative;transition:border-color .18s,transform .18s}
+.vehicle-card:hover{border-color:#48596f;transform:translateY(-1px)}
+.vehicle-card.is-default{border-color:rgba(54,220,201,0.5);box-shadow:0 0 16px rgba(54,220,201,0.08)}
+.vehicle-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.vehicle-plate{font:700 18px 'JetBrains Mono';color:#ffffff;letter-spacing:.03em}
+.vehicle-type{font-size:13px;color:var(--cyan);font-weight:600}
+.vehicle-meta{font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.vehicle-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:4px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.06)}
+.vehicle-select-box{margin-top:12px;padding:12px;border-radius:9px;background:rgba(21,28,38,0.7);border:1px solid var(--border)}
+

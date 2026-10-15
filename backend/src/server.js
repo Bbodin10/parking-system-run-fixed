@@ -7,6 +7,28 @@ import jwt from 'jsonwebtoken';
 import cron from 'node-cron';
 import multer from 'multer';
 import { createClient } from '@supabase/supabase-js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const VEHICLES_FILE = path.resolve('database/vehicles_fallback.json');
+function readFallbackVehicles() {
+  try {
+    if (fs.existsSync(VEHICLES_FILE)) {
+      return JSON.parse(fs.readFileSync(VEHICLES_FILE, 'utf8') || '[]');
+    }
+  } catch (e) {
+    console.warn('[vehicles fallback read error]', e.message);
+  }
+  return [];
+}
+function writeFallbackVehicles(list) {
+  try {
+    fs.mkdirSync(path.dirname(VEHICLES_FILE), { recursive: true });
+    fs.writeFileSync(VEHICLES_FILE, JSON.stringify(list, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[vehicles fallback write error]', e.message);
+  }
+}
 
 const app=express();
 const configuredOrigins = [process.env.CORS_ORIGIN, process.env.CORS_ORIGIN_PROD]
@@ -65,6 +87,7 @@ async function finishBooking(input,reason='manual'){
       '🧾 [สลิปสรุปการจอดรถ]',
       '━━━━━━━━━━━━━━━━━━━',
       `🅿️ ช่องจอด: ${b.slot_id}`,
+      ...(b.license_plate ? [`🚗 ทะเบียน: ${b.license_plate}${b.vehicle_type ? ` (${b.vehicle_type})` : ''}`] : []),
       `⏱️ ระยะเวลาจอดจริง: ${actualStr}`,
       `💰 ค่าบริการตามที่จอง: ฿${Number(b.amount).toLocaleString('th-TH')}`,
       ...(overtimeAmount > 0 ? [`⚠️ ค่าจอดเกินเวลา: ฿${overtimeAmount.toLocaleString('th-TH')}`] : []),
@@ -165,10 +188,10 @@ app.post('/api/auth/line',async(req,res)=>{try{const {code,redirectUri}=req.body
 app.post('/api/auth/line/unlink',auth,async(req,res)=>{try{await db.from('users').update({line_user_id:null}).eq('id',req.user.id);const updated=await userById(req.user.id);delete updated.password_hash;delete updated.password;res.json({ok:true,user:updated});}catch(error){res.status(400).json({error:error.message});}});
 app.post('/api/auth/register',async(req,res)=>{try{const {username,email,password,name}=req.body;if(!username||!password||!name)return res.status(400).json({error:'ข้อมูลไม่ครบถ้วน'});const u={id:id(),username,email:email?.toLowerCase(),password_hash:await bcrypt.hash(password,10),name,role:'user',credit:0,status:'active',line_link_code:crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase()};const {data,error}=await db.from('users').insert(u).select('*').single();if(error)throw error;delete data.password_hash;res.json({user:data,token:sign(data)});}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/auth/login',async(req,res)=>{try{const username=String(req.body.username||'').trim(),password=String(req.body.password||'');if(!username||!password)return res.status(400).json({error:'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'});const {data,error}=await db.from('users').select('*').or(`username.eq.${username},email.eq.${username}`).maybeSingle();if(error)throw error;if(!data||data.status!=='active'||!(data.password_hash?await bcrypt.compare(password,data.password_hash):data.password===password))return res.status(401).json({error:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'});delete data.password_hash;delete data.password;res.json({user:data,token:sign(data)});}catch(error){console.error('[login]',error);res.status(500).json({error:'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Backend และ Supabase'});}});
-app.get('/api/bootstrap',auth,async(req,res)=>{try{await lifecycle();const out={};const required=['slots','bookings','credit_history','devices'];const optional=['credit_requests','maintenance_logs','parking_maps'];const userFields='id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at';let usersQuery=db.from('users').select(userFields);if(req.user.role!=='admin')usersQuery=usersQuery.eq('id',req.user.id);const {data:users,error:userError}=await usersQuery;if(userError)throw userError;out.users=users||[];for(const table of required){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['bookings','credit_history'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error)throw error;out[table]=data||[];}for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&table==='credit_requests')query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);out[table]=[];}else out[table]=data||[];}res.json(out);}catch(error){console.error('[bootstrap]',error);res.status(500).json({error:`โหลดข้อมูลไม่สำเร็จ: ${error.message}`});}});
+app.get('/api/bootstrap',auth,async(req,res)=>{try{await lifecycle();const out={};const required=['slots','bookings','credit_history','devices'];const optional=['credit_requests','maintenance_logs','parking_maps','vehicles'];const userFields='id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at';let usersQuery=db.from('users').select(userFields);if(req.user.role!=='admin')usersQuery=usersQuery.eq('id',req.user.id);const {data:users,error:userError}=await usersQuery;if(userError)throw userError;out.users=users||[];for(const table of required){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['bookings','credit_history'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error)throw error;out[table]=data||[];}for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['credit_requests','vehicles'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);if(table==='vehicles'){out[table]=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);}else out[table]=[];}else{out[table]=data||[];if(table==='vehicles'&&out[table].length===0){const fallback=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);if(fallback.length>0)out[table]=fallback;}}}res.json(out);}catch(error){console.error('[bootstrap]',error);res.status(500).json({error:`โหลดข้อมูลไม่สำเร็จ: ${error.message}`});}});
 app.post('/api/bookings',auth,async(req,res)=>{
   try{
-    const {slotId,date,time,duration}=req.body;
+    const {slotId,date,time,duration,vehicleId,vehicle_id,licensePlate,license_plate,vehicleType,vehicle_type,saveVehicle,save_vehicle}=req.body;
     if(!slotId||!date||!time||!duration)return res.status(400).json({error:'กรุณากรอกข้อมูลการจองให้ครบถ้วน'});
     const dur=Number(duration);
     if(!Number.isFinite(dur)||dur<1)return res.status(400).json({error:'จำนวนชั่วโมงต้องไม่ต่ำกว่า 1'});
@@ -185,10 +208,58 @@ app.post('/api/bookings',auth,async(req,res)=>{
     if(!slot||slot.status!=='available')return res.status(400).json({error:'ช่องจอดนี้ไม่ว่างหรือกำลังซ่อมบำรุง'});
     const start=thaiDateTime(date,time);
     if(start<=new Date())return res.status(400).json({error:'เวลาเริ่มจองต้องเป็นเวลาในอนาคต'});
+    
+    const vId = vehicleId || vehicle_id || null;
+    const lPlate = String(licensePlate || license_plate || '').trim();
+    const vType = String(vehicleType || vehicle_type || 'รถเก๋ง (Sedan)').trim();
+    const shouldSave = Boolean(saveVehicle ?? save_vehicle);
+
+    if (shouldSave && lPlate && !vId) {
+      try {
+        const newV = {
+          id: id(),
+          user_id: u.id,
+          license_plate: lPlate,
+          vehicle_type: vType,
+          is_default: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        const { error: vErr } = await db.from('vehicles').insert(newV);
+        if (vErr) {
+          const all = readFallbackVehicles();
+          if (!all.some(x => x.user_id === u.id && x.license_plate === lPlate)) {
+            all.unshift(newV);
+            writeFallbackVehicles(all);
+          }
+        }
+      } catch (err) {
+        console.warn('[auto save vehicle]', err.message);
+      }
+    }
+
     const status='pending';
-    const b={id:id(),slot_id:slotId,user_id:u.id,date,time,duration:dur,amount,status};
-    const {data,error}=await db.from('bookings').insert(b).select('*').single();
-    if(error)return res.status(400).json({error:error.message});
+    const b={
+      id:id(),
+      slot_id:slotId,
+      user_id:u.id,
+      date,
+      time,
+      duration:dur,
+      amount,
+      status,
+      ...(vId ? { vehicle_id: vId } : {}),
+      ...(lPlate ? { license_plate: lPlate } : {}),
+      ...(vType ? { vehicle_type: vType } : {})
+    };
+    let {data,error}=await db.from('bookings').insert(b).select('*').single();
+    if(error){
+      // หากยังไม่ได้รัน migration 005 ให้ retry แบบไม่มีคอลัมน์ยานพาหนะ แล้วแนบข้อมูลส่งกลับ
+      const strippedB = { id: b.id, slot_id: b.slot_id, user_id: b.user_id, date: b.date, time: b.time, duration: b.duration, amount: b.amount, status: b.status };
+      const fallbackResult = await db.from('bookings').insert(strippedB).select('*').single();
+      if(fallbackResult.error) return res.status(400).json({error:fallbackResult.error.message});
+      data = { ...fallbackResult.data, vehicle_id: vId, license_plate: lPlate, vehicle_type: vType };
+    }
     await db.from('slots').update({status:'booked'}).eq('id',slotId);
     await credit(u.id,'reduce',amount,`ชำระค่าจองช่อง ${slotId}`);
     const updatedU = await userById(u.id);
@@ -197,6 +268,7 @@ app.post('/api/bookings',auth,async(req,res)=>{
         '🅿️ ยืนยันการจองที่จอดรถสำเร็จ!',
         '━━━━━━━━━━━━━━━━━━━',
         `📍 ช่องจอด: ${slotId}`,
+        ...(lPlate ? [`🚗 ทะเบียน: ${lPlate}${vType ? ` (${vType})` : ''}`] : []),
         `📅 วันที่: ${date}`,
         `⏰ เวลาเริ่ม: ${String(time).slice(0, 5)} น. (${dur} ชม.)`,
         `💰 ค่าบริการ: ฿${amount.toLocaleString('th-TH')}`,
@@ -211,6 +283,108 @@ app.post('/api/bookings',auth,async(req,res)=>{
   }catch(err){
     console.error('[booking error]',err);
     res.status(500).json({error:err.message||'จองที่จอดรถไม่สำเร็จ'});
+  }
+});
+
+// ─── Vehicles API (เพิ่ม, ลบ, แก้ไข ข้อมูลยานพาหนะ) ───
+app.get('/api/vehicles', auth, async (req, res) => {
+  try {
+    const { data, error } = await db.from('vehicles').select('*').eq('user_id', req.user.id).order('is_default', { ascending: false }).order('created_at', { ascending: false });
+    if (!error && Array.isArray(data)) return res.json(data);
+    const fallback = readFallbackVehicles().filter(v => v.user_id === req.user.id);
+    res.json(fallback);
+  } catch (e) {
+    const fallback = readFallbackVehicles().filter(v => v.user_id === req.user.id);
+    res.json(fallback);
+  }
+});
+
+app.post('/api/vehicles', auth, async (req, res) => {
+  try {
+    const { license_plate, licensePlate, vehicle_type, vehicleType, brand, model, color, is_default, isDefault } = req.body;
+    const plate = String(license_plate || licensePlate || '').trim();
+    const type = String(vehicle_type || vehicleType || 'รถเก๋ง (Sedan)').trim();
+    if (!plate) return res.status(400).json({ error: 'กรุณาระบุเลขป้ายทะเบียนรถ' });
+    const markDefault = Boolean(is_default ?? isDefault);
+
+    const newVehicle = {
+      id: id(),
+      user_id: req.user.id,
+      license_plate: plate,
+      vehicle_type: type,
+      brand: String(brand || '').trim(),
+      model: String(model || '').trim(),
+      color: String(color || '').trim(),
+      is_default: markDefault,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    if (markDefault) {
+      await db.from('vehicles').update({ is_default: false }).eq('user_id', req.user.id).catch(() => {});
+    }
+
+    const { data, error } = await db.from('vehicles').insert(newVehicle).select('*').single();
+    if (!error && data) return res.json(data);
+
+    // Fallback store
+    const all = readFallbackVehicles();
+    if (markDefault) {
+      all.forEach(v => { if (v.user_id === req.user.id) v.is_default = false; });
+    }
+    all.unshift(newVehicle);
+    writeFallbackVehicles(all);
+    res.json(newVehicle);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.patch('/api/vehicles/:id', auth, async (req, res) => {
+  try {
+    const vid = req.params.id;
+    const { license_plate, licensePlate, vehicle_type, vehicleType, brand, model, color, is_default, isDefault } = req.body;
+    const updates = { updated_at: new Date().toISOString() };
+    if (license_plate !== undefined || licensePlate !== undefined) updates.license_plate = String(license_plate || licensePlate).trim();
+    if (vehicle_type !== undefined || vehicleType !== undefined) updates.vehicle_type = String(vehicle_type || vehicleType).trim();
+    if (brand !== undefined) updates.brand = String(brand).trim();
+    if (model !== undefined) updates.model = String(model).trim();
+    if (color !== undefined) updates.color = String(color).trim();
+    if (is_default !== undefined || isDefault !== undefined) {
+      const markDefault = Boolean(is_default ?? isDefault);
+      updates.is_default = markDefault;
+      if (markDefault) {
+        await db.from('vehicles').update({ is_default: false }).eq('user_id', req.user.id).catch(() => {});
+      }
+    }
+
+    const { data, error } = await db.from('vehicles').update(updates).eq('id', vid).eq('user_id', req.user.id).select('*').single();
+    if (!error && data) return res.json(data);
+
+    // Fallback store
+    const all = readFallbackVehicles();
+    const idx = all.findIndex(v => v.id === vid && (v.user_id === req.user.id || req.user.role === 'admin'));
+    if (idx === -1) return res.status(404).json({ error: 'ไม่พบข้อมูลยานพาหนะ' });
+    if (updates.is_default) {
+      all.forEach(v => { if (v.user_id === req.user.id) v.is_default = false; });
+    }
+    all[idx] = { ...all[idx], ...updates };
+    writeFallbackVehicles(all);
+    res.json(all[idx]);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete('/api/vehicles/:id', auth, async (req, res) => {
+  try {
+    const vid = req.params.id;
+    await db.from('vehicles').delete().eq('id', vid).eq('user_id', req.user.id).catch(() => {});
+    const all = readFallbackVehicles().filter(v => !(v.id === vid && (v.user_id === req.user.id || req.user.role === 'admin')));
+    writeFallbackVehicles(all);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 
@@ -605,7 +779,7 @@ app.post('/api/internal/notify-expiring',async(req,res)=>{
 app.post('/api/bookings/:id/send-summary',auth,async(req,res)=>{
   try {
     const {data:b,error} = await db.from('bookings')
-      .select('id,slot_id,user_id,date,time,duration,amount,status')
+      .select('id,slot_id,user_id,date,time,duration,amount,status,license_plate,vehicle_type')
       .eq('id',req.params.id)
       .maybeSingle();
     if(error||!b) return res.status(404).json({error:'ไม่พบการจอง'});
@@ -623,6 +797,7 @@ app.post('/api/bookings/:id/send-summary',auth,async(req,res)=>{
         '🧾 [สลิปสรุปการจอดรถ]',
         '━━━━━━━━━━━━━━━━━━━',
         `🅿️ ช่องจอด: ${b.slot_id}`,
+        ...(b.license_plate ? [`🚗 ยานพาหนะ: ${b.license_plate}${b.vehicle_type ? ` (${b.vehicle_type})` : ''}`] : []),
         `⏱️ ระยะเวลาจอดจริง: ${label}`,
         `💰 ค่าบริการ: ฿${Number(b.amount).toLocaleString('th-TH')}`,
         '━━━━━━━━━━━━━━━━━━━',
