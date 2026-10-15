@@ -190,7 +190,7 @@ function Header({ user, onLogout, lastUpdated }) {
     ? lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' })
     : '--:--:--';
   return <header className="topbar">
-    <div className="brand"><div className="brand-mark small">P</div><div><strong>ระบบจองที่จอดรถ</strong><span>SMART PARKING · SUPABASE · ESP32</span></div></div>
+    <div className="brand"><div className="brand-mark small">P</div><div><strong>ระบบจัดการที่จอดรถ</strong><span>SMART PARKING · SUPABASE · ESP32</span></div></div>
     <div className="user-menu">
       <span className="connection-pill live-pill"><span className="live-dot" />LIVE · {timeStr}</span>
       {user.role !== 'admin' && <span className={`badge credit-pill ${Number(user.credit || 0) > 0 ? 'available' : 'unavailable'}`}>เครดิต ฿{formatMoney(user.credit)}</span>}
