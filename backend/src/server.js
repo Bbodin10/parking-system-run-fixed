@@ -321,11 +321,15 @@ app.post('/api/vehicles', auth, async (req, res) => {
     };
 
     if (markDefault) {
-      await db.from('vehicles').update({ is_default: false }).eq('user_id', req.user.id).catch(() => {});
+      try {
+        await db.from('vehicles').update({ is_default: false }).eq('user_id', req.user.id);
+      } catch (ignore) {}
     }
 
-    const { data, error } = await db.from('vehicles').insert(newVehicle).select('*').single();
-    if (!error && data) return res.json(data);
+    try {
+      const { data, error } = await db.from('vehicles').insert(newVehicle).select('*').single();
+      if (!error && data) return res.json(data);
+    } catch (ignore) {}
 
     // Fallback store
     const all = readFallbackVehicles();
@@ -354,12 +358,16 @@ app.patch('/api/vehicles/:id', auth, async (req, res) => {
       const markDefault = Boolean(is_default ?? isDefault);
       updates.is_default = markDefault;
       if (markDefault) {
-        await db.from('vehicles').update({ is_default: false }).eq('user_id', req.user.id).catch(() => {});
+        try {
+          await db.from('vehicles').update({ is_default: false }).eq('user_id', req.user.id);
+        } catch (ignore) {}
       }
     }
 
-    const { data, error } = await db.from('vehicles').update(updates).eq('id', vid).eq('user_id', req.user.id).select('*').single();
-    if (!error && data) return res.json(data);
+    try {
+      const { data, error } = await db.from('vehicles').update(updates).eq('id', vid).eq('user_id', req.user.id).select('*').single();
+      if (!error && data) return res.json(data);
+    } catch (ignore) {}
 
     // Fallback store
     const all = readFallbackVehicles();
@@ -379,7 +387,9 @@ app.patch('/api/vehicles/:id', auth, async (req, res) => {
 app.delete('/api/vehicles/:id', auth, async (req, res) => {
   try {
     const vid = req.params.id;
-    await db.from('vehicles').delete().eq('id', vid).eq('user_id', req.user.id).catch(() => {});
+    try {
+      await db.from('vehicles').delete().eq('id', vid).eq('user_id', req.user.id);
+    } catch (ignore) {}
     const all = readFallbackVehicles().filter(v => !(v.id === vid && (v.user_id === req.user.id || req.user.role === 'admin')));
     writeFallbackVehicles(all);
     res.json({ ok: true });
