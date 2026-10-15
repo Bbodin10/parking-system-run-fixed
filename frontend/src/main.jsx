@@ -108,8 +108,8 @@ function Login({ onLogin }) {
             </svg>
           </div>
           <span className="login-badge">⚡ SMART IOT PARKING</span>
-          <h1>ระบบจองที่จอดรถอัจฉริยะ</h1>
-          <p>ตรวจสอบสถานะช่องจอดแบบเรียลไทม์ จองล่วงหน้าง่ายดาย พร้อมระบบควบคุมไม้กั้นอัตโนมัติ</p>
+          <h1>ระบบจัดการที่จอดรถ</h1>
+          <p>ตรวจสอบสถานะช่องจอดแบบเรียลไทม์ จองล่วงหน้า พร้อมระบบควบคุมไม้กั้น</p>
           <div className="login-features">
             <div className="feature-item"><span>🟢</span> ตรวจจับสถานะว่าง/มีรถจอดเรียลไทม์</div>
             <div className="feature-item"><span>🔒</span> ไม้กั้นประจำช่องอัตโนมัติ 12 จุด</div>
