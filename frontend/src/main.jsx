@@ -876,7 +876,7 @@ function UserControl({ data, user, notify }) {
                 {isOvertime ? (
                   <div style={{ background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, padding: '8px 10px', fontSize: 12 }}>
                     <div style={{ color: '#f87171', fontWeight: 'bold', marginBottom: 4 }}>⚠️ เกินเวลาจอด {overtimeMinutes} นาที</div>
-                    <div style={{ color: 'var(--muted)' }}>ค่าจอดเพิ่มเติม: <strong style={{ color: '#fbbf24' }}>฿{overtimeCost.toLocaleString('th-TH')}</strong> (คิด {overtimeHours} ชม. × ฿{RATE_PER_HOUR})</div>
+                    <div style={{ color: 'var(--muted)' }}>ค่าจอดเพิ่มเติม: <strong style={{ color: '#fbbf24' }}>{overtimeCost.toLocaleString('th-TH')}฿</strong> (คิด {overtimeHours} ชม. × ฿{RATE_PER_HOUR})</div>
                     <div style={{ color: 'var(--muted)', marginTop: 2 }}>กดจบการจอดเพื่อหยุดคิดเงินและรับสลิป</div>
                   </div>
                 ) : minutesLeft <= 15 && minutesLeft > 0 ? (
