@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 
@@ -1978,26 +1978,60 @@ function App() {
   const [view, setView] = useState(() => { try { return JSON.parse(localStorage.user || 'null')?.role === 'admin' ? 'dashboard' : 'booking'; } catch { return 'booking'; } });
   const [notice, setNotice] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const inFlightRef = useRef(false);
 
-  async function load() {
+  async function load(isInitial = false) {
     if (!localStorage.token) { localStorage.clear(); setUser(null); return; }
-    setLoading(true); setLoadError('');
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
+    // แสดงสถานะ Loading และเคลียร์ Error เฉพาะตอนเปิดเว็บครั้งแรก เพื่อไม่ให้หน้าจอกระพริบ
+    if (isInitial || !data) {
+      setLoading(true);
+      setLoadError('');
+    }
+
     try {
       const next = await api('/bootstrap');
       setData(next);
       setLastUpdated(new Date());
+      setLoadError('');
+
       const liveUser = next.users?.find((item) => item.id === user?.id);
-      if (liveUser) { localStorage.user = JSON.stringify(liveUser); setUser((current) => ({ ...current, ...liveUser })); }
+      if (liveUser) {
+        localStorage.user = JSON.stringify(liveUser);
+        // อัปเดต user เฉพาะเมื่อข้อมูลเปลี่ยนจริง ไม่ clone object ใหม่ทุกวินาที
+        setUser((current) => {
+          if (!current) return liveUser;
+          if (
+            current.credit !== liveUser.credit ||
+            current.role !== liveUser.role ||
+            current.name !== liveUser.name ||
+            current.line_user_id !== liveUser.line_user_id
+          ) {
+            return { ...current, ...liveUser };
+          }
+          return current;
+        });
+      }
     } catch (err) {
       if (err.status === 401) { localStorage.clear(); setUser(null); setData(null); return; }
-      setLoadError(err instanceof TypeError ? 'เชื่อมต่อ Backend ไม่ได้ กรุณาตรวจสอบว่า Backend เปิดที่ Port 3000' : err.message);
-    } finally { setLoading(false); }
+      if (isInitial || !data) {
+        setLoadError(err instanceof TypeError ? 'เชื่อมต่อ Backend ไม่ได้ กรุณาตรวจสอบว่า Backend เปิดที่ Port 3000' : err.message);
+      }
+    } finally {
+      inFlightRef.current = false;
+      if (isInitial || !data) {
+        setLoading(false);
+      }
+    }
   }
 
   useEffect(() => {
     if (!user) return;
-    load();
-    const interval = setInterval(load, 1000);
+    load(true);
+    // Polling ทุก 3 วินาที (จากเดิม 1 วินาที) เพื่อลดภาระและป้องกันหน้าจอกระตุก
+    const interval = setInterval(() => load(false), 3000);
     return () => clearInterval(interval);
   }, [user?.id]);
 
