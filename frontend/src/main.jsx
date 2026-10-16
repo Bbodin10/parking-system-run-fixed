@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 
@@ -212,8 +212,18 @@ function Header({ user, onLogout, lastUpdated }) {
 
 function Sidebar({ user, view, setView }) {
   const items = user.role === 'admin'
-    ? [['dashboard', '▦', 'ภาพรวมการจอง'], ['users', '♙', 'จัดการผู้ใช้'], ['devices', '⌁', 'อุปกรณ์ / ไม้กั้น'], ['layout', '⊞', 'จัดการผังลานจอด']]
-    : [['booking', 'P', 'จองที่จอดรถ'], ['control', '⌁', 'ควบคุมช่องจอด'], ['history', '▤', 'ประวัติของฉัน']];
+    ? [
+        ['dashboard', '▦', 'ภาพรวมการจอง'],
+        ['analytics', '📊', 'สถิติการใช้งาน'],
+        ['users', '♙', 'จัดการผู้ใช้'],
+        ['devices', '⌁', 'อุปกรณ์ / ไม้กั้น'],
+        ['layout', '⊞', 'จัดการผังลานจอด']
+      ]
+    : [
+        ['booking', 'P', 'จองที่จอดรถ'],
+        ['control', '⌁', 'ควบคุมช่องจอด'],
+        ['history', '▤', 'ประวัติของฉัน']
+      ];
   return <aside className="sidebar">{items.map(([id, icon, label]) =>
     <button key={id} className={`nav-item ${view === id ? 'active' : ''}`} onClick={() => setView(id)}><span>{icon}</span>{label}</button>
   )}</aside>;
@@ -246,6 +256,121 @@ function StatCards({ slots, devices, bookings, user }) {
   return <div className="stats">{stats.map(([color, value, label]) => <div className={`stat ${color}`} key={label}><strong>{user?.role === 'admin' && label === 'รายการจองทั้งหมด' ? bookings.length : value}</strong><span>{label}</span></div>)}</div>;
 }
 
+function getSlotTypeMeta(type) {
+  const t = type || 'ลูกค้าทั่วไป';
+  if (t === 'สมาชิก') return { label: 'สมาชิก', icon: '⭐', className: 'member' };
+  if (t === 'ผู้พิการ') return { label: 'ผู้พิการ', icon: '♿', className: 'disabled' };
+  if (t === 'ชาร์จ EV') return { label: 'ชาร์จ EV', icon: '⚡', className: 'ev' };
+  if (t === 'ปกติ' || t === 'ลูกค้าทั่วไป') return { label: 'ลูกค้าทั่วไป', icon: '🚗', className: 'general' };
+  return { label: t, icon: '🅿️', className: 'general' };
+}
+
+function InteractiveFloorMap({ map, slots, devices, isAdmin, onSlotClick, onSlotMove, selectedSlotId }) {
+  const containerRef = useRef(null);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragPos, setDragPos] = useState(null);
+
+  if (!map) return null;
+
+  const handlePointerDown = (slot, event) => {
+    if (!isAdmin) {
+      onSlotClick?.(slot);
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const container = containerRef.current;
+    if (!container) return;
+
+    const pointerId = event.pointerId;
+    const targetEl = event.currentTarget;
+    if (targetEl && targetEl.setPointerCapture) {
+      try { targetEl.setPointerCapture(pointerId); } catch (_) {}
+    }
+
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let hasMoved = false;
+
+    const handlePointerMove = (e) => {
+      const dx = Math.abs(e.clientX - startX);
+      const dy = Math.abs(e.clientY - startY);
+      if (dx > 4 || dy > 4) {
+        hasMoved = true;
+        setDraggingId(slot.id);
+        const rect = container.getBoundingClientRect();
+        const curX = Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100));
+        const curY = Math.max(2, Math.min(98, ((e.clientY - rect.top) / rect.height) * 100));
+        setDragPos({ id: slot.id, x: Number(curX.toFixed(1)), y: Number(curY.toFixed(1)) });
+      }
+    };
+
+    const handlePointerUp = (e) => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      if (targetEl && targetEl.releasePointerCapture) {
+        try { targetEl.releasePointerCapture(pointerId); } catch (_) {}
+      }
+      setDraggingId(null);
+      setDragPos(null);
+
+      if (hasMoved) {
+        const rect = container.getBoundingClientRect();
+        const finalX = Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100));
+        const finalY = Math.max(2, Math.min(98, ((e.clientY - rect.top) / rect.height) * 100));
+        onSlotMove?.(slot, Number(finalX.toFixed(1)), Number(finalY.toFixed(1)));
+      } else {
+        onSlotClick?.(slot);
+      }
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const positionedSlots = slots.filter((s) => s.pos_x != null && s.pos_y != null);
+
+  return (
+    <div className="map-canvas-container" ref={containerRef}>
+      <img src={map.image_url} alt={map.name} className="map-canvas-image" />
+      {positionedSlots.map((slot) => {
+        const isDragging = draggingId === slot.id;
+        const posX = isDragging && dragPos ? dragPos.x : Number(slot.pos_x);
+        const posY = isDragging && dragPos ? dragPos.y : Number(slot.pos_y);
+        const { status, label, canBook, sensor, isCarPresent } = resolveSlotState(slot, devices);
+        const typeMeta = getSlotTypeMeta(slot.type);
+        const sensorDotClass = !sensor || sensor.status !== 'online' ? 'offline' : (isCarPresent ? 'occupied' : 'empty');
+        const isSelected = selectedSlotId === slot.id;
+
+        return (
+          <div
+            key={slot.id}
+            className={`slot-pin ${status} ${isDragging ? 'dragging' : ''}`}
+            style={{
+              left: `${posX}%`,
+              top: `${posY}%`,
+              outline: isSelected ? '2px solid var(--cyan)' : 'none',
+              cursor: isAdmin ? 'grab' : (canBook ? 'pointer' : 'not-allowed'),
+              opacity: !isAdmin && !canBook ? 0.75 : 1
+            }}
+            onPointerDown={(e) => handlePointerDown(slot, e)}
+            title={isAdmin ? `คลิกลากช่อง ${slot.code} ไปยังตำแหน่งบนผัง หรือคลิกเพื่อแก้ไข` : `${slot.code} (${label}) - ฿${slot.price_per_hour || 20}/ชม.`}
+          >
+            <div className="slot-pin-header">
+              <span className="slot-pin-code" style={{ color: '#ffffff' }}>{slot.code}</span>
+              <span className={`sensor-dot ${sensorDotClass}`} style={{ position: 'static', width: 7, height: 7 }} />
+            </div>
+            <div className="slot-pin-meta">
+              <span>{typeMeta.icon}</span>
+              <span className="slot-pin-price">฿{slot.price_per_hour || 20}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function SlotGrid({ slots, devices, onSelect }) {
   return <div className="parking-lane"><div className="lane-label">↑ ทางเข้า &nbsp;/&nbsp; ทางออก</div><div className="slot-grid">{slots.map((slot) => {
     const { status, label, canBook, sensor, isCarPresent } = resolveSlotState(slot, devices);
@@ -255,11 +380,15 @@ function SlotGrid({ slots, devices, onSelect }) {
     const sensorDotTitle = !sensor || sensor.status !== 'online'
       ? 'เซ็นเซอร์: ออฟไลน์'
       : (isCarPresent ? 'เซ็นเซอร์: ตรวจพบรถจอด (สีแดง)' : 'เซ็นเซอร์: ไม่มีรถจอด (สีเขียว)');
+    const typeMeta = getSlotTypeMeta(slot.type);
     return <button type="button" className={`slot-card ${status}`} key={slot.id} disabled={!canBook} onClick={() => onSelect?.(slot)} aria-label={`${slot.code} ${label}`}>
       <span className={`sensor-dot ${sensorDotClass}`} title={sensorDotTitle} />
       <strong>{slot.code}</strong>
       <small>{label}</small>
-      <em>{slot.type || 'ปกติ'}</em>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+        <span className={`slot-type-pill ${typeMeta.className}`}>{typeMeta.icon} {typeMeta.label}</span>
+        <span style={{ fontSize: 11, color: '#facc15', fontWeight: 700 }}>฿{slot.price_per_hour || 20}/ชม.</span>
+      </div>
     </button>;
   })}</div></div>;
 }
@@ -282,11 +411,16 @@ function UserBooking({ data, user, notify, setView }) {
   const [booking, setBooking] = useState(getInitialBookingTime);
   const [modalError, setModalError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('grid');
 
-  const slots = data.slots.filter((slot) => slot.floor === floor).sort((a, b) => a.slot_order - b.slot_order);
-  const totalAmount = Number(booking.duration || 1) * 20;
+  const allFloorSlots = data.slots.filter((slot) => Number(slot.floor) === Number(floor)).sort((a, b) => a.slot_order - b.slot_order);
+  const slots = typeFilter === 'all' ? allFloorSlots : allFloorSlots.filter((slot) => (slot.type || 'ลูกค้าทั่วไป') === typeFilter);
+  const selectedRate = Number(selected?.price_per_hour || 20);
+  const totalAmount = Number(booking.duration || 1) * selectedRate;
   const userCredit = Number(user?.credit || 0);
   const isInsufficient = userCredit < totalAmount;
+  const activeMap = (data.parking_maps || []).find((item) => Number(item.floor) === Number(floor));
 
   const userVehicles = useMemo(() => (data.vehicles || []).filter((v) => v.user_id === user.id), [data.vehicles, user.id]);
   const defaultVehicle = useMemo(() => userVehicles.find((v) => v.is_default) || userVehicles[0] || null, [userVehicles]);
@@ -367,12 +501,68 @@ function UserBooking({ data, user, notify, setView }) {
         <button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1 (A1 - A6)</button>
         <button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2 (B1 - B6)</button>
       </div>
+
+      {/* ตัวกรองประเภทช่องจอดและสลับโหมดผัง */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>ประเภทช่อง:</span>
+        {['all', 'ลูกค้าทั่วไป', 'สมาชิก', 'ผู้พิการ'].map((t) => {
+          const meta = t === 'all' ? { label: 'ทั้งหมด', icon: '🅿️' } : getSlotTypeMeta(t);
+          return (
+            <button
+              key={t}
+              type="button"
+              className={`button compact ${typeFilter === t ? 'primary' : ''}`}
+              style={{ fontSize: 12, padding: '4px 10px' }}
+              onClick={() => setTypeFilter(t)}
+            >
+              {meta.icon} {meta.label}
+            </button>
+          );
+        })}
+
+        {activeMap && (
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              className={`button compact ${viewMode === 'grid' ? 'primary' : ''}`}
+              onClick={() => setViewMode('grid')}
+            >
+              ▦ ตาราง
+            </button>
+            <button
+              type="button"
+              className={`button compact ${viewMode === 'map' ? 'primary' : ''}`}
+              onClick={() => setViewMode('map')}
+            >
+              🗺️ ผังแปลนจริง
+            </button>
+          </div>
+        )}
+      </div>
+
       <section className="panel parking-panel">
         <div className="panel-title">
           <h2>ผังช่องจอด · ชั้น {floor} ({floor === 1 ? 'A1 - A6' : 'B1 - B6'})</h2>
           <span className="muted">{slots.length} ช่อง</span>
         </div>
-        <SlotGrid slots={slots} devices={data.devices} onSelect={handleSelectSlot} />
+
+        {viewMode === 'map' && activeMap ? (
+          <div>
+            <InteractiveFloorMap
+              map={activeMap}
+              slots={allFloorSlots}
+              devices={data.devices}
+              isAdmin={false}
+              onSlotClick={(s) => {
+                const { canBook } = resolveSlotState(s, data.devices);
+                if (canBook) handleSelectSlot(s);
+              }}
+              selectedSlotId={selected?.id}
+            />
+          </div>
+        ) : (
+          <SlotGrid slots={slots} devices={data.devices} onSelect={handleSelectSlot} />
+        )}
         <div className="legend">
           <span><i className="available" />ว่าง (สีเขียว)</span>
           <span><i className="booked" />ถูกจอง (สีแดง)</span>
@@ -396,7 +586,7 @@ function UserBooking({ data, user, notify, setView }) {
               </div>
               <button type="button" className="modal-close" onClick={() => setSelected(null)}>×</button>
             </div>
-            <p className="muted">ชั้น {selected.floor} · {selected.type || 'ช่องปกติ'} · ฿20 ต่อชั่วโมง</p>
+            <p className="muted">ชั้น {selected.floor} · {selected.type || 'ลูกค้าทั่วไป'} · ฿{selectedRate} ต่อชั่วโมง</p>
 
             {modalError && (
               <div className="alert error" style={{ margin: '14px 0 10px', fontSize: 13, lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -428,7 +618,7 @@ function UserBooking({ data, user, notify, setView }) {
             </div>
 
             <label style={{ marginTop: 10 }}>
-              จำนวนชั่วโมง (ชั่วโมงละ ฿20)
+              จำนวนชั่วโมง (ชั่วโมงละ ฿{selectedRate})
               <input
                 required
                 type="number"
@@ -663,10 +853,11 @@ function UserControl({ data, user, notify }) {
     const cutoffTimeStr = cancelCutoff.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
     const minutesLeft = (endTime - now) / 60000;
     const isOvertime = now > endTime;
-    // คำนวณ overtime แบบ ceiling per hour (เกิน 1 นาที = คิด 1 ชม.)
+    // คำนวณ overtime แบบ ceiling per hour (เกิน 1 นาที = คิด 1 ชม.) ตามราคาของช่องนั้นๆ
     const overtimeMinutes = isOvertime ? Math.max(0, Math.ceil((now - endTime) / 60000)) : 0;
     const overtimeHours = overtimeMinutes > 0 ? Math.ceil(overtimeMinutes / 60) : 0;
-    const overtimeCost = overtimeHours * RATE_PER_HOUR;
+    const slotRate = Number(slot?.price_per_hour || RATE_PER_HOUR);
+    const overtimeCost = overtimeHours * slotRate;
     return {
       booking,
       slot,
@@ -876,7 +1067,7 @@ function UserControl({ data, user, notify }) {
                 {isOvertime ? (
                   <div style={{ background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, padding: '8px 10px', fontSize: 12 }}>
                     <div style={{ color: '#f87171', fontWeight: 'bold', marginBottom: 4 }}>⚠️ เกินเวลาจอด {overtimeMinutes} นาที</div>
-                    <div style={{ color: 'var(--muted)' }}>ค่าจอดเพิ่มเติม: <strong style={{ color: '#fbbf24' }}>{overtimeCost.toLocaleString('th-TH')}฿</strong> (คิด {overtimeHours} ชม. × ฿{RATE_PER_HOUR})</div>
+                    <div style={{ color: 'var(--muted)' }}>ค่าจอดเพิ่มเติม: <strong style={{ color: '#fbbf24', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', letterSpacing: 'normal' }}>{overtimeCost.toLocaleString('th-TH')}฿</strong> (คิด {overtimeHours} ชม. × ฿{slot?.price_per_hour || RATE_PER_HOUR})</div>
                     <div style={{ color: 'var(--muted)', marginTop: 2 }}>กดจบการจอดเพื่อหยุดคิดเงินและรับสลิป</div>
                   </div>
                 ) : minutesLeft <= 15 && minutesLeft > 0 ? (
@@ -1418,14 +1609,956 @@ function UserHistory({ data, user, notify }) {
     )}</>;
 }
 
-function AdminDashboard({ data }) {
+function AdminDashboard({ data, setView }) {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date());
   const revenue = data.bookings.filter((booking) => booking.date === today && booking.status !== 'cancelled').reduce((sum, booking) => sum + Number(booking.amount || 0), 0);
   const bookings = [...data.bookings].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
   const userName = (id) => data.users.find((item) => item.id === id)?.name || id;
-  return <><PageHead title="ภาพรวมและประวัติการจอง" description="ติดตามสถานะพื้นที่จอดและตรวจสอบรายการจองทั้งหมด" /><StatCards slots={data.slots} devices={data.devices} bookings={data.bookings} user={{ role: 'admin' }} />
-    <section className="panel"><div className="panel-title"><h2>รายได้วันนี้</h2><strong className="highlight">฿{formatMoney(revenue)}</strong></div><p className="muted">รวมจากรายการจองประจำวันที่ {today}</p></section>
-    <section className="panel"><div className="panel-title"><h2>ประวัติการจองทั้งหมด</h2><span className="muted">{bookings.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ผู้จอง</th><th>ยานพาหนะ</th><th>วันที่</th><th>เวลา</th><th>ระยะเวลา</th><th>จำนวนเงิน</th><th>สถานะ</th><th>ทำรายการเมื่อ</th></tr></thead><tbody>{bookings.length ? bookings.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{userName(booking.user_id)}</td><td>{booking.license_plate ? <div><strong style={{ color: '#fff', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || '-'}</div></div> : '-'}</td><td>{booking.date}</td><td>{formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{new Date(booking.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td></tr>) : <tr><td colSpan="9">ยังไม่มีรายการจอง</td></tr>}</tbody></table></div></section></>;
+  return (
+    <>
+      <PageHead title="ภาพรวมและประวัติการจอง" description="ติดตามสถานะพื้นที่จอด ตรวจสอบรายการจองทั้งหมด และดูสถิติการใช้งาน" />
+      <StatCards slots={data.slots} devices={data.devices} bookings={data.bookings} user={{ role: 'admin' }} />
+
+      {/* แบนเนอร์เปิดดูกราฟสถิติการใช้งาน */}
+      <div className="panel" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        background: 'linear-gradient(135deg, rgba(20,35,48,0.92), rgba(16,24,34,0.95))',
+        border: '1px solid #284459',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+        borderRadius: 14,
+        flexWrap: 'wrap',
+        gap: 14,
+        marginBottom: 22
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, rgba(54,220,201,0.2), rgba(32,135,255,0.2))',
+            border: '1px solid rgba(54,220,201,0.4)',
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 24,
+            flexShrink: 0
+          }}>
+            📊
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, color: '#fff' }}>สถิติและการวิเคราะห์การใช้ช่องจอด</h3>
+            <p style={{ margin: '4px 0 0', color: '#93a6ba', fontSize: 13 }}>
+              ดูกราฟแนวโน้มการใช้งานรายวัน รายสัปดาห์ รายเดือน และสัดส่วนแยกตามชนิดช่องจอด
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          className="button primary"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px' }}
+          onClick={() => setView?.('analytics')}
+        >
+          <span>เปิดดูกราฟสถิติ</span>
+          <span style={{ fontSize: 16 }}>→</span>
+        </button>
+      </div>
+
+      <section className="panel"><div className="panel-title"><h2>รายได้วันนี้</h2><strong className="highlight">฿{formatMoney(revenue)}</strong></div><p className="muted">รวมจากรายการจองประจำวันที่ {today}</p></section>
+      <section className="panel"><div className="panel-title"><h2>ประวัติการจองทั้งหมด</h2><span className="muted">{bookings.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ผู้จอง</th><th>ยานพาหนะ</th><th>วันที่</th><th>เวลา</th><th>ระยะเวลา</th><th>จำนวนเงิน</th><th>สถานะ</th><th>ทำรายการเมื่อ</th></tr></thead><tbody>{bookings.length ? bookings.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{userName(booking.user_id)}</td><td>{booking.license_plate ? <div><strong style={{ color: '#fff', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || '-'}</div></div> : '-'}</td><td>{booking.date}</td><td>{formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{new Date(booking.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td></tr>) : <tr><td colSpan="9">ยังไม่มีรายการจอง</td></tr>}</tbody></table></div></section>
+    </>
+  );
+}
+
+function AdminAnalytics({ data }) {
+  const [period, setPeriod] = useState('day'); // 'day' | 'week' | 'month'
+  const [dayRange, setDayRange] = useState(14); // 7 | 14 | 30
+  const [slotTypeFilter, setSlotTypeFilter] = useState('all');
+  const [metricType, setMetricType] = useState('count'); // 'count' | 'revenue' | 'hours'
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+
+  // Map slots for quick lookup
+  const slotMap = useMemo(() => new Map((data.slots || []).map((s) => [s.id, s])), [data.slots]);
+
+  const getBookingType = useCallback((b) => {
+    const s = slotMap.get(b.slot_id);
+    const raw = s?.type || 'ลูกค้าทั่วไป';
+    return raw === 'ปกติ' ? 'ลูกค้าทั่วไป' : raw;
+  }, [slotMap]);
+
+  // Unique slot types in system
+  const allSlotTypes = useMemo(() => {
+    const types = new Set(['ลูกค้าทั่วไป', 'สมาชิก', 'ผู้พิการ', 'ชาร์จ EV']);
+    (data.slots || []).forEach((s) => {
+      const t = s.type === 'ปกติ' ? 'ลูกค้าทั่วไป' : (s.type || 'ลูกค้าทั่วไป');
+      types.add(t);
+    });
+    return Array.from(types);
+  }, [data.slots]);
+
+  // Valid non-cancelled bookings
+  const validBookings = useMemo(() => {
+    return (data.bookings || []).filter((b) => b.status !== 'cancelled');
+  }, [data.bookings]);
+
+  // Color mapper for slot types
+  const getTypeColor = (type) => {
+    if (type === 'สมาชิก') return '#fbbf24';
+    if (type === 'ผู้พิการ') return '#a78bfa';
+    if (type === 'ชาร์จ EV') return '#34d399';
+    if (type === 'ลูกค้าทั่วไป' || type === 'ปกติ') return '#38bdf8';
+    return '#f472b6';
+  };
+
+  const getTypeIcon = (type) => {
+    if (type === 'สมาชิก') return '⭐';
+    if (type === 'ผู้พิการ') return '♿';
+    if (type === 'ชาร์จ EV') return '⚡';
+    if (type === 'ลูกค้าทั่วไป' || type === 'ปกติ') return '🚗';
+    return '🅿️';
+  };
+
+  // Helper date formatter
+  const toIso = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Generate trend points based on period
+  const trendData = useMemo(() => {
+    const now = new Date();
+
+    if (period === 'day') {
+      const points = [];
+      const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+      const dayShorts = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
+
+      for (let i = dayRange - 1; i >= 0; i--) {
+        const d = new Date(now.getTime() - i * 86400000);
+        const iso = toIso(d);
+        const dayBookings = validBookings.filter((b) => {
+          if (b.date !== iso) return false;
+          if (slotTypeFilter !== 'all' && getBookingType(b) !== slotTypeFilter) return false;
+          return true;
+        });
+
+        const count = dayBookings.length;
+        const revenue = dayBookings.reduce((sum, b) => sum + Number(b.amount || 0), 0);
+        const hours = dayBookings.reduce((sum, b) => sum + Number(b.duration || 0), 0);
+
+        const typeCounts = {};
+        dayBookings.forEach((b) => {
+          const t = getBookingType(b);
+          typeCounts[t] = (typeCounts[t] || 0) + 1;
+        });
+
+        points.push({
+          key: iso,
+          label: `${d.getDate()} ${thMonths[d.getMonth()]}`,
+          subLabel: dayShorts[d.getDay()],
+          fullDate: `${d.getDate()} ${thMonths[d.getMonth()]} (${dayShorts[d.getDay()]})`,
+          count,
+          revenue,
+          hours,
+          typeCounts
+        });
+      }
+      return points;
+    }
+
+    if (period === 'week') {
+      const points = [];
+      const numWeeks = 8;
+      const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+      for (let i = numWeeks - 1; i >= 0; i--) {
+        const targetDate = new Date(now.getTime() - i * 7 * 86400000);
+        const dayOfWeek = targetDate.getDay();
+        const diffToMonday = (dayOfWeek + 6) % 7;
+        const monday = new Date(targetDate.getTime() - diffToMonday * 86400000);
+        const sunday = new Date(monday.getTime() + 6 * 86400000);
+
+        const startIso = toIso(monday);
+        const endIso = toIso(sunday);
+
+        const weekBookings = validBookings.filter((b) => {
+          if (b.date < startIso || b.date > endIso) return false;
+          if (slotTypeFilter !== 'all' && getBookingType(b) !== slotTypeFilter) return false;
+          return true;
+        });
+
+        const count = weekBookings.length;
+        const revenue = weekBookings.reduce((sum, b) => sum + Number(b.amount || 0), 0);
+        const hours = weekBookings.reduce((sum, b) => sum + Number(b.duration || 0), 0);
+
+        const typeCounts = {};
+        weekBookings.forEach((b) => {
+          const t = getBookingType(b);
+          typeCounts[t] = (typeCounts[t] || 0) + 1;
+        });
+
+        const weekNum = numWeeks - i;
+        points.push({
+          key: `week-${i}`,
+          label: `สัปดาห์ ${weekNum}`,
+          subLabel: `${monday.getDate()}/${monday.getMonth() + 1}`,
+          fullDate: `${monday.getDate()} ${thMonths[monday.getMonth()]} - ${sunday.getDate()} ${thMonths[sunday.getMonth()]}`,
+          count,
+          revenue,
+          hours,
+          typeCounts
+        });
+      }
+      return points;
+    }
+
+    if (period === 'month') {
+      const points = [];
+      const numMonths = 6;
+      const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+      for (let i = numMonths - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+
+        const monthBookings = validBookings.filter((b) => {
+          if (!String(b.date).startsWith(ym)) return false;
+          if (slotTypeFilter !== 'all' && getBookingType(b) !== slotTypeFilter) return false;
+          return true;
+        });
+
+        const count = monthBookings.length;
+        const revenue = monthBookings.reduce((sum, b) => sum + Number(b.amount || 0), 0);
+        const hours = monthBookings.reduce((sum, b) => sum + Number(b.duration || 0), 0);
+
+        const typeCounts = {};
+        monthBookings.forEach((b) => {
+          const t = getBookingType(b);
+          typeCounts[t] = (typeCounts[t] || 0) + 1;
+        });
+
+        const thYear = (d.getFullYear() + 543).toString().slice(-2);
+        points.push({
+          key: ym,
+          label: thMonths[d.getMonth()],
+          subLabel: `'${thYear}`,
+          fullDate: `${thMonths[d.getMonth()]} 25${thYear}`,
+          count,
+          revenue,
+          hours,
+          typeCounts
+        });
+      }
+      return points;
+    }
+
+    return [];
+  }, [period, dayRange, slotTypeFilter, validBookings, getBookingType]);
+
+  // Totals for current scope
+  const totals = useMemo(() => {
+    const totalBookings = trendData.reduce((sum, p) => sum + p.count, 0);
+    const totalRevenue = trendData.reduce((sum, p) => sum + p.revenue, 0);
+    const totalHours = trendData.reduce((sum, p) => sum + p.hours, 0);
+    const avgDuration = totalBookings > 0 ? (totalHours / totalBookings).toFixed(1) : 0;
+    const avgPrice = totalBookings > 0 ? Math.round(totalRevenue / totalBookings) : 0;
+    const daysCount = period === 'day' ? dayRange : period === 'week' ? 56 : 180;
+    const totalSlots = (data.slots || []).length || 12;
+    const occupancyRate = ((totalHours / (daysCount * 24 * totalSlots)) * 100).toFixed(1);
+    return { totalBookings, totalRevenue, totalHours, avgDuration, avgPrice, occupancyRate };
+  }, [trendData, period, dayRange, data.slots]);
+
+  // Breakdown by slot type
+  const typeBreakdown = useMemo(() => {
+    const relevantKeys = new Set(trendData.map((p) => p.key));
+    const scopedBookings = validBookings.filter((b) => {
+      if (period === 'day') return relevantKeys.has(b.date);
+      if (period === 'month') return relevantKeys.has(String(b.date).slice(0, 7));
+      return true;
+    });
+
+    const groups = {};
+    allSlotTypes.forEach((t) => {
+      groups[t] = { type: t, count: 0, revenue: 0, hours: 0 };
+    });
+
+    scopedBookings.forEach((b) => {
+      const t = getBookingType(b);
+      if (!groups[t]) groups[t] = { type: t, count: 0, revenue: 0, hours: 0 };
+      groups[t].count += 1;
+      groups[t].revenue += Number(b.amount || 0);
+      groups[t].hours += Number(b.duration || 0);
+    });
+
+    const sumCount = Math.max(1, Object.values(groups).reduce((sum, g) => sum + g.count, 0));
+    const list = Object.values(groups).map((g) => {
+      const percentage = Number(((g.count / sumCount) * 100).toFixed(1));
+      const slotsCount = (data.slots || []).filter((s) => (s.type === 'ปกติ' ? 'ลูกค้าทั่วไป' : (s.type || 'ลูกค้าทั่วไป')) === g.type).length;
+      return {
+        ...g,
+        percentage,
+        slotsCount,
+        color: getTypeColor(g.type),
+        icon: getTypeIcon(g.type)
+      };
+    }).sort((a, b) => b.count - a.count);
+
+    return { list, totalBookings: scopedBookings.length };
+  }, [trendData, validBookings, period, allSlotTypes, getBookingType, data.slots]);
+
+  // Day of week traffic distribution
+  const dayOfWeekDistribution = useMemo(() => {
+    const days = [
+      { name: 'จันทร์', short: 'จ.', count: 0, revenue: 0 },
+      { name: 'อังคาร', short: 'อ.', count: 0, revenue: 0 },
+      { name: 'พุธ', short: 'พ.', count: 0, revenue: 0 },
+      { name: 'พฤหัสบดี', short: 'พฤ.', count: 0, revenue: 0 },
+      { name: 'ศุกร์', short: 'ศ.', count: 0, revenue: 0 },
+      { name: 'เสาร์', short: 'ส.', count: 0, revenue: 0 },
+      { name: 'อาทิตย์', short: 'อา.', count: 0, revenue: 0 }
+    ];
+
+    validBookings.forEach((b) => {
+      if (slotTypeFilter !== 'all' && getBookingType(b) !== slotTypeFilter) return;
+      if (!b.date) return;
+      const d = new Date(`${b.date}T12:00:00Z`);
+      const jsDay = d.getDay();
+      const idx = (jsDay + 6) % 7;
+      if (days[idx]) {
+        days[idx].count += 1;
+        days[idx].revenue += Number(b.amount || 0);
+      }
+    });
+
+    const maxCount = Math.max(1, ...days.map((d) => d.count));
+    const peakDay = days.reduce((best, cur) => cur.count > best.count ? cur : best, days[0]);
+    return { days, maxCount, peakDay: peakDay.count > 0 ? peakDay : null };
+  }, [validBookings, slotTypeFilter, getBookingType]);
+
+  // Slot leaderboard
+  const slotLeaderboard = useMemo(() => {
+    const counts = {};
+    validBookings.forEach((b) => {
+      if (slotTypeFilter !== 'all' && getBookingType(b) !== slotTypeFilter) return;
+      counts[b.slot_id] = (counts[b.slot_id] || 0) + 1;
+    });
+
+    const list = Object.entries(counts).map(([slotId, count]) => {
+      const s = slotMap.get(slotId);
+      return {
+        slotId,
+        count,
+        type: s?.type || 'ลูกค้าทั่วไป',
+        floor: s?.floor || 1
+      };
+    }).sort((a, b) => b.count - a.count).slice(0, 6);
+
+    const maxCount = Math.max(1, ...(list.map((x) => x.count)));
+    return { list, maxCount };
+  }, [validBookings, slotTypeFilter, getBookingType, slotMap]);
+
+  // Chart layout metrics
+  const maxMetricVal = useMemo(() => {
+    const vals = trendData.map((p) => p[metricType]);
+    return Math.max(1, ...vals);
+  }, [trendData, metricType]);
+
+  // Donut chart arc calculations
+  const donutArcs = useMemo(() => {
+    const activeSlices = typeBreakdown.list.filter((t) => t.count > 0);
+    const C = 2 * Math.PI * 62; // Circumference ≈ 389.55
+    let accum = 0;
+    return activeSlices.map((slice) => {
+      const strokeDasharray = `${(slice.percentage / 100) * C} ${C}`;
+      const strokeDashoffset = -accum;
+      accum += (slice.percentage / 100) * C;
+      return { ...slice, strokeDasharray, strokeDashoffset };
+    });
+  }, [typeBreakdown]);
+
+  return (
+    <>
+      <PageHead
+        title="สถิติและการวิเคราะห์การใช้ช่องจอด"
+        description="ติดตามความถี่การใช้งาน รายได้ และพฤติกรรมการจอดตามวัน สัปดาห์ เดือน และชนิดช่องจอด"
+      />
+
+      {/* ─── แถบควบคุมช่วงเวลาและตัวกรอง ─── */}
+      <div className="analytics-header-row">
+        <div className="analytics-filter-group">
+          {/* เลือกช่วงเวลาหลัก */}
+          <div className="analytics-period-tabs">
+            <button
+              type="button"
+              className={`analytics-period-btn ${period === 'day' ? 'active' : ''}`}
+              onClick={() => setPeriod('day')}
+            >
+              📅 รายวัน (Daily)
+            </button>
+            <button
+              type="button"
+              className={`analytics-period-btn ${period === 'week' ? 'active' : ''}`}
+              onClick={() => setPeriod('week')}
+            >
+              🗓️ รายสัปดาห์ (Weekly)
+            </button>
+            <button
+              type="button"
+              className={`analytics-period-btn ${period === 'month' ? 'active' : ''}`}
+              onClick={() => setPeriod('month')}
+            >
+              📆 รายเดือน (Monthly)
+            </button>
+          </div>
+
+          {/* ช่วงย่อยสำหรับรายวัน */}
+          {period === 'day' && (
+            <div style={{ display: 'inline-flex', gap: 4, background: '#111722', padding: 3, borderRadius: 8, border: '1px solid var(--border)' }}>
+              {[7, 14, 30].map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  className={`chart-metric-btn ${dayRange === days ? 'active' : ''}`}
+                  onClick={() => setDayRange(days)}
+                >
+                  {days} วัน
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ป้ายแสดงจำนวนข้อมูล */}
+        <div style={{ fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="live-dot" style={{ width: 7, height: 7 }} />
+          <span>ข้อมูลจากระบบ: <strong>{validBookings.length}</strong> รายการจอง</span>
+        </div>
+      </div>
+
+      {/* ─── ตัวกรองตามชนิดช่องจอด (Type Filter Chips) ─── */}
+      <div className="analytics-type-chips">
+        <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, marginRight: 4 }}>
+          กรองชนิดช่องจอด:
+        </span>
+        <button
+          type="button"
+          className={`analytics-chip ${slotTypeFilter === 'all' ? 'active' : ''}`}
+          onClick={() => setSlotTypeFilter('all')}
+        >
+          🌟 ทุกประเภท ({validBookings.length})
+        </button>
+        {allSlotTypes.map((t) => {
+          const count = validBookings.filter((b) => getBookingType(b) === t).length;
+          return (
+            <button
+              key={t}
+              type="button"
+              className={`analytics-chip ${slotTypeFilter === t ? 'active' : ''}`}
+              style={{
+                borderColor: slotTypeFilter === t ? getTypeColor(t) : undefined,
+                color: slotTypeFilter === t ? getTypeColor(t) : undefined
+              }}
+              onClick={() => setSlotTypeFilter(t)}
+            >
+              <span>{getTypeIcon(t)}</span>
+              <span>{t}</span>
+              <span style={{ opacity: 0.75, fontSize: 11 }}>({count})</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ─── การ์ดสรุป KPI ด้านบน ─── */}
+      <div className="analytics-kpi-grid">
+        <div className="analytics-kpi-card" style={{ '--kpi-color': '#36dcc9' }}>
+          <div className="analytics-kpi-label">
+            <span>🚗 การใช้งานทั้งหมด</span>
+            <span style={{ fontSize: 16 }}>📊</span>
+          </div>
+          <div className="analytics-kpi-val">{totals.totalBookings.toLocaleString('th-TH')} <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--muted)' }}>ครั้ง</span></div>
+          <div className="analytics-kpi-sub">
+            {period === 'day' ? `ในรอบ ${dayRange} วันล่าสุด` : period === 'week' ? 'ในรอบ 8 สัปดาห์' : 'ในรอบ 6 เดือน'}
+          </div>
+        </div>
+
+        <div className="analytics-kpi-card" style={{ '--kpi-color': '#fbbf24' }}>
+          <div className="analytics-kpi-label">
+            <span>💰 รายได้ค่าจอดรวม</span>
+            <span style={{ fontSize: 16 }}>💵</span>
+          </div>
+          <div className="analytics-kpi-val" style={{ color: '#fbbf24' }}>฿{totals.totalRevenue.toLocaleString('th-TH')}</div>
+          <div className="analytics-kpi-sub">
+            เฉลี่ย ฿{totals.avgPrice.toLocaleString('th-TH')} / การจอง
+          </div>
+        </div>
+
+        <div className="analytics-kpi-card" style={{ '--kpi-color': '#38bdf8' }}>
+          <div className="analytics-kpi-label">
+            <span>⏱️ ชั่วโมงการจอดรวม</span>
+            <span style={{ fontSize: 16 }}>⏳</span>
+          </div>
+          <div className="analytics-kpi-val">{totals.totalHours.toLocaleString('th-TH')} <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--muted)' }}>ชม.</span></div>
+          <div className="analytics-kpi-sub">
+            เฉลี่ย {totals.avgDuration} ชม. / ครั้ง
+          </div>
+        </div>
+
+        <div className="analytics-kpi-card" style={{ '--kpi-color': '#a78bfa' }}>
+          <div className="analytics-kpi-label">
+            <span>🔥 วันที่มีการใช้สูงสุด</span>
+            <span style={{ fontSize: 16 }}>📅</span>
+          </div>
+          <div className="analytics-kpi-val" style={{ color: '#a78bfa', fontSize: 24 }}>
+            {dayOfWeekDistribution.peakDay ? `วัน${dayOfWeekDistribution.peakDay.name}` : '-'}
+          </div>
+          <div className="analytics-kpi-sub">
+            {dayOfWeekDistribution.peakDay ? `${dayOfWeekDistribution.peakDay.count} ครั้ง (${dayOfWeekDistribution.peakDay.revenue.toLocaleString('th-TH')} บาท)` : 'ยังไม่มีข้อมูล'}
+          </div>
+        </div>
+      </div>
+
+      {/* ─── กราฟหลัก (แนวโน้ม + สัดส่วนชนิดช่องจอด) ─── */}
+      <div className="analytics-main-grid">
+        {/* กราฟแท่งแนวโน้มตามช่วงเวลา */}
+        <div className="chart-card">
+          <div className="chart-card-header">
+            <h3 className="chart-card-title">
+              <span>📈 แนวโน้มการใช้ช่องจอด</span>
+              <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>
+                ({period === 'day' ? `รายวัน ${dayRange} วัน` : period === 'week' ? 'รายสัปดาห์ (8 สัปดาห์)' : 'รายเดือน (6 เดือน)'})
+              </span>
+            </h3>
+
+            {/* สลับการแสดงผลกราฟ: จำนวนครั้ง | รายได้ | ชั่วโมง */}
+            <div className="chart-metric-toggle">
+              <button
+                type="button"
+                className={`chart-metric-btn ${metricType === 'count' ? 'active' : ''}`}
+                onClick={() => setMetricType('count')}
+              >
+                ครั้ง
+              </button>
+              <button
+                type="button"
+                className={`chart-metric-btn ${metricType === 'revenue' ? 'active' : ''}`}
+                onClick={() => setMetricType('revenue')}
+              >
+                รายได้ (฿)
+              </button>
+              <button
+                type="button"
+                className={`chart-metric-btn ${metricType === 'hours' ? 'active' : ''}`}
+                onClick={() => setMetricType('hours')}
+              >
+                ชั่วโมง
+              </button>
+            </div>
+          </div>
+
+          {/* SVG Bar Chart */}
+          <div className="chart-svg-wrap" onMouseLeave={() => setHoveredIndex(null)}>
+            <svg viewBox="0 0 680 230" style={{ width: '100%', height: 'auto', display: 'block' }}>
+              <defs>
+                <linearGradient id="barGradientCount" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#36dcc9" stopOpacity="1" />
+                  <stop offset="100%" stopColor="#2087ff" stopOpacity="0.4" />
+                </linearGradient>
+                <linearGradient id="barGradientRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#facc15" stopOpacity="1" />
+                  <stop offset="100%" stopColor="#d97706" stopOpacity="0.4" />
+                </linearGradient>
+                <linearGradient id="barGradientHours" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8e82ff" stopOpacity="1" />
+                  <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.4" />
+                </linearGradient>
+              </defs>
+
+              {/* Grid Lines */}
+              <line x1="50" y1="35" x2="665" y2="35" stroke="#253243" strokeDasharray="3 3" />
+              <line x1="50" y1="110" x2="665" y2="110" stroke="#253243" strokeDasharray="3 3" />
+              <line x1="50" y1="185" x2="665" y2="185" stroke="#334458" strokeWidth="1.2" />
+
+              {/* Y Axis Labels */}
+              <text x="42" y="38" textAnchor="end" fill="#64748b" fontSize="10.5" fontFamily="JetBrains Mono">
+                {metricType === 'revenue' ? `฿${maxMetricVal}` : maxMetricVal}
+              </text>
+              <text x="42" y="113" textAnchor="end" fill="#64748b" fontSize="10.5" fontFamily="JetBrains Mono">
+                {metricType === 'revenue' ? `฿${Math.round(maxMetricVal / 2)}` : Math.round(maxMetricVal / 2)}
+              </text>
+              <text x="42" y="188" textAnchor="end" fill="#64748b" fontSize="10.5" fontFamily="JetBrains Mono">
+                0
+              </text>
+
+              {/* Bars */}
+              {trendData.map((point, index) => {
+                const N = trendData.length;
+                const chartWidth = 610;
+                const step = chartWidth / N;
+                const barWidth = Math.max(8, Math.min(32, step * 0.65));
+                const x = 55 + index * step + (step - barWidth) / 2;
+                const val = point[metricType] || 0;
+                const barHeight = maxMetricVal > 0 ? (val / maxMetricVal) * 145 : 0;
+                const y = 185 - barHeight;
+                const isHovered = hoveredIndex === index;
+
+                const gradId = metricType === 'count' ? 'url(#barGradientCount)' : metricType === 'revenue' ? 'url(#barGradientRevenue)' : 'url(#barGradientHours)';
+
+                return (
+                  <g
+                    key={point.key}
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onClick={() => setHoveredIndex(index)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {/* Invisible full-height hit area for comfortable hover */}
+                    <rect x={55 + index * step} y="20" width={step} height="175" fill="transparent" />
+
+                    {/* Bar Background Slot */}
+                    <rect
+                      x={x}
+                      y="35"
+                      width={barWidth}
+                      height="150"
+                      rx="4"
+                      fill="rgba(255,255,255,0.02)"
+                    />
+
+                    {/* Active Bar */}
+                    {barHeight > 0 && (
+                      <rect
+                        className="chart-bar-rect"
+                        x={x}
+                        y={y}
+                        width={barWidth}
+                        height={barHeight}
+                        rx="4"
+                        fill={gradId}
+                        style={{
+                          opacity: isHovered ? 1 : 0.88,
+                          stroke: isHovered ? '#ffffff' : 'none',
+                          strokeWidth: 1.5
+                        }}
+                      />
+                    )}
+
+                    {/* Value on top of bar if active or large */}
+                    {barHeight > 25 && (
+                      <text
+                        x={x + barWidth / 2}
+                        y={y - 5}
+                        textAnchor="middle"
+                        fill={isHovered ? '#ffffff' : '#cbd5e1'}
+                        fontSize="9.5"
+                        fontWeight="700"
+                        fontFamily="JetBrains Mono"
+                      >
+                        {metricType === 'revenue' ? `฿${val}` : val}
+                      </text>
+                    )}
+
+                    {/* X Axis Label */}
+                    <text
+                      x={x + barWidth / 2}
+                      y="204"
+                      textAnchor="middle"
+                      fill={isHovered ? 'var(--cyan)' : '#8091a5'}
+                      fontSize={N > 14 ? '8.5' : '10'}
+                      fontWeight={isHovered ? '700' : '500'}
+                    >
+                      {point.label}
+                    </text>
+                    {point.subLabel && N <= 14 && (
+                      <text
+                        x={x + barWidth / 2}
+                        y="218"
+                        textAnchor="middle"
+                        fill="#506175"
+                        fontSize="8.5"
+                      >
+                        {point.subLabel}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
+
+            {/* Hover Tooltip Overlay */}
+            {hoveredIndex !== null && trendData[hoveredIndex] && (
+              <div style={{
+                position: 'absolute',
+                top: 8,
+                right: 12,
+                background: 'rgba(12, 18, 26, 0.96)',
+                border: '1px solid rgba(54, 220, 201, 0.4)',
+                borderRadius: 9,
+                padding: '8px 12px',
+                fontSize: 12,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                pointerEvents: 'none'
+              }}>
+                <div>
+                  <strong style={{ color: '#fff' }}>{trendData[hoveredIndex].fullDate}</strong>
+                </div>
+                <div style={{ display: 'flex', gap: 10, fontFamily: 'JetBrains Mono' }}>
+                  <span style={{ color: 'var(--cyan)' }}>🚗 {trendData[hoveredIndex].count} ครั้ง</span>
+                  <span style={{ color: '#fbbf24' }}>💰 ฿{trendData[hoveredIndex].revenue.toLocaleString('th-TH')}</span>
+                  <span style={{ color: '#a78bfa' }}>⏱️ {trendData[hoveredIndex].hours} ชม.</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* กราฟสัดส่วนชนิดช่องจอด (Donut Chart & Progress Bars) */}
+        <div className="chart-card">
+          <div className="chart-card-header">
+            <h3 className="chart-card-title">
+              <span>🏷️ สัดส่วนตามชนิดช่องจอด</span>
+            </h3>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              รวม {typeBreakdown.totalBookings} รายการ
+            </span>
+          </div>
+
+          <div className="donut-wrap">
+            {/* SVG Donut */}
+            <div style={{ width: 170, height: 170, position: 'relative', flexShrink: 0 }}>
+              <svg viewBox="0 0 180 180" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                {/* Background Ring */}
+                <circle cx="90" cy="90" r="62" fill="none" stroke="#182330" strokeWidth="20" />
+                {donutArcs.length > 0 ? donutArcs.map((slice) => (
+                  <circle
+                    key={slice.type}
+                    cx="90"
+                    cy="90"
+                    r="62"
+                    fill="none"
+                    stroke={slice.color}
+                    strokeWidth="20"
+                    strokeDasharray={slice.strokeDasharray}
+                    strokeDashoffset={slice.strokeDashoffset}
+                    strokeLinecap="butt"
+                    style={{ transition: 'stroke-dasharray 0.5s ease' }}
+                  />
+                )) : (
+                  <circle cx="90" cy="90" r="62" fill="none" stroke="#2a384a" strokeWidth="20" strokeDasharray="10 6" />
+                )}
+              </svg>
+              {/* Donut Center Display */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none'
+              }}>
+                <strong style={{ fontSize: 24, color: '#fff', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>
+                  {typeBreakdown.totalBookings}
+                </strong>
+                <small style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                  การใช้งาน
+                </small>
+              </div>
+            </div>
+
+            {/* Breakdown List with Bars */}
+            <div className="donut-legend-list">
+              {typeBreakdown.list.map((item) => (
+                <div key={item.type} className="donut-legend-item">
+                  <div className="donut-legend-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="donut-color-dot" style={{ background: item.color }} />
+                      <strong style={{ color: '#fff' }}>{item.icon} {item.type}</strong>
+                    </div>
+                    <div>
+                      <strong style={{ color: item.color, fontFamily: 'JetBrains Mono' }}>
+                        {item.percentage}%
+                      </strong>
+                      <span style={{ color: 'var(--muted)', fontSize: 11, marginLeft: 4 }}>
+                        ({item.count} ครั้ง)
+                      </span>
+                    </div>
+                  </div>
+                  <div className="type-progress-track">
+                    <div
+                      className="type-progress-bar"
+                      style={{ width: `${item.percentage}%`, background: item.color }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#7e8fa3', marginTop: 1 }}>
+                    <span>มีในระบบ {item.slotsCount} ช่อง</span>
+                    <span style={{ color: '#facc15' }}>฿{item.revenue.toLocaleString('th-TH')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── แถวที่ 2: ความหนาแน่นรายวันในสัปดาห์ + อันดับช่องจอด ─── */}
+      <div className="analytics-main-grid">
+        {/* กราฟความหนาแน่นตามวันในสัปดาห์ (Day-of-Week Distribution) */}
+        <div className="chart-card">
+          <div className="chart-card-header">
+            <div>
+              <h3 className="chart-card-title">
+                <span>📅 ความหนาแน่นตามวันในสัปดาห์</span>
+              </h3>
+              <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 12 }}>
+                สถิติการใช้งานแยกตามวันจันทร์ - อาทิตย์ เพื่อดูพฤติกรรมช่วงเวลาหนาแน่น
+              </p>
+            </div>
+            {dayOfWeekDistribution.peakDay && (
+              <span className="badge pending" style={{ fontSize: 11.5, padding: '4px 9px' }}>
+                🔥 วัน{dayOfWeekDistribution.peakDay.name} แน่นสุด ({dayOfWeekDistribution.peakDay.count} คัน)
+              </span>
+            )}
+          </div>
+
+          <div className="day-bar-grid">
+            {dayOfWeekDistribution.days.map((day) => {
+              const isPeak = dayOfWeekDistribution.peakDay && day.name === dayOfWeekDistribution.peakDay.name && day.count > 0;
+              const heightPct = dayOfWeekDistribution.maxCount > 0 ? (day.count / dayOfWeekDistribution.maxCount) * 100 : 0;
+              return (
+                <div key={day.name} className="day-bar-col">
+                  {day.count > 0 && (
+                    <span style={{
+                      fontSize: 11,
+                      color: isPeak ? '#fbbf24' : 'var(--cyan)',
+                      fontFamily: 'JetBrains Mono',
+                      fontWeight: 700,
+                      marginBottom: 4
+                    }}>
+                      {day.count}
+                    </span>
+                  )}
+                  <div
+                    className={`day-bar-fill ${isPeak ? 'peak' : ''}`}
+                    style={{ height: `${Math.max(6, heightPct)}%` }}
+                    title={`${day.name}: ${day.count} ครั้ง (฿${day.revenue.toLocaleString('th-TH')})`}
+                  />
+                  <span className="day-bar-label">{day.short}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* อันดับช่องจอดยอดนิยม (Slot Utilization Leaderboard) */}
+        <div className="chart-card">
+          <div className="chart-card-header">
+            <h3 className="chart-card-title">
+              <span>🏆 ช่องจอดที่ถูกใช้งานสูงสุด</span>
+            </h3>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              Top 6 ช่องจอด
+            </span>
+          </div>
+
+          <div>
+            {slotLeaderboard.list.length > 0 ? slotLeaderboard.list.map((item, idx) => {
+              const pct = Number(((item.count / slotLeaderboard.maxCount) * 100).toFixed(0));
+              const tColor = getTypeColor(item.type);
+              return (
+                <div key={item.slotId} className="slot-leader-item">
+                  <div className="slot-leader-badge" style={{ borderColor: idx === 0 ? '#fbbf24' : '#36485e' }}>
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                  </div>
+                  <div className="slot-leader-content">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <strong style={{ fontSize: 15, color: '#fff', fontFamily: 'JetBrains Mono' }}>
+                          ช่อง {item.slotId}
+                        </strong>
+                        <span style={{ fontSize: 11, color: tColor, background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: 4 }}>
+                          {item.type}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          ชั้น {item.floor}
+                        </span>
+                      </div>
+                      <strong style={{ color: 'var(--cyan)', fontFamily: 'JetBrains Mono', fontSize: 13 }}>
+                        {item.count} ครั้ง
+                      </strong>
+                    </div>
+                    <div className="type-progress-track">
+                      <div className="type-progress-bar" style={{ width: `${pct}%`, background: idx === 0 ? '#fbbf24' : 'var(--cyan)' }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            }) : (
+              <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>
+                ยังไม่มีข้อมูลการใช้งานช่องจอด
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ─── ตารางสรุปเชิงลึกแยกตามชนิดช่องจอด ─── */}
+      <section className="panel" style={{ marginTop: 8 }}>
+        <div className="panel-title">
+          <h2>📋 ตารางสรุปสถิติแยกตามชนิดช่องจอด</h2>
+          <span className="muted">{typeBreakdown.list.length} ประเภทช่องจอด</span>
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ชนิดช่องจอด</th>
+                <th>จำนวนช่องในระบบ</th>
+                <th>จำนวนครั้งที่จอง</th>
+                <th>ชั่วโมงจอดรวม</th>
+                <th>รายได้รวม</th>
+                <th>เฉลี่ยเวลาต่อครั้ง</th>
+                <th>ส่วนแบ่งการจอง (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {typeBreakdown.list.map((row) => {
+                const avgHrs = row.count > 0 ? (row.hours / row.count).toFixed(1) : '0';
+                return (
+                  <tr key={row.type}>
+                    <td>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <span className="donut-color-dot" style={{ background: row.color }} />
+                        <strong>{row.icon} {row.type}</strong>
+                      </div>
+                    </td>
+                    <td>{row.slotsCount} ช่อง</td>
+                    <td><strong style={{ color: '#fff', fontFamily: 'JetBrains Mono' }}>{row.count}</strong> ครั้ง</td>
+                    <td>{row.hours} ชม.</td>
+                    <td><strong style={{ color: '#fbbf24', fontFamily: 'JetBrains Mono' }}>฿{row.revenue.toLocaleString('th-TH')}</strong></td>
+                    <td>{avgHrs} ชั่วโมง</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 120 }}>
+                        <div className="type-progress-track" style={{ flex: 1, margin: 0 }}>
+                          <div className="type-progress-bar" style={{ width: `${row.percentage}%`, background: row.color }} />
+                        </div>
+                        <span style={{ fontSize: 12, fontFamily: 'JetBrains Mono', color: row.color, fontWeight: 700 }}>
+                          {row.percentage}%
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
+  );
 }
 
 function AdminUsers({ data, notify }) {
@@ -1702,11 +2835,74 @@ function AdminLayout({ data, reload, notify }) {
   const [selected, setSelected] = useState(null);
   const [floor, setFloor] = useState(1);
   const [lightboxMap, setLightboxMap] = useState(null);
+  const [slotToEdit, setSlotToEdit] = useState(null);
+  const [editPrice, setEditPrice] = useState(20);
+  const [editType, setEditType] = useState('ลูกค้าทั่วไป');
+  const [editTypePreset, setEditTypePreset] = useState('ลูกค้าทั่วไป');
+  const [editCode, setEditCode] = useState('');
+
   const slots = data.slots.filter((slot) => Number(slot.floor) === Number(floor)).sort((a, b) => a.slot_order - b.slot_order);
   const maps = (data.parking_maps || []).filter((item) => Number(item.floor) === Number(floor)).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  const activeMap = maps[0] || null;
+  const placedSlots = slots.filter((s) => s.pos_x != null && s.pos_y != null);
+  const unplacedSlots = slots.filter((s) => s.pos_x == null || s.pos_y == null);
   const openMaintenance = (data.maintenance_logs || []).filter((item) => item.status === 'open');
 
-  async function patchSlot(slot, patch) { try { await api(`/admin/slots/${slot.id}`, { method: 'PATCH', body: JSON.stringify(patch) }); notify('อัปเดตช่องจอดแล้ว'); } catch (err) { notify(err.message, true); } }
+  async function patchSlot(slot, patch) {
+    try {
+      await api(`/admin/slots/${slot.id}`, { method: 'PATCH', body: JSON.stringify(patch) });
+      await reload?.();
+    } catch (err) {
+      notify(err.message, true);
+    }
+  }
+
+  const openEditModal = (slot) => {
+    setSlotToEdit(slot);
+    setEditPrice(Number(slot.price_per_hour || 20));
+    setEditCode(slot.code);
+    const rawType = slot.type || 'ลูกค้าทั่วไป';
+    const normalizedType = rawType === 'ปกติ' ? 'ลูกค้าทั่วไป' : rawType;
+    const isStandard = ['ลูกค้าทั่วไป', 'สมาชิก', 'ผู้พิการ', 'ชาร์จ EV'].includes(normalizedType);
+    if (isStandard) {
+      setEditTypePreset(normalizedType);
+      setEditType(normalizedType);
+    } else {
+      setEditTypePreset('custom');
+      setEditType(rawType);
+    }
+  };
+
+  const saveSlotSettings = async () => {
+    if (!slotToEdit) return;
+    const finalType = editTypePreset === 'custom' ? (editType.trim() || 'ลูกค้าทั่วไป') : editTypePreset;
+    const finalPrice = Math.max(0, Number(editPrice || 0));
+    const finalCode = editCode.trim() || slotToEdit.code;
+
+    try {
+      await patchSlot(slotToEdit, {
+        code: finalCode,
+        price_per_hour: finalPrice,
+        type: finalType
+      });
+      setSlotToEdit(null);
+      notify(`บันทึกการตั้งค่าช่อง ${finalCode} เรียบร้อยแล้ว (฿${finalPrice}/ชม. · ${finalType}) ✅`);
+    } catch (err) {
+      notify(err.message, true);
+    }
+  };
+
+  const placeSlotOnMap = async (slot) => {
+    const defaultX = 50 + (((slot.slot_order || 0) % 3) - 1) * 14;
+    const defaultY = 45 + Math.floor((slot.slot_order || 0) / 3) * 14;
+    try {
+      await patchSlot(slot, { pos_x: defaultX, pos_y: defaultY });
+      notify(`นำช่อง ${slot.code} วางบนผังแล้ว ลากไปยังตำแหน่งที่ต้องการได้เลย 📍`);
+    } catch (err) {
+      notify(err.message, true);
+    }
+  };
+
   async function rename(slot) { const code = window.prompt('ชื่อช่องจอดใหม่', slot.code); if (code) patchSlot(slot, { code }); }
   async function chooseSwap(slot) { if (!selected) return setSelected(slot.id); if (selected === slot.id) return setSelected(null); try { await api('/admin/slots/swap', { method: 'POST', body: JSON.stringify({ firstId: selected, secondId: slot.id }) }); setSelected(null); notify('สลับตำแหน่งช่องจอดแล้ว'); } catch (err) { notify(err.message, true); } }
   async function maintenance(slot, defaultReason = 'ปิดปรับปรุง / ซ่อมบำรุง') {
@@ -1764,13 +2960,13 @@ function AdminLayout({ data, reload, notify }) {
 
   return (
     <>
-      <PageHead title="จัดการผังลานจอด" description="คลิกช่อง 2 ช่องเพื่อสลับตำแหน่ง เปลี่ยนชื่อ สถานะ หรือแจ้งซ่อม" />
+      <PageHead title="จัดการผังลานจอด" description="ลากวางช่องจอดบนรูปภาพแปลน กำหนดประเภทช่องจอด และแก้ไขราคาค่าจอดแต่ละช่อง" />
       <div className="tabs">
         <button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1 (A1 - A6)</button>
         <button className={floor === 2 ? 'active' : ''} onClick={() => setFloor(2)}>ชั้น 2 (B1 - B6)</button>
       </div>
 
-      {/* ─── รูปผังลานจอด ─── */}
+      {/* ─── รูปผังลานจอดและการลากวางช่องจอด ─── */}
       <section className="panel">
         <div className="panel-title">
           <h2>ผังลานจอด · ชั้น {floor}</h2>
@@ -1778,83 +2974,104 @@ function AdminLayout({ data, reload, notify }) {
         </div>
 
         {/* อัปโหลดรูปใหม่ */}
-        <form className="booking-fields" onSubmit={uploadMap} style={{ marginBottom: maps.length ? 24 : 0 }}>
+        <form className="booking-fields" onSubmit={uploadMap} style={{ marginBottom: maps.length ? 20 : 0 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, alignItems: 'end' }}>
             <div>
               <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 5, fontWeight: 600 }}>ชื่อผัง</label>
               <input name="name" required placeholder={`เช่น ผังชั้น ${floor} อาคาร A`} style={{ margin: 0 }} />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 5, fontWeight: 600 }}>ไฟล์รูปภาพ (PNG / JPG / WebP)</label>
+              <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 5, fontWeight: 600 }}>ไฟล์รูปภาพแปลน (PNG / JPG / WebP)</label>
               <input name="image" type="file" accept="image/png,image/jpeg,image/webp" required style={{ margin: 0 }} />
             </div>
             <button type="submit" className="button primary" style={{ alignSelf: 'end', whiteSpace: 'nowrap' }}>+ อัปโหลดรูป</button>
           </div>
         </form>
 
-        {/* รายการรูปที่มีอยู่ */}
-        {maps.length === 0 ? (
-          <p className="muted" style={{ marginTop: 8 }}>ยังไม่มีรูปผังชั้น {floor} กรุณาอัปโหลด</p>
-        ) : (
-          <div style={{ display: 'grid', gap: 20, marginTop: 4 }}>
-            {maps.map((item) => (
-              <div key={item.id} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)' }}>
-                {/* Header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
-                  <div>
-                    <strong style={{ fontSize: 15 }}>{item.name}</strong>
-                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, fontFamily: 'JetBrains Mono, monospace' }}>
-                      อัปโหลด {new Date(item.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button
-                      type="button"
-                      className="button compact"
-                      onClick={() => setLightboxMap(item)}
-                      title="ดูรูปเต็มหน้าจอ"
-                    >🔍 ดูภาพ</button>
-                    <label
-                      className="button compact"
-                      style={{ cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center' }}
-                      title="เลือกไฟล์รูปใหม่เพื่อเปลี่ยนแทนรูปนี้"
-                    >
-                      📷 เปลี่ยนรูปภาพ
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        style={{ display: 'none' }}
-                        onChange={(e) => {
-                          if (e.target.files?.[0]) {
-                            replaceMapImage(item, e.target.files[0]);
-                            e.target.value = '';
-                          }
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="button compact"
-                      onClick={() => renameMap(item)}
-                      title="เปลี่ยนชื่อผัง"
-                    >✏️ เปลี่ยนชื่อ</button>
-                    <button
-                      type="button"
-                      className="button danger compact"
-                      onClick={() => deleteMap(item)}
-                      title="ลบรูปผังนี้"
-                    >🗑 ลบ</button>
-                  </div>
-                </div>
-                {/* รูปภาพ */}
-                <img
-                  src={item.image_url}
-                  alt={item.name}
-                  onClick={() => setLightboxMap(item)}
-                  style={{ width: '100%', maxHeight: 420, objectFit: 'contain', display: 'block', background: '#101820', cursor: 'zoom-in' }}
-                />
+        {/* แคนวาสแผนที่แบบลากวาง */}
+        {activeMap && (
+          <div style={{ marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <strong style={{ fontSize: 15, color: '#fff' }}>📍 ผังแปลนจริงแบบลากวาง ({activeMap.name})</strong>
+                <span style={{ fontSize: 11, color: 'var(--cyan)', background: 'rgba(54,220,201,0.12)', border: '1px solid rgba(54,220,201,0.3)', padding: '2px 8px', borderRadius: 999 }}>
+                  วางแล้ว {placedSlots.length}/{slots.length} ช่อง
+                </span>
               </div>
-            ))}
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                💡 <strong>วิธีใช้:</strong> คลิกลากช่องจอดไปวางที่ตำแหน่งจริงบนรูปภาพ | คลิกที่ช่องเพื่อแก้ไขราคาและประเภท
+              </div>
+            </div>
+
+            <InteractiveFloorMap
+              map={activeMap}
+              slots={slots}
+              devices={data.devices}
+              isAdmin={true}
+              onSlotClick={(slot) => openEditModal(slot)}
+              onSlotMove={async (slot, x, y) => {
+                await patchSlot(slot, { pos_x: x, pos_y: y });
+                notify(`บันทึกตำแหน่งช่อง ${slot.code} บนผังแล้ว (${x}%, ${y}%) ✅`);
+              }}
+              selectedSlotId={selected}
+            />
+
+            {/* ถาดช่องจอดที่ยังไม่ได้วาง */}
+            {unplacedSlots.length > 0 && (
+              <div className="unplaced-tray">
+                <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
+                  📌 ช่องจอดที่ยังไม่ได้วางตำแหน่ง ({unplacedSlots.length} ช่อง):
+                </span>
+                {unplacedSlots.map((slot) => (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    className="unplaced-badge"
+                    onClick={() => placeSlotOnMap(slot)}
+                    title="คลิกเพื่อนำช่องจอดนี้ขึ้นไปวางบนผัง"
+                  >
+                    <strong>+ วาง {slot.code}</strong>
+                    <span style={{ color: '#fbbf24', fontSize: 11 }}>฿{slot.price_per_hour || 20}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* แถบจัดการรูปภาพ */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12, alignItems: 'center' }}>
+              <button
+                type="button"
+                className="button compact"
+                onClick={() => setLightboxMap(activeMap)}
+              >🔍 ดูรูปเต็ม</button>
+              <label
+                className="button compact"
+                style={{ cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center' }}
+              >
+                📷 เปลี่ยนรูปภาพ
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) {
+                      replaceMapImage(activeMap, e.target.files[0]);
+                      e.target.value = '';
+                    }
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                className="button compact"
+                onClick={() => renameMap(activeMap)}
+              >✏️ เปลี่ยนชื่อ</button>
+              <button
+                type="button"
+                className="button danger compact"
+                onClick={() => deleteMap(activeMap)}
+              >🗑 ลบ</button>
+            </div>
           </div>
         )}
       </section>
@@ -1880,67 +3097,191 @@ function AdminLayout({ data, reload, notify }) {
         </div>
       )}
 
-      {/* ─── ผังช่องจอด ─── */}
+      {/* ─── ผังช่องจอด (ตารางรายละเอียดและการตั้งค่า) ─── */}
       <section className="panel">
+        <div className="panel-title">
+          <h2>รายละเอียดช่องจอด · ชั้น {floor}</h2>
+          <span className="muted">{slots.length} ช่อง</span>
+        </div>
         <div className="slot-grid">
           {slots.map((slot) => {
             const sensor = (data.devices || []).find((d) => d.type === 'sensor' && d.linked_slot === slot.id);
             const isCarPresent = sensor?.status === 'online' && (sensor?.presence === 'occupied' || sensor?.car_present === true);
             const sensorDotClass = !sensor || sensor.status !== 'online' ? 'offline' : (isCarPresent ? 'occupied' : 'empty');
+            const typeMeta = getSlotTypeMeta(slot.type);
+
             return (
               <div className={`slot-card ${slot.status}`} key={slot.id} style={selected === slot.id ? { outline: '2px solid #22d3ee' } : {}}>
                 <span className={`sensor-dot ${sensorDotClass}`} title={isCarPresent ? 'เซ็นเซอร์: ตรวจพบวัตถุ (สีแดง)' : 'เซ็นเซอร์: ว่าง (สีเขียว)'} />
                 <div className="slot-top">
                   <strong>{slot.code}</strong>
-                  <span>{slot.status === 'available' ? 'ว่าง' : slot.status === 'booked' ? 'ถูกจอง' : 'ไม่พร้อม/ซ่อม'}</span>
+                  <span className={`slot-type-pill ${typeMeta.className}`}>{typeMeta.icon} {typeMeta.label}</span>
                 </div>
-                <small>ลำดับ {slot.slot_order} · {slot.type}</small>
-                <button className="button compact" onClick={() => chooseSwap(slot)}>{selected ? 'เลือกเพื่อสลับ' : 'เลือกสลับตำแหน่ง'}</button>
-                {' '}
-                <button className="button compact" onClick={() => rename(slot)}>เปลี่ยนชื่อ</button>
-                <select
-                  value={slot.status}
-                  onChange={async (e) => {
-                    const nextVal = e.target.value;
-                    if (nextVal === 'unavailable') {
-                      await maintenance(slot);
-                    } else if (slot.status === 'unavailable' && nextVal === 'available') {
-                      const openJob = (data.maintenance_logs || []).find((m) => m.slot_id === slot.id && m.status === 'open');
-                      if (openJob) {
-                        await resolve(openJob);
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', margin: '4px 0 8px' }}>
+                  <span style={{ color: '#fbbf24', fontWeight: 700, fontSize: 13 }}>฿{slot.price_per_hour || 20}/ชม.</span>
+                  <span style={{ fontSize: 10.5, color: slot.pos_x != null ? 'var(--cyan)' : 'var(--muted)' }}>
+                    {slot.pos_x != null ? `📍 บนผัง (${slot.pos_x}%, ${slot.pos_y}%)` : '⚠️ ยังไม่วางบนผัง'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, width: '100%', marginBottom: 6 }}>
+                  <button className="button compact primary" onClick={() => openEditModal(slot)}>⚙️ ตั้งค่า</button>
+                  {slot.pos_x == null ? (
+                    <button className="button compact" onClick={() => placeSlotOnMap(slot)}>📍 วางบนผัง</button>
+                  ) : (
+                    <button className="button compact" onClick={() => chooseSwap(slot)}>{selected === slot.id ? 'ยกเลิกสลับ' : 'สลับลำดับ'}</button>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, width: '100%' }}>
+                  <select
+                    value={slot.status}
+                    onChange={async (e) => {
+                      const nextVal = e.target.value;
+                      if (nextVal === 'unavailable') {
+                        await maintenance(slot);
+                      } else if (slot.status === 'unavailable' && nextVal === 'available') {
+                        const openJob = (data.maintenance_logs || []).find((m) => m.slot_id === slot.id && m.status === 'open');
+                        if (openJob) {
+                          await resolve(openJob);
+                        } else {
+                          await patchSlot(slot, { status: 'available' });
+                        }
                       } else {
-                        await patchSlot(slot, { status: 'available' });
+                        await patchSlot(slot, { status: nextVal });
                       }
-                    } else {
-                      await patchSlot(slot, { status: nextVal });
-                    }
-                  }}
-                >
-                  <option value="available">ว่าง</option>
-                  <option value="booked">ถูกจอง</option>
-                  <option value="unavailable">ไม่พร้อม/ซ่อม</option>
-                </select>
-                {openMaintenance.some((m) => m.slot_id === slot.id) ? (
-                  <button
-                    className="button primary compact"
-                    title="ปิดงานซ่อมและคืนสถานะช่องว่าง"
-                    onClick={() => {
-                      const openJob = openMaintenance.find((m) => m.slot_id === slot.id);
-                      if (openJob) resolve(openJob);
                     }}
                   >
-                    ซ่อมเสร็จ
-                  </button>
-                ) : (
-                  <button className="button danger compact" onClick={() => maintenance(slot)}>
-                    แจ้งซ่อม
-                  </button>
-                )}
+                    <option value="available">ว่าง</option>
+                    <option value="booked">ถูกจอง</option>
+                    <option value="unavailable">ไม่พร้อม/ซ่อม</option>
+                  </select>
+
+                  {openMaintenance.some((m) => m.slot_id === slot.id) ? (
+                    <button
+                      className="button primary compact"
+                      title="ปิดงานซ่อมและคืนสถานะช่องว่าง"
+                      onClick={() => {
+                        const openJob = openMaintenance.find((m) => m.slot_id === slot.id);
+                        if (openJob) resolve(openJob);
+                      }}
+                    >
+                      ซ่อมเสร็จ
+                    </button>
+                  ) : (
+                    <button className="button danger compact" onClick={() => maintenance(slot)}>
+                      แจ้งซ่อม
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       </section>
+
+      {/* ─── โมดอลแก้ไขราคา ประเภท และรายละเอียดช่องจอด ─── */}
+      {slotToEdit && (
+        <div className="modal-backdrop" onMouseDown={() => setSlotToEdit(null)}>
+          <div className="slot-edit-dialog" onMouseDown={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h3 style={{ margin: 0, fontSize: 18, color: '#fff' }}>⚙️ จัดการช่องจอด {slotToEdit.code}</h3>
+              <button type="button" className="modal-close" onClick={() => setSlotToEdit(null)}>✕</button>
+            </div>
+
+            <div className="slot-edit-field">
+              <label className="slot-edit-label">
+                🔤 ชื่อ / รหัสช่องจอด
+              </label>
+              <input
+                className="slot-edit-input"
+                value={editCode}
+                onChange={(e) => setEditCode(e.target.value)}
+                placeholder="เช่น A1, B2..."
+              />
+            </div>
+
+            <div className="slot-edit-field">
+              <label className="slot-edit-label">
+                💰 ราคาค่าจอดต่อชั่วโมง
+              </label>
+              <div className="slot-edit-input-group">
+                <input
+                  type="number"
+                  min="0"
+                  step="5"
+                  className="slot-edit-input"
+                  style={{ border: 'none', background: 'transparent', fontWeight: 700, color: '#facc15', fontSize: 16 }}
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(Math.max(0, Number(e.target.value)))}
+                />
+                <span className="slot-edit-input-suffix">บาท/ชม.</span>
+              </div>
+            </div>
+
+            <div className="slot-edit-field">
+              <label className="slot-edit-label">
+                🏷️ ประเภทช่องจอด
+              </label>
+              <select
+                className="slot-edit-input"
+                value={editTypePreset}
+                onChange={(e) => {
+                  setEditTypePreset(e.target.value);
+                  if (e.target.value !== 'custom') setEditType(e.target.value);
+                }}
+              >
+                <option value="ลูกค้าทั่วไป">🚗 ลูกค้าทั่วไป (General)</option>
+                <option value="สมาชิก">⭐ สมาชิก (VIP / Member)</option>
+                <option value="ผู้พิการ">♿ ผู้พิการ (Accessible)</option>
+                <option value="ชาร์จ EV">⚡ ชาร์จ EV (EV Charging)</option>
+                <option value="custom">➕ กำหนดประเภทเอง...</option>
+              </select>
+            </div>
+
+            {editTypePreset === 'custom' && (
+              <div className="slot-edit-field">
+                <label className="slot-edit-label" style={{ color: 'var(--cyan)' }}>
+                  ✏️ ระบุชื่อประเภทช่องจอดเอง
+                </label>
+                <input
+                  className="slot-edit-input"
+                  placeholder="พิมพ์ประเภทช่องจอด เช่น รถตู้ VIP, ผู้บริหาร..."
+                  value={editType}
+                  onChange={(e) => setEditType(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+              <button
+                type="button"
+                className="button primary"
+                onClick={saveSlotSettings}
+              >
+                💾 บันทึกการเปลี่ยนแปลง
+              </button>
+
+              {slotToEdit.pos_x != null && (
+                <button
+                  type="button"
+                  className="button compact"
+                  style={{ color: '#f87171', border: '1px solid rgba(248,113,113,0.3)', background: 'transparent' }}
+                  onClick={async () => {
+                    await patchSlot(slotToEdit, { pos_x: null, pos_y: null });
+                    setSlotToEdit(null);
+                    notify(`ลบตำแหน่งช่อง ${slotToEdit.code} ออกจากผังรูปภาพแล้ว`);
+                  }}
+                >
+                  🗑️ ลบตำแหน่งออกจากผังรูปภาพ
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── ประวัติการซ่อมบำรุง ─── */}
       <section className="panel">
@@ -2077,7 +3418,7 @@ function App() {
 
   const liveUser = data.users.find((item) => item.id === user.id) || user;
   const content = liveUser.role === 'admin'
-    ? { dashboard: <AdminDashboard data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, layout: <AdminLayout data={data} reload={load} notify={notify} /> }[view]
+    ? { dashboard: <AdminDashboard data={data} setView={setView} />, analytics: <AdminAnalytics data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, layout: <AdminLayout data={data} reload={load} notify={notify} /> }[view]
     : { booking: <UserBooking data={data} user={liveUser} notify={notify} setView={setView} />, control: <UserControl data={data} user={liveUser} notify={notify} />, history: <UserHistory data={data} user={liveUser} notify={notify} /> }[view];
   return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
 }

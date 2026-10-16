@@ -10,7 +10,8 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const VEHICLES_FILE = path.resolve('database/vehicles_fallback.json');
+const DB_DIR = fs.existsSync(path.resolve('database')) ? path.resolve('database') : path.resolve('../database');
+const VEHICLES_FILE = path.join(DB_DIR, 'vehicles_fallback.json');
 function readFallbackVehicles() {
   try {
     if (fs.existsSync(VEHICLES_FILE)) {
@@ -27,6 +28,26 @@ function writeFallbackVehicles(list) {
     fs.writeFileSync(VEHICLES_FILE, JSON.stringify(list, null, 2), 'utf8');
   } catch (e) {
     console.warn('[vehicles fallback write error]', e.message);
+  }
+}
+
+const SLOTS_META_FILE = path.join(DB_DIR, 'slots_meta.json');
+function readSlotsMeta() {
+  try {
+    if (fs.existsSync(SLOTS_META_FILE)) {
+      return JSON.parse(fs.readFileSync(SLOTS_META_FILE, 'utf8') || '{}');
+    }
+  } catch (e) {
+    console.warn('[slots_meta read error]', e.message);
+  }
+  return {};
+}
+function writeSlotsMeta(meta) {
+  try {
+    fs.mkdirSync(path.dirname(SLOTS_META_FILE), { recursive: true });
+    fs.writeFileSync(SLOTS_META_FILE, JSON.stringify(meta, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[slots_meta write error]', e.message);
   }
 }
 
@@ -73,7 +94,10 @@ async function finishBooking(input,reason='manual'){
   const now=new Date(),start=thaiDateTime(b.date,b.time);
   const actual=Math.max(0,Math.round((now-start)/60000));
   const overtime=Math.max(0,actual-Number(b.duration)*60);
-  const overtimeAmount=Math.ceil(overtime/60)*RATE;
+  const slotsMeta=readSlotsMeta();
+  const {data:s}=await db.from('slots').select('price_per_hour').eq('id',b.slot_id).maybeSingle();
+  const slotRate=Number(s?.price_per_hour??slotsMeta[b.slot_id]?.price_per_hour??RATE);
+  const overtimeAmount=Math.ceil(overtime/60)*slotRate;
   const totalAmount=Number(b.amount)+overtimeAmount;
   const {data:claimed,error:claimError}=await db.from('bookings').update({status:'completed',exit_time:now.toISOString(),actual_minutes:actual,overtime_minutes:overtime,overtime_amount:overtimeAmount,amount:totalAmount}).eq('id',b.id).in('status',['pending','active']).select('id').maybeSingle();
   if(claimError)throw claimError;
@@ -188,7 +212,10 @@ app.post('/api/auth/line',async(req,res)=>{try{const {code,redirectUri}=req.body
 app.post('/api/auth/line/unlink',auth,async(req,res)=>{try{await db.from('users').update({line_user_id:null}).eq('id',req.user.id);const updated=await userById(req.user.id);delete updated.password_hash;delete updated.password;res.json({ok:true,user:updated});}catch(error){res.status(400).json({error:error.message});}});
 app.post('/api/auth/register',async(req,res)=>{try{const {username,email,password,name}=req.body;if(!username||!password||!name)return res.status(400).json({error:'ข้อมูลไม่ครบถ้วน'});const u={id:id(),username,email:email?.toLowerCase(),password_hash:await bcrypt.hash(password,10),name,role:'user',credit:0,status:'active',line_link_code:crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase()};const {data,error}=await db.from('users').insert(u).select('*').single();if(error)throw error;delete data.password_hash;res.json({user:data,token:sign(data)});}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/auth/login',async(req,res)=>{try{const username=String(req.body.username||'').trim(),password=String(req.body.password||'');if(!username||!password)return res.status(400).json({error:'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'});const {data,error}=await db.from('users').select('*').or(`username.eq.${username},email.eq.${username}`).maybeSingle();if(error)throw error;if(!data||data.status!=='active'||!(data.password_hash?await bcrypt.compare(password,data.password_hash):data.password===password))return res.status(401).json({error:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'});delete data.password_hash;delete data.password;res.json({user:data,token:sign(data)});}catch(error){console.error('[login]',error);res.status(500).json({error:'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Backend และ Supabase'});}});
-app.get('/api/bootstrap',auth,async(req,res)=>{try{await lifecycle();const out={};const required=['slots','bookings','credit_history','devices'];const optional=['credit_requests','maintenance_logs','parking_maps','vehicles'];const userFields='id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at';let usersQuery=db.from('users').select(userFields);if(req.user.role!=='admin')usersQuery=usersQuery.eq('id',req.user.id);const {data:users,error:userError}=await usersQuery;if(userError)throw userError;out.users=users||[];for(const table of required){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['bookings','credit_history'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error)throw error;out[table]=data||[];}for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['credit_requests','vehicles'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);if(table==='vehicles'){out[table]=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);}else out[table]=[];}else{out[table]=data||[];if(table==='vehicles'&&out[table].length===0){const fallback=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);if(fallback.length>0)out[table]=fallback;}}}res.json(out);}catch(error){console.error('[bootstrap]',error);res.status(500).json({error:`โหลดข้อมูลไม่สำเร็จ: ${error.message}`});}});
+app.get('/api/bootstrap',auth,async(req,res)=>{try{await lifecycle();const out={};const required=['slots','bookings','credit_history','devices'];const optional=['credit_requests','maintenance_logs','parking_maps','vehicles'];const userFields='id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at';let usersQuery=db.from('users').select(userFields);if(req.user.role!=='admin')usersQuery=usersQuery.eq('id',req.user.id);const {data:users,error:userError}=await usersQuery;if(userError)throw userError;out.users=users||[];for(const table of required){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['bookings','credit_history'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error)throw error;out[table]=data||[];}
+const slotsMeta=readSlotsMeta();
+out.slots=(out.slots||[]).map(s=>{const meta=slotsMeta[s.id]||{};return{...s,price_per_hour:s.price_per_hour!==undefined&&s.price_per_hour!==null?Number(s.price_per_hour):(meta.price_per_hour??20),pos_x:s.pos_x!==undefined&&s.pos_x!==null?Number(s.pos_x):(meta.pos_x??null),pos_y:s.pos_y!==undefined&&s.pos_y!==null?Number(s.pos_y):(meta.pos_y??null),type:s.type||meta.type||'ลูกค้าทั่วไป'};});
+for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['credit_requests','vehicles'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);if(table==='vehicles'){out[table]=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);}else out[table]=[];}else{out[table]=data||[];if(table==='vehicles'&&out[table].length===0){const fallback=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);if(fallback.length>0)out[table]=fallback;}}}res.json(out);}catch(error){console.error('[bootstrap]',error);res.status(500).json({error:`โหลดข้อมูลไม่สำเร็จ: ${error.message}`});}});
 app.post('/api/bookings',auth,async(req,res)=>{
   try{
     const {slotId,date,time,duration,vehicleId,vehicle_id,licensePlate,license_plate,vehicleType,vehicle_type,saveVehicle,save_vehicle}=req.body;
@@ -196,16 +223,19 @@ app.post('/api/bookings',auth,async(req,res)=>{
     const dur=Number(duration);
     if(!Number.isFinite(dur)||dur<1)return res.status(400).json({error:'จำนวนชั่วโมงต้องไม่ต่ำกว่า 1'});
     const u=await userById(req.user.id);
-    const amount=dur*RATE;
+    const slotsMeta=readSlotsMeta();
+    const {data:slot,error:slotError}=await db.from('slots').select('status, price_per_hour').eq('id',slotId).maybeSingle();
+    if(slotError)return res.status(500).json({error:slotError.message});
+    if(!slot||slot.status!=='available')return res.status(400).json({error:'ช่องจอดนี้ไม่ว่างหรือกำลังซ่อมบำรุง'});
+
+    const slotRate=Number(slot?.price_per_hour??slotsMeta[slotId]?.price_per_hour??RATE);
+    const amount=dur*slotRate;
     const userCredit=Number(u?.credit||0);
     if(userCredit<amount){
       return res.status(400).json({
         error:`เครดิตของคุณไม่เพียงพอสำหรับการจอง (ต้องใช้ ฿${amount.toLocaleString('th-TH')} แต่คุณมี ฿${userCredit.toLocaleString('th-TH')}) กรุณาส่งคำขอเติมเครดิตในระบบก่อนทำรายการ`
       });
     }
-    const {data:slot,error:slotError}=await db.from('slots').select('status').eq('id',slotId).maybeSingle();
-    if(slotError)return res.status(500).json({error:slotError.message});
-    if(!slot||slot.status!=='available')return res.status(400).json({error:'ช่องจอดนี้ไม่ว่างหรือกำลังซ่อมบำรุง'});
     const start=thaiDateTime(date,time);
     if(start<=new Date())return res.status(400).json({error:'เวลาเริ่มจองต้องเป็นเวลาในอนาคต'});
     
@@ -484,7 +514,7 @@ app.post('/api/devices/:id/toggle',auth,async(req,res)=>{
 });
 app.patch('/api/admin/users/:id',auth,admin,async(req,res)=>{try{const patch={};if(['admin','user'].includes(req.body.role))patch.role=req.body.role;if(['active','inactive'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(!Object.keys(patch).length)return res.status(400).json({error:'ไม่มีข้อมูลที่ต้องแก้ไข'});const {data,error}=await db.from('users').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.patch('/api/admin/devices/:id',auth,admin,async(req,res)=>{try{const patch={};if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(typeof req.body.linked_slot==='string'||req.body.linked_slot===null)patch.linked_slot=req.body.linked_slot;if(['online','offline','error'].includes(req.body.status))patch.status=req.body.status;patch.updated_at=new Date().toISOString();const {data,error}=await db.from('devices').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
-app.patch('/api/admin/slots/:id',auth,admin,async(req,res)=>{try{const patch={};if(typeof req.body.code==='string'&&req.body.code.trim())patch.code=req.body.code.trim();if(['available','booked','unavailable'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.type==='string'&&req.body.type.trim())patch.type=req.body.type.trim();patch.updated_at=new Date().toISOString();const {data,error}=await db.from('slots').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
+app.patch('/api/admin/slots/:id',auth,admin,async(req,res)=>{try{const patch={};const metaPatch={};if(typeof req.body.code==='string'&&req.body.code.trim())patch.code=req.body.code.trim();if(['available','booked','unavailable'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.type==='string'&&req.body.type.trim()){patch.type=req.body.type.trim();metaPatch.type=patch.type;}if(req.body.price_per_hour!==undefined&&req.body.price_per_hour!==null&&!isNaN(Number(req.body.price_per_hour))){patch.price_per_hour=Math.max(0,Number(req.body.price_per_hour));metaPatch.price_per_hour=patch.price_per_hour;}if(req.body.pos_x!==undefined){patch.pos_x=req.body.pos_x===null?null:Number(req.body.pos_x);metaPatch.pos_x=patch.pos_x;}if(req.body.pos_y!==undefined){patch.pos_y=req.body.pos_y===null?null:Number(req.body.pos_y);metaPatch.pos_y=patch.pos_y;}const allMeta=readSlotsMeta();allMeta[req.params.id]={...(allMeta[req.params.id]||{}),...metaPatch};writeSlotsMeta(allMeta);patch.updated_at=new Date().toISOString();let updatedData=null;try{const {data,error}=await db.from('slots').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;updatedData=data;}catch(dbErr){console.warn('[slots update fallback]',dbErr.message);const safePatch={};if(patch.code)safePatch.code=patch.code;if(patch.status)safePatch.status=patch.status;if(patch.type)safePatch.type=patch.type;safePatch.updated_at=patch.updated_at;const {data:fbData,error:fbErr}=await db.from('slots').update(safePatch).eq('id',req.params.id).select('*').single();if(fbErr)throw fbErr;updatedData=fbData;}const merged={...updatedData,price_per_hour:updatedData.price_per_hour??allMeta[req.params.id]?.price_per_hour??20,pos_x:updatedData.pos_x??allMeta[req.params.id]?.pos_x??null,pos_y:updatedData.pos_y??allMeta[req.params.id]?.pos_y??null,type:updatedData.type||allMeta[req.params.id]?.type||'ลูกค้าทั่วไป'};res.json(merged);}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/admin/slots/swap',auth,admin,async(req,res)=>{try{const {firstId,secondId}=req.body;const {data:slots,error}=await db.from('slots').select('id,floor,slot_order').in('id',[firstId,secondId]);if(error)throw error;if(!slots||slots.length!==2)return res.status(404).json({error:'ไม่พบช่องจอด'});const a=slots.find(x=>x.id===firstId),b=slots.find(x=>x.id===secondId);await db.from('slots').update({floor:b.floor,slot_order:b.slot_order,updated_at:new Date().toISOString()}).eq('id',a.id);await db.from('slots').update({floor:a.floor,slot_order:a.slot_order,updated_at:new Date().toISOString()}).eq('id',b.id);res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/admin/maintenance',auth,admin,async(req,res)=>{try{const {slotId,problemDetail}=req.body;if(!slotId||!String(problemDetail||'').trim())return res.status(400).json({error:'กรุณาระบุช่องจอดและรายละเอียด'});const {data,error}=await db.from('maintenance_logs').insert({id:id(),slot_id:slotId,problem_detail:String(problemDetail).trim(),status:'open'}).select('*').single();if(error)throw error;await db.from('slots').update({status:'unavailable',updated_at:new Date().toISOString()}).eq('id',slotId);res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/admin/maintenance/:id/resolve',auth,admin,async(req,res)=>{try{const {data:m,error}=await db.from('maintenance_logs').select('*').eq('id',req.params.id).maybeSingle();if(error)throw error;if(!m)return res.status(404).json({error:'ไม่พบรายการซ่อม'});await db.from('maintenance_logs').update({status:'resolved',resolved_at:new Date().toISOString()}).eq('id',m.id);await db.from('slots').update({status:'available',updated_at:new Date().toISOString()}).eq('id',m.slot_id);res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
