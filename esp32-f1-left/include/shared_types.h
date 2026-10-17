@@ -5,22 +5,23 @@
 #include <ESP32Servo.h>
 
 /* ================= CONFIGURABLE PARAMETERS ================= */
-#define FLOOR_NUMBER        1
-#define FLOOR_DEVICE_ID     "Floor-1"
+#define FLOOR_NUMBER 1
+#define FLOOR_DEVICE_ID "Floor-1"
 
-#define SLOT_PREFIX         "A"
-#define LOCAL_SLOT_OFFSET   0
-#define REMOTE_SLOT_OFFSET  3
+#define SLOT_PREFIX "A"
+#define LOCAL_SLOT_OFFSET 0
+#define REMOTE_SLOT_OFFSET 3
 
 /* ================= ALGORITHM CONSTRAINTS ================= */
-const float HYSTERESIS_ENTER_CM = 9.0f;       // ต่ำกว่านี้ = มีรถจอด
-const float HYSTERESIS_EXIT_CM = 10.0f;       // สูงกว่านี้ = ช่องว่าง
-const unsigned long DEBOUNCE_TIME_MS = 2000;  // สถานะต้องนิ่ง 2 วินาที
+const float HYSTERESIS_ENTER_CM = 9.0f;      // ต่ำกว่านี้ = มีรถจอด
+const float HYSTERESIS_EXIT_CM = 10.0f;      // สูงกว่านี้ = ช่องว่าง
+const unsigned long DEBOUNCE_TIME_MS = 1000; // สถานะต้องนิ่ง 2 วินาที
 const unsigned long TERMINAL_LOG_INTERVAL = 2000;
-const unsigned long NETWORK_COOLDOWN_MS = 1500;
-const unsigned long PERIODIC_SYNC_MS = 2500;  // ซิงค์สถานะไม้กั้นและเซ็นเซอร์ทุก 2.5 วินาที (ตอบสนองภายใน 2-3 วิ)
+const unsigned long NETWORK_COOLDOWN_MS = 1000;
+const unsigned long PERIODIC_SYNC_MS = 3000;
 const int SERVO_CLOSED_ANGLE = 0;
 const int SERVO_OPEN_ANGLE = 90;
+const unsigned long AUTO_CLOSE_DELAY_MS = 3000; // ปิดไม้กั้นอัตโนมัติหลังรถออกจากช่องจอด 3 วินาที
 
 /* ================= ESP-NOW TIMING ================= */
 const unsigned long ESPNOW_SEND_INTERVAL_MS = 500;
@@ -81,7 +82,7 @@ struct SharedSlotData {
 };
 
 /* ================= REMOTE SLOT DATA ================= */
-const int NUM_REMOTE_SLOTS = 3;
+const int NUM_REMOTE_SLOTS = 9;
 
 struct RemoteSlotData {
   char slotId[4];
