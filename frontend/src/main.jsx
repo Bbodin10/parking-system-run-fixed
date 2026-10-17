@@ -2943,6 +2943,26 @@ function AdminAlerts({ data, reload, notify }) {
   const [config, setConfig] = useState(initialCfg);
   const [savingConfig, setSavingConfig] = useState(false);
 
+  const selectStyle = {
+    padding: '7px 12px',
+    borderRadius: 7,
+    background: '#1e293b',
+    color: '#f8fafc',
+    border: '1.5px solid rgba(56, 189, 248, 0.45)',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    outline: 'none',
+    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.35)'
+  };
+  const optionStyle = {
+    backgroundColor: '#0f172a',
+    color: '#f8fafc',
+    padding: '10px 14px',
+    fontSize: 13,
+    fontWeight: 500
+  };
+
   useEffect(() => {
     if (data.alert_configs) {
       setConfig(prev => ({ ...prev, ...data.alert_configs }));
@@ -3106,23 +3126,23 @@ function AdminAlerts({ data, reload, notify }) {
                 <select
                   value={priorityFilter}
                   onChange={(e) => setPriorityFilter(e.target.value)}
-                  style={{ padding: '6px 10px', fontSize: 13, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                  style={selectStyle}
                 >
-                  <option value="all">ทุกระดับความสำคัญ</option>
-                  <option value="CRITICAL">🔴 CRITICAL เท่านั้น</option>
-                  <option value="HIGH">🟠 HIGH เท่านั้น</option>
-                  <option value="NORMAL">🟡 NORMAL เท่านั้น</option>
-                  <option value="INFO">🔵 INFO เท่านั้น</option>
+                  <option style={optionStyle} value="all">🔍 ทุกระดับความสำคัญ</option>
+                  <option style={{ ...optionStyle, color: '#f87171' }} value="CRITICAL">🔴 CRITICAL เท่านั้น</option>
+                  <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH เท่านั้น</option>
+                  <option style={{ ...optionStyle, color: '#38bdf8' }} value="NORMAL">🟡 NORMAL เท่านั้น</option>
+                  <option style={{ ...optionStyle, color: '#c084fc' }} value="INFO">🔵 INFO เท่านั้น</option>
                 </select>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  style={{ padding: '6px 10px', fontSize: 13, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                  style={selectStyle}
                 >
-                  <option value="all">ทุกสถานะ</option>
-                  <option value="active">⚠️ ยังไม่ดำเนินการ (Active)</option>
-                  <option value="acknowledged">👁️ รับทราบแล้ว (Acknowledged)</option>
-                  <option value="resolved">✅ ปิดงานแล้ว (Resolved)</option>
+                  <option style={optionStyle} value="all">📋 ทุกสถานะ</option>
+                  <option style={{ ...optionStyle, color: '#f87171' }} value="active">⚠️ ยังไม่ดำเนินการ (Active)</option>
+                  <option style={{ ...optionStyle, color: '#facc15' }} value="acknowledged">👁️ รับทราบแล้ว (Acknowledged)</option>
+                  <option style={{ ...optionStyle, color: '#4ade80' }} value="resolved">✅ ปิดงานแล้ว (Resolved)</option>
                 </select>
               </div>
 
@@ -3261,19 +3281,19 @@ function AdminAlerts({ data, reload, notify }) {
                       step={10}
                       value={config.offline_timeout_sec}
                       onChange={(e) => setConfig({ ...config, offline_timeout_sec: Number(e.target.value) })}
-                      style={{ width: 80, padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                      style={{ width: 90, padding: '6px 10px', borderRadius: 6, background: '#1e293b', color: '#f8fafc', border: '1.5px solid rgba(255,255,255,0.2)', fontSize: 13, fontWeight: 600 }}
                     /> วินาที
                   </div>
-                  <div>
-                    <span className="muted">ระดับความสำคัญ: </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                     <select
                       value={config.offline_priority}
                       onChange={(e) => setConfig({ ...config, offline_priority: e.target.value })}
-                      style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                      style={selectStyle}
                     >
-                      <option value="CRITICAL">🔴 CRITICAL (วิกฤต)</option>
-                      <option value="HIGH">🟠 HIGH (สำคัญ)</option>
-                      <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                      <option style={{ ...optionStyle, color: '#f87171' }} value="CRITICAL">🔴 CRITICAL (วิกฤต)</option>
+                      <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH (สำคัญ)</option>
+                      <option style={{ ...optionStyle, color: '#38bdf8' }} value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
                     </select>
                   </div>
                 </div>
@@ -3298,18 +3318,18 @@ function AdminAlerts({ data, reload, notify }) {
                       step={30}
                       value={config.barrier_stuck_sec}
                       onChange={(e) => setConfig({ ...config, barrier_stuck_sec: Number(e.target.value) })}
-                      style={{ width: 80, padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                      style={{ width: 90, padding: '6px 10px', borderRadius: 6, background: '#1e293b', color: '#f8fafc', border: '1.5px solid rgba(255,255,255,0.2)', fontSize: 13, fontWeight: 600 }}
                     /> วินาที ({Math.round((config.barrier_stuck_sec || 300) / 60)} นาที)
                   </div>
-                  <div>
-                    <span className="muted">ระดับความสำคัญ: </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                     <select
                       value={config.barrier_fault_priority}
                       onChange={(e) => setConfig({ ...config, barrier_fault_priority: e.target.value })}
-                      style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                      style={selectStyle}
                     >
-                      <option value="CRITICAL">🔴 CRITICAL (วิกฤต)</option>
-                      <option value="HIGH">🟠 HIGH (สำคัญ)</option>
+                      <option style={{ ...optionStyle, color: '#f87171' }} value="CRITICAL">🔴 CRITICAL (วิกฤต)</option>
+                      <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH (สำคัญ)</option>
                     </select>
                   </div>
                 </div>
@@ -3326,15 +3346,15 @@ function AdminAlerts({ data, reload, notify }) {
                 </label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
                   <span className="muted">ตรวจจับฝุ่นหรือสิ่งกีดขวางหน้าเซนเซอร์ที่ทำให้สัญญาณกระพริบต่อเนื่อง</span>
-                  <div>
-                    <span className="muted">ระดับความสำคัญ: </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                     <select
                       value={config.sensor_flapping_priority}
                       onChange={(e) => setConfig({ ...config, sensor_flapping_priority: e.target.value })}
-                      style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                      style={selectStyle}
                     >
-                      <option value="HIGH">🟠 HIGH (สำคัญ)</option>
-                      <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                      <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH (สำคัญ)</option>
+                      <option style={{ ...optionStyle, color: '#38bdf8' }} value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
                     </select>
                   </div>
                 </div>
@@ -3358,15 +3378,15 @@ function AdminAlerts({ data, reload, notify }) {
                   />
                   <span>แจ้งเตือนเมื่อตัดสิทธิ์ No-Show (เกิน 15 นาที)</span>
                 </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                  <span className="muted">ระดับความสำคัญ: </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginTop: 4 }}>
+                  <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                   <select
                     value={config.noshow_priority}
                     onChange={(e) => setConfig({ ...config, noshow_priority: e.target.value })}
-                    style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                    style={selectStyle}
                   >
-                    <option value="HIGH">🟠 HIGH (สำคัญ)</option>
-                    <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                    <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH (สำคัญ)</option>
+                    <option style={{ ...optionStyle, color: '#38bdf8' }} value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
                   </select>
                 </div>
               </div>
@@ -3380,15 +3400,15 @@ function AdminAlerts({ data, reload, notify }) {
                   />
                   <span>แจ้งเตือนเมื่อจอดรถเกินเวลา (Overtime เกิน 15 นาที)</span>
                 </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                  <span className="muted">ระดับความสำคัญ: </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginTop: 4 }}>
+                  <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                   <select
                     value={config.overtime_priority}
                     onChange={(e) => setConfig({ ...config, overtime_priority: e.target.value })}
-                    style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                    style={selectStyle}
                   >
-                    <option value="HIGH">🟠 HIGH (สำคัญ)</option>
-                    <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                    <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH (สำคัญ)</option>
+                    <option style={{ ...optionStyle, color: '#38bdf8' }} value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
                   </select>
                 </div>
               </div>
@@ -3413,15 +3433,15 @@ function AdminAlerts({ data, reload, notify }) {
                 </label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
                   <div>
-                    <span className="muted">ส่งเฉพาะระดับ: </span>
+                    <span className="muted" style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>ส่งเฉพาะระดับ: </span>
                     <select
                       value={config.line_admin_min_priority}
                       onChange={(e) => setConfig({ ...config, line_admin_min_priority: e.target.value })}
-                      style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                      style={{ ...selectStyle, width: '100%' }}
                     >
-                      <option value="CRITICAL">🔴 ส่งเฉพาะระดับ CRITICAL เท่านั้น (วิกฤต)</option>
-                      <option value="HIGH">🟠 ส่งระดับ HIGH ขึ้นไป (แนะนำ)</option>
-                      <option value="NORMAL">🟡 ส่งทุกระดับ</option>
+                      <option style={{ ...optionStyle, color: '#f87171' }} value="CRITICAL">🔴 ส่งเฉพาะระดับ CRITICAL เท่านั้น (วิกฤต)</option>
+                      <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 ส่งระดับ HIGH ขึ้นไป (แนะนำ)</option>
+                      <option style={{ ...optionStyle, color: '#38bdf8' }} value="NORMAL">🟡 ส่งทุกระดับ</option>
                     </select>
                   </div>
                   <span className="muted">ช่วยกรองไม่ให้ส่งข้อความรบกวนแอดมินสำหรับเหตุการณ์ทั่วไป</span>
@@ -3439,7 +3459,7 @@ function AdminAlerts({ data, reload, notify }) {
                       max={120}
                       value={config.cooldown_minutes}
                       onChange={(e) => setConfig({ ...config, cooldown_minutes: Number(e.target.value) })}
-                      style={{ width: 60, padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                      style={{ width: 80, padding: '6px 10px', borderRadius: 6, background: '#1e293b', color: '#f8fafc', border: '1.5px solid rgba(255,255,255,0.2)', fontSize: 13, fontWeight: 600 }}
                     /> นาที
                   </div>
                   <span className="muted">เมื่ออุปกรณ์หลุด จะไม่ยิง LINE ซ้ำจนกว่าจะพ้นระยะเวลานี้</span>
@@ -3480,12 +3500,12 @@ function AdminAlerts({ data, reload, notify }) {
                 <select
                   value={testForm.priority}
                   onChange={(e) => setTestForm({ ...testForm, priority: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                  style={{ ...selectStyle, width: '100%', padding: '10px 14px' }}
                 >
-                  <option value="CRITICAL">🔴 CRITICAL (วิกฤต - มีเสียงเตือน + ส่ง LINE ด่วน)</option>
-                  <option value="HIGH">🟠 HIGH (สำคัญ - ส่ง LINE)</option>
-                  <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
-                  <option value="INFO">🔵 INFO (ข้อมูลทั่วไป)</option>
+                  <option style={{ ...optionStyle, color: '#f87171' }} value="CRITICAL">🔴 CRITICAL (วิกฤต - มีเสียงเตือน + ส่ง LINE ด่วน)</option>
+                  <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH (สำคัญ - ส่ง LINE)</option>
+                  <option style={{ ...optionStyle, color: '#38bdf8' }} value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                  <option style={{ ...optionStyle, color: '#c084fc' }} value="INFO">🔵 INFO (ข้อมูลทั่วไป)</option>
                 </select>
               </div>
 

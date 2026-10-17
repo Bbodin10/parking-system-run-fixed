@@ -606,10 +606,41 @@ select:focus-visible {
 select {
   width: 100%;
   padding: 10px 12px;
-  color: #eef2f7;
-  background: #202a37;
-  border: 1px solid var(--border);
-  border-radius: 7px
+  color: #f8fafc;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select {
+  cursor: pointer;
+  appearance: auto;
+  -webkit-appearance: auto;
+  -moz-appearance: auto;
+}
+
+select:focus,
+select:focus-visible {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgba(54, 220, 201, 0.25);
+}
+
+select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  padding: 10px 14px !important;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+select option:hover,
+select option:checked {
+  background-color: #1e293b !important;
+  color: #38bdf8 !important;
 }
 
 .two-columns {
