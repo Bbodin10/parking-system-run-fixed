@@ -915,7 +915,7 @@ function UserControl({ data, user, notify }) {
     <>
       <PageHead
         title="ควบคุมช่องจอด"
-        description="กดเปิด/ปิดไม้กั้นได้ตลอดการจอง และกดยกเลิกการจองได้ทุกเมื่อก่อนถึงเวลาจอง 15 นาที"
+        description="ควบคุมไม้กั้นได้ตั้งแต่ 15 นาทีก่อนถึงเวลาจอง และยกเลิกการจองได้ทุกเมื่อก่อนถึงเวลาจอง 15 นาที"
       />
       <div className="slot-grid control-grid">
         {cards.length ? cards.map(({
@@ -1132,6 +1132,34 @@ function UserControl({ data, user, notify }) {
                   <button className="button full" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                     🔒 ตัดการควบคุมแล้ว (No-Show เกิน 15 นาที)
                   </button>
+                ) : canCancel ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <button
+                      className="button full"
+                      disabled
+                      style={{
+                        opacity: 0.75,
+                        cursor: 'not-allowed',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: 'var(--muted)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        padding: '10px 14px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 3
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, fontSize: 13, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>🔒</span>
+                        <span>ควบคุมไม้กั้นได้เมื่อถึง 15 นาทีก่อนเวลาจอง</span>
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>
+                        (เปิดให้ควบคุมได้ตั้งแต่ {cutoffTimeStr} น. เป็นต้นไป)
+                      </span>
+                    </button>
+                  </div>
                 ) : (
                   <button
                     className={`button full ${device.state === 'open' ? 'danger' : 'primary'}`}

@@ -495,10 +495,15 @@ app.post('/api/devices/:id/toggle',auth,async(req,res)=>{
     const b=(bookings||[]).find(x=>x.slot_id===d.linked_slot);
     if(!b)return res.status(403).json({error:'ควบคุมได้เฉพาะช่องที่คุณจองไว้เท่านั้น (ต้องอยู่ในสถานะ pending หรือ active)'});
     
-    // ตรวจสอบ No-Show ทันทีเมื่อกดปุ่มควบคุม
+    // ตรวจสอบเงื่อนไขการควบคุมไม้กั้น
     if(b.status==='pending'){
       const now=new Date();
       const start=thaiDateTime(b.date,b.time);
+      const cutoff=new Date(start.getTime() - 15 * 60 * 1000);
+      if(now < cutoff){
+        const cutoffStr=cutoff.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Bangkok'});
+        return res.status(403).json({error:`ยังไม่สามารถควบคุมไม้กั้นได้ในขณะที่ยังอยู่ในช่วงเวลายกเลิกการจอง (สามารถควบคุมได้ตั้งแต่ 15 นาทีก่อนถึงเวลาจอง คือเวลา ${cutoffStr} น. เป็นต้นไป)`});
+      }
       const noShowCutoff=new Date(start.getTime()+GRACE*60000);
       if(now>=noShowCutoff&&!b.entry_verified){
         await db.from('bookings').update({status:'no_show',no_show_checked:true}).eq('id',b.id);
