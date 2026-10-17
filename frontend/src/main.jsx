@@ -3255,6 +3255,41 @@ function AdminLayout({ data, reload, notify }) {
               </div>
             )}
 
+            {/* ─── ควบคุมไม้กั้นประจำช่องจอด ─── */}
+            {(() => {
+              const barrierDevice = (data.devices || []).find((d) => d.type === 'barrier' && (d.linked_slot === slotToEdit.id || d.linked_slot === slotToEdit.code));
+              if (!barrierDevice) return null;
+              return (
+                <div style={{ marginTop: 12, marginBottom: 6, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>{barrierDevice.state === 'open' ? '🔓' : '🔒'}</span>
+                      <span>ไม้กั้นช่อง {slotToEdit.code}:</span>
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: barrierDevice.state === 'open' ? 'var(--green)' : '#f87171' }}>
+                      {barrierDevice.state === 'open' ? '🟢 เปิดอยู่ (ยกขึ้น)' : '🔴 ปิดอยู่ (กั้นช่อง)'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className={`button full ${barrierDevice.state === 'open' ? 'danger' : 'primary'}`}
+                    style={{ fontSize: 13, padding: '8px 12px' }}
+                    onClick={async () => {
+                      try {
+                        await api(`/devices/${barrierDevice.id}/toggle`, { method: 'POST' });
+                        await reload?.();
+                        notify(`สั่ง${barrierDevice.state === 'open' ? 'ปิด' : 'เปิด'}ไม้กั้นช่อง ${slotToEdit.code} เรียบร้อยแล้ว`);
+                      } catch (err) {
+                        notify(err.message, true);
+                      }
+                    }}
+                  >
+                    {barrierDevice.state === 'open' ? '🔒 สั่งปิดไม้กั้น' : '🔓 สั่งเปิดไม้กั้น'}
+                  </button>
+                </div>
+              );
+            })()}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
               <button
                 type="button"
