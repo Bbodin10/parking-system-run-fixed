@@ -193,14 +193,38 @@ function Login({ onLogin }) {
   );
 }
 
-function Header({ user, onLogout, lastUpdated }) {
+function Header({ user, onLogout, lastUpdated, data, setView }) {
   const timeStr = lastUpdated
     ? lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' })
     : '--:--:--';
+  const activeAlerts = (data?.system_alerts || []).filter(a => a.status === 'active');
+  const criticalCount = activeAlerts.filter(a => a.priority === 'CRITICAL').length;
+
   return <header className="topbar">
     <div className="brand"><div className="brand-mark small">P</div><div><strong>ระบบจัดการที่จอดรถ</strong><span>SMART PARKING · SUPABASE · ESP32</span></div></div>
     <div className="user-menu">
       <span className="connection-pill live-pill"><span className="live-dot" />LIVE · {timeStr}</span>
+      {user.role === 'admin' && activeAlerts.length > 0 && (
+        <button
+          type="button"
+          className="button compact"
+          style={{
+            background: criticalCount > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.25)',
+            border: `1px solid ${criticalCount > 0 ? '#ef4444' : '#f59e0b'}`,
+            color: criticalCount > 0 ? '#fca5a5' : '#fcd34d',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+          onClick={() => setView('alerts')}
+          title="คลิกเพื่อดูรายการแจ้งเตือนทั้งหมด"
+        >
+          <span>{criticalCount > 0 ? '🚨' : '⚠️'}</span>
+          <span>{activeAlerts.length} แจ้งเตือน</span>
+        </button>
+      )}
       {user.role !== 'admin' && <span className={`badge credit-pill ${Number(user.credit || 0) > 0 ? 'available' : 'unavailable'}`}>เครดิต ฿{formatMoney(user.credit)}</span>}
       <span className={`badge line-pill ${user.line_user_id ? 'available' : 'unavailable'}`}>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
       <span className={`role ${user.role}`}>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้'}</span>
@@ -210,13 +234,14 @@ function Header({ user, onLogout, lastUpdated }) {
   </header>;
 }
 
-function Sidebar({ user, view, setView }) {
+function Sidebar({ user, view, setView, activeAlertCount = 0 }) {
   const items = user.role === 'admin'
     ? [
         ['dashboard', '▦', 'ภาพรวมการจอง'],
         ['analytics', '📊', 'สถิติการใช้งาน'],
         ['users', '♙', 'จัดการผู้ใช้'],
         ['devices', '⌁', 'อุปกรณ์ / ไม้กั้น'],
+        ['alerts', '🚨', `แจ้งเตือน & ข้อผิดพลาด${activeAlertCount > 0 ? ` (${activeAlertCount})` : ''}`],
         ['layout', '⊞', 'จัดการผังลานจอด']
       ]
     : [
@@ -2859,6 +2884,649 @@ function AdminDevices({ data, reload, notify }) {
   </>;
 }
 
+function playAlertChime(priority) {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    if (priority === 'CRITICAL') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(440, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    }
+  } catch (e) {}
+}
+
+function AdminAlerts({ data, reload, notify }) {
+  const [activeTab, setActiveTab] = useState('list');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [testModal, setTestModal] = useState(false);
+  const [testForm, setTestForm] = useState({ priority: 'HIGH', title: 'ทดสอบแจ้งเตือน Smart Parking', message: 'ทดสอบระบบแจ้งเตือนข้อผิดพลาดและการส่ง LINE เข้าผู้ดูแลระบบ' });
+  const [testSubmitting, setTestSubmitting] = useState(false);
+
+  const initialCfg = data.alert_configs || {
+    offline_timeout_sec: 120,
+    enable_offline_alert: true,
+    offline_priority: 'CRITICAL',
+    enable_barrier_fault_alert: true,
+    barrier_fault_priority: 'CRITICAL',
+    barrier_stuck_sec: 300,
+    enable_sensor_flapping_alert: true,
+    sensor_flapping_priority: 'HIGH',
+    enable_noshow_alert: true,
+    noshow_priority: 'HIGH',
+    enable_overtime_alert: true,
+    overtime_priority: 'HIGH',
+    enable_line_admin_notify: true,
+    line_admin_min_priority: 'HIGH',
+    cooldown_minutes: 15,
+    enable_sound_alert: true
+  };
+  const [config, setConfig] = useState(initialCfg);
+  const [savingConfig, setSavingConfig] = useState(false);
+
+  useEffect(() => {
+    if (data.alert_configs) {
+      setConfig(prev => ({ ...prev, ...data.alert_configs }));
+    }
+  }, [data.alert_configs]);
+
+  const alerts = data.system_alerts || [];
+
+  const filtered = alerts.filter(a => {
+    if (priorityFilter !== 'all' && a.priority !== priorityFilter) return false;
+    if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchTitle = (a.title || '').toLowerCase().includes(q);
+      const matchMsg = (a.message || '').toLowerCase().includes(q);
+      const matchSlot = (a.slot_id || '').toLowerCase().includes(q);
+      const matchDev = (a.device_id || '').toLowerCase().includes(q);
+      if (!matchTitle && !matchMsg && !matchSlot && !matchDev) return false;
+    }
+    return true;
+  });
+
+  const criticalCount = alerts.filter(a => a.status === 'active' && a.priority === 'CRITICAL').length;
+  const highCount = alerts.filter(a => a.status === 'active' && a.priority === 'HIGH').length;
+  const normalCount = alerts.filter(a => a.status === 'active' && ['NORMAL', 'INFO'].includes(a.priority)).length;
+  const resolvedCount = alerts.filter(a => a.status === 'resolved').length;
+
+  const getPriorityStyle = (p) => {
+    switch (p) {
+      case 'CRITICAL':
+        return { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)', color: '#f87171', label: '🔴 CRITICAL (วิกฤต)' };
+      case 'HIGH':
+        return { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24', label: '🟠 HIGH (สำคัญ)' };
+      case 'NORMAL':
+        return { bg: 'rgba(56, 189, 248, 0.15)', border: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8', label: '🟡 NORMAL (ปานกลาง)' };
+      default:
+        return { bg: 'rgba(168, 85, 247, 0.15)', border: 'rgba(168, 85, 247, 0.4)', color: '#c084fc', label: '🔵 INFO (ข้อมูลทั่วไป)' };
+    }
+  };
+
+  async function acknowledge(alertId) {
+    try {
+      await api(`/admin/system-alerts/${alertId}/acknowledge`, { method: 'POST' });
+      notify('รับทราบปัญหาเรียบร้อยแล้ว');
+      await reload?.();
+    } catch (e) {
+      notify(e.message, true);
+    }
+  }
+
+  async function resolve(alertId) {
+    try {
+      await api(`/admin/system-alerts/${alertId}/resolve`, { method: 'POST' });
+      notify('ปิดงานแก้ไขปัญหาเรียบร้อยแล้ว');
+      await reload?.();
+    } catch (e) {
+      notify(e.message, true);
+    }
+  }
+
+  async function clearResolved() {
+    if (!window.confirm('ยืนยันล้างประวัติการแจ้งเตือนที่ปิดงานแล้วทั้งหมดหรือไม่?')) return;
+    try {
+      await api('/admin/system-alerts/clear-resolved', { method: 'POST' });
+      notify('ล้างประวัติที่แก้ไขแล้วเรียบร้อย');
+      await reload?.();
+    } catch (e) {
+      notify(e.message, true);
+    }
+  }
+
+  async function handleTestSubmit(e) {
+    e.preventDefault();
+    setTestSubmitting(true);
+    try {
+      await api('/admin/system-alerts/test', {
+        method: 'POST',
+        body: JSON.stringify(testForm)
+      });
+      playAlertChime(testForm.priority);
+      setTestModal(false);
+      notify(`ส่งการแจ้งเตือนทดสอบระดับ ${testForm.priority} สำเร็จ (ส่งเข้า LINE แอดมินตามเงื่อนไขเรียบร้อย) 🎉`);
+      await reload?.();
+    } catch (err) {
+      notify(err.message, true);
+    } finally {
+      setTestSubmitting(false);
+    }
+  }
+
+  async function handleSaveConfig(e) {
+    e.preventDefault();
+    setSavingConfig(true);
+    try {
+      await api('/admin/alert-configs', {
+        method: 'PATCH',
+        body: JSON.stringify(config)
+      });
+      notify('บันทึกการตั้งค่าการแจ้งเตือนและความผิดพลาดเรียบร้อยแล้ว ✅');
+      await reload?.();
+    } catch (err) {
+      notify(err.message, true);
+    } finally {
+      setSavingConfig(false);
+    }
+  }
+
+  return (
+    <>
+      <PageHead
+        title="การแจ้งเตือน & ข้อผิดพลาดอุปกรณ์"
+        description="ติดตามความผิดพลาดของอุปกรณ์ กำหนดลำดับความสำคัญ (Priority) และตั้งค่าเงื่อนไขการแจ้งเตือน"
+      />
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+        <button
+          className={`button ${activeTab === 'list' ? 'primary' : 'secondary'}`}
+          onClick={() => setActiveTab('list')}
+        >
+          📋 รายการแจ้งเตือนระบบ ({alerts.filter(a => a.status === 'active').length})
+        </button>
+        <button
+          className={`button ${activeTab === 'settings' ? 'primary' : 'secondary'}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          ⚙️ ตั้งค่าเงื่อนไข & ลำดับความสำคัญ (Settings)
+        </button>
+      </div>
+
+      {activeTab === 'list' ? (
+        <>
+          <div className="stats" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 16 }}>
+            <div className="stat red" style={{ cursor: 'pointer' }} onClick={() => { setPriorityFilter('CRITICAL'); setStatusFilter('active'); }}>
+              <strong>{criticalCount}</strong>
+              <span>🔴 วิกฤต (Critical)</span>
+            </div>
+            <div className="stat yellow" style={{ cursor: 'pointer' }} onClick={() => { setPriorityFilter('HIGH'); setStatusFilter('active'); }}>
+              <strong>{highCount}</strong>
+              <span>🟠 สำคัญ (High)</span>
+            </div>
+            <div className="stat blue" style={{ cursor: 'pointer' }} onClick={() => { setPriorityFilter('NORMAL'); setStatusFilter('active'); }}>
+              <strong>{normalCount}</strong>
+              <span>🟡 ทั่วไป (Normal/Info)</span>
+            </div>
+            <div className="stat green" style={{ cursor: 'pointer' }} onClick={() => { setPriorityFilter('all'); setStatusFilter('resolved'); }}>
+              <strong>{resolvedCount}</strong>
+              <span>🟢 ปิดงานแล้ว (Resolved)</span>
+            </div>
+          </div>
+
+          <section className="panel">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="🔍 ค้นหาหัวข้อ / ข้อความ / ช่องจอด..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ minWidth: 220, padding: '6px 12px', fontSize: 13, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                />
+                <select
+                  value={priorityFilter}
+                  onChange={(e) => setPriorityFilter(e.target.value)}
+                  style={{ padding: '6px 10px', fontSize: 13, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                >
+                  <option value="all">ทุกระดับความสำคัญ</option>
+                  <option value="CRITICAL">🔴 CRITICAL เท่านั้น</option>
+                  <option value="HIGH">🟠 HIGH เท่านั้น</option>
+                  <option value="NORMAL">🟡 NORMAL เท่านั้น</option>
+                  <option value="INFO">🔵 INFO เท่านั้น</option>
+                </select>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={{ padding: '6px 10px', fontSize: 13, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                >
+                  <option value="all">ทุกสถานะ</option>
+                  <option value="active">⚠️ ยังไม่ดำเนินการ (Active)</option>
+                  <option value="acknowledged">👁️ รับทราบแล้ว (Acknowledged)</option>
+                  <option value="resolved">✅ ปิดงานแล้ว (Resolved)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="button primary compact" onClick={() => setTestModal(true)}>
+                  🔔 ทดสอบส่งแจ้งเตือน
+                </button>
+                {resolvedCount > 0 && (
+                  <button className="button secondary compact" onClick={clearResolved}>
+                    🧹 ล้างประวัติที่แก้ไขแล้ว
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {filtered.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {filtered.map(item => {
+                  const style = getPriorityStyle(item.priority);
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 10,
+                        background: item.status === 'resolved' ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${item.status === 'resolved' ? 'rgba(255,255,255,0.06)' : style.border}`,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            background: style.bg,
+                            border: `1px solid ${style.border}`,
+                            color: style.color
+                          }}>
+                            {style.label}
+                          </span>
+                          <strong style={{ fontSize: 14, color: '#f1f5f9' }}>{item.title}</strong>
+                          {item.slot_id && (
+                            <span style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>
+                              🅿️ {item.slot_id}
+                            </span>
+                          )}
+                          {item.device_id && (
+                            <span style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--muted)', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>
+                              ⌁ {item.device_id}
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                            ⏱️ {new Date(item.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' })} น.
+                          </span>
+                          <span style={{
+                            fontSize: 11,
+                            padding: '2px 7px',
+                            borderRadius: 4,
+                            fontWeight: 600,
+                            background: item.status === 'resolved' ? 'rgba(34,197,94,0.15)' : item.status === 'acknowledged' ? 'rgba(234,179,8,0.15)' : 'rgba(239,68,68,0.15)',
+                            color: item.status === 'resolved' ? '#4ade80' : item.status === 'acknowledged' ? '#facc15' : '#f87171'
+                          }}>
+                            {item.status === 'resolved' ? '✅ ปิดงานแล้ว' : item.status === 'acknowledged' ? '👁️ รับทราบแล้ว' : '⚠️ รอตรวจสอบ'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.5 }}>
+                        {item.message}
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                          {item.notified_line ? '📱 ส่งแจ้งเตือนเข้า LINE Admin แล้ว' : 'ℹ️ แจ้งเตือนในระบบ'}
+                          {item.resolved_at && ` · ปิดงานเมื่อ ${new Date(item.resolved_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`}
+                        </span>
+
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {item.status === 'active' && (
+                            <button className="button secondary compact" onClick={() => acknowledge(item.id)}>
+                              👁️ รับทราบปัญหา
+                            </button>
+                          )}
+                          {item.status !== 'resolved' && (
+                            <button className="button primary compact" onClick={() => resolve(item.id)}>
+                              ✅ ปิดงานแก้ไขแล้ว
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>
+                🎉 ไม่พบรายการแจ้งเตือนตามเงื่อนไขที่เลือก (ระบบทำงานปกติ)
+              </p>
+            )}
+          </section>
+        </>
+      ) : (
+        <form onSubmit={handleSaveConfig} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <section className="panel">
+            <h3 style={{ fontSize: 16, marginBottom: 12, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>⌁</span>
+              <span>1. การตรวจจับความผิดพลาดของอุปกรณ์ (Hardware Faults)</span>
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(config.enable_offline_alert)}
+                    onChange={(e) => setConfig({ ...config, enable_offline_alert: e.target.checked })}
+                  />
+                  <span>แจ้งเตือนเมื่ออุปกรณ์ออฟไลน์ (Offline Timeout)</span>
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+                  <div>
+                    <span className="muted">เวลาขาดการติดต่อ (วินาที): </span>
+                    <input
+                      type="number"
+                      min={30}
+                      max={600}
+                      step={10}
+                      value={config.offline_timeout_sec}
+                      onChange={(e) => setConfig({ ...config, offline_timeout_sec: Number(e.target.value) })}
+                      style={{ width: 80, padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                    /> วินาที
+                  </div>
+                  <div>
+                    <span className="muted">ระดับความสำคัญ: </span>
+                    <select
+                      value={config.offline_priority}
+                      onChange={(e) => setConfig({ ...config, offline_priority: e.target.value })}
+                      style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                    >
+                      <option value="CRITICAL">🔴 CRITICAL (วิกฤต)</option>
+                      <option value="HIGH">🟠 HIGH (สำคัญ)</option>
+                      <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(config.enable_barrier_fault_alert)}
+                    onChange={(e) => setConfig({ ...config, enable_barrier_fault_alert: e.target.checked })}
+                  />
+                  <span>แจ้งเตือนเมื่อไม้กั้นเปิดค้างผิดปกติ (Barrier Stuck)</span>
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+                  <div>
+                    <span className="muted">เปิดค้างเกิน (วินาที): </span>
+                    <input
+                      type="number"
+                      min={60}
+                      max={1800}
+                      step={30}
+                      value={config.barrier_stuck_sec}
+                      onChange={(e) => setConfig({ ...config, barrier_stuck_sec: Number(e.target.value) })}
+                      style={{ width: 80, padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                    /> วินาที ({Math.round((config.barrier_stuck_sec || 300) / 60)} นาที)
+                  </div>
+                  <div>
+                    <span className="muted">ระดับความสำคัญ: </span>
+                    <select
+                      value={config.barrier_fault_priority}
+                      onChange={(e) => setConfig({ ...config, barrier_fault_priority: e.target.value })}
+                      style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                    >
+                      <option value="CRITICAL">🔴 CRITICAL (วิกฤต)</option>
+                      <option value="HIGH">🟠 HIGH (สำคัญ)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(config.enable_sensor_flapping_alert)}
+                    onChange={(e) => setConfig({ ...config, enable_sensor_flapping_alert: e.target.checked })}
+                  />
+                  <span>แจ้งเตือนเมื่อเซนเซอร์อ่านค่าสลับเร็ว (Flapping)</span>
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+                  <span className="muted">ตรวจจับฝุ่นหรือสิ่งกีดขวางหน้าเซนเซอร์ที่ทำให้สัญญาณกระพริบต่อเนื่อง</span>
+                  <div>
+                    <span className="muted">ระดับความสำคัญ: </span>
+                    <select
+                      value={config.sensor_flapping_priority}
+                      onChange={(e) => setConfig({ ...config, sensor_flapping_priority: e.target.value })}
+                      style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                    >
+                      <option value="HIGH">🟠 HIGH (สำคัญ)</option>
+                      <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3 style={{ fontSize: 16, marginBottom: 12, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>🅿️</span>
+              <span>2. การตรวจจับเหตุการณ์ระบบและการจอง (Operational Alerts)</span>
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(config.enable_noshow_alert)}
+                    onChange={(e) => setConfig({ ...config, enable_noshow_alert: e.target.checked })}
+                  />
+                  <span>แจ้งเตือนเมื่อตัดสิทธิ์ No-Show (เกิน 15 นาที)</span>
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <span className="muted">ระดับความสำคัญ: </span>
+                  <select
+                    value={config.noshow_priority}
+                    onChange={(e) => setConfig({ ...config, noshow_priority: e.target.value })}
+                    style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                  >
+                    <option value="HIGH">🟠 HIGH (สำคัญ)</option>
+                    <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(config.enable_overtime_alert)}
+                    onChange={(e) => setConfig({ ...config, enable_overtime_alert: e.target.checked })}
+                  />
+                  <span>แจ้งเตือนเมื่อจอดรถเกินเวลา (Overtime เกิน 15 นาที)</span>
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                  <span className="muted">ระดับความสำคัญ: </span>
+                  <select
+                    value={config.overtime_priority}
+                    onChange={(e) => setConfig({ ...config, overtime_priority: e.target.value })}
+                    style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                  >
+                    <option value="HIGH">🟠 HIGH (สำคัญ)</option>
+                    <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3 style={{ fontSize: 16, marginBottom: 12, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span>📱</span>
+              <span>3. ช่องทางการแจ้งเตือน & ป้องกันการรบกวน (Notification Channels)</span>
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(config.enable_line_admin_notify)}
+                    onChange={(e) => setConfig({ ...config, enable_line_admin_notify: e.target.checked })}
+                  />
+                  <span>ส่งแจ้งเตือนเข้า LINE ของแอดมิน (LINE Push)</span>
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+                  <div>
+                    <span className="muted">ส่งเฉพาะระดับ: </span>
+                    <select
+                      value={config.line_admin_min_priority}
+                      onChange={(e) => setConfig({ ...config, line_admin_min_priority: e.target.value })}
+                      style={{ padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                    >
+                      <option value="CRITICAL">🔴 ส่งเฉพาะระดับ CRITICAL เท่านั้น (วิกฤต)</option>
+                      <option value="HIGH">🟠 ส่งระดับ HIGH ขึ้นไป (แนะนำ)</option>
+                      <option value="NORMAL">🟡 ส่งทุกระดับ</option>
+                    </select>
+                  </div>
+                  <span className="muted">ช่วยกรองไม่ให้ส่งข้อความรบกวนแอดมินสำหรับเหตุการณ์ทั่วไป</span>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>🛡️ Cooldown ป้องกันส่งซ้ำ (Anti-Spam)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+                  <div>
+                    <span className="muted">ระยะเวลากั้นส่งซ้ำ: </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={config.cooldown_minutes}
+                      onChange={(e) => setConfig({ ...config, cooldown_minutes: Number(e.target.value) })}
+                      style={{ width: 60, padding: '3px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                    /> นาที
+                  </div>
+                  <span className="muted">เมื่ออุปกรณ์หลุด จะไม่ยิง LINE ซ้ำจนกว่าจะพ้นระยะเวลานี้</span>
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(config.enable_sound_alert)}
+                    onChange={(e) => setConfig({ ...config, enable_sound_alert: e.target.checked })}
+                  />
+                  <span>เสียงแจ้งเตือนบนหน้าเว็บแดชบอร์ด (Audio Chime)</span>
+                </label>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  ส่งเสียงปี๊บเตือนเมื่อมีแจ้งเตือนระดับ CRITICAL หรือเมื่อกดทดสอบแจ้งเตือน
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+            <button type="submit" className="button primary" disabled={savingConfig}>
+              {savingConfig ? 'กำลังบันทึก...' : '💾 บันทึกการตั้งค่าการแจ้งเตือน'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      {testModal && (
+        <div className="modal-backdrop" onClick={() => setTestModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <h3 style={{ fontSize: 16, marginBottom: 12 }}>🔔 ทดสอบส่งการแจ้งเตือน</h3>
+            <form onSubmit={handleTestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="field">
+                <label>เลือกระดับความสำคัญ (Priority):</label>
+                <select
+                  value={testForm.priority}
+                  onChange={(e) => setTestForm({ ...testForm, priority: e.target.value })}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                >
+                  <option value="CRITICAL">🔴 CRITICAL (วิกฤต - มีเสียงเตือน + ส่ง LINE ด่วน)</option>
+                  <option value="HIGH">🟠 HIGH (สำคัญ - ส่ง LINE)</option>
+                  <option value="NORMAL">🟡 NORMAL (ปานกลาง)</option>
+                  <option value="INFO">🔵 INFO (ข้อมูลทั่วไป)</option>
+                </select>
+              </div>
+
+              <div className="field">
+                <label>หัวข้อแจ้งเตือน:</label>
+                <input
+                  type="text"
+                  required
+                  value={testForm.title}
+                  onChange={(e) => setTestForm({ ...testForm, title: e.target.value })}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                />
+              </div>
+
+              <div className="field">
+                <label>รายละเอียดข้อความ:</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={testForm.message}
+                  onChange={(e) => setTestForm({ ...testForm, message: e.target.value })}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+                <button type="button" className="button secondary" onClick={() => setTestModal(false)}>
+                  ยกเลิก
+                </button>
+                <button type="submit" className="button primary" disabled={testSubmitting}>
+                  {testSubmitting ? 'กำลังส่ง...' : '🚀 ยืนยันการส่งทดสอบ'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function AdminLayout({ data, reload, notify }) {
   const [selected, setSelected] = useState(null);
   const [floor, setFloor] = useState(1);
@@ -3480,10 +4148,11 @@ function App() {
   if (!data) return <div className="loading"><button className="button primary" onClick={load}>โหลดข้อมูลระบบ</button></div>;
 
   const liveUser = data.users.find((item) => item.id === user.id) || user;
+  const activeAlertCount = (data?.system_alerts || []).filter(a => a.status === 'active').length;
   const content = liveUser.role === 'admin'
-    ? { dashboard: <AdminDashboard data={data} setView={setView} />, analytics: <AdminAnalytics data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, layout: <AdminLayout data={data} reload={load} notify={notify} /> }[view]
+    ? { dashboard: <AdminDashboard data={data} setView={setView} />, analytics: <AdminAnalytics data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, alerts: <AdminAlerts data={data} reload={load} notify={notify} />, layout: <AdminLayout data={data} reload={load} notify={notify} /> }[view]
     : { booking: <UserBooking data={data} user={liveUser} notify={notify} setView={setView} />, control: <UserControl data={data} user={liveUser} notify={notify} />, history: <UserHistory data={data} user={liveUser} notify={notify} /> }[view];
-  return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
+  return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} data={data} setView={setView} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} activeAlertCount={activeAlertCount} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

@@ -51,6 +51,169 @@ function writeSlotsMeta(meta) {
   }
 }
 
+const ALERT_CONFIGS_FILE = path.join(DB_DIR, 'alert_configs.json');
+const SYSTEM_ALERTS_FILE = path.join(DB_DIR, 'system_alerts.json');
+
+const DEFAULT_ALERT_CONFIG = {
+  id: 'default_config',
+  offline_timeout_sec: 120,
+  enable_offline_alert: true,
+  offline_priority: 'CRITICAL',
+  enable_barrier_fault_alert: true,
+  barrier_fault_priority: 'CRITICAL',
+  barrier_stuck_sec: 300,
+  enable_sensor_flapping_alert: true,
+  sensor_flapping_priority: 'HIGH',
+  sensor_flap_threshold: 5,
+  enable_noshow_alert: true,
+  noshow_priority: 'HIGH',
+  enable_overtime_alert: true,
+  overtime_priority: 'HIGH',
+  enable_line_admin_notify: true,
+  line_admin_min_priority: 'HIGH',
+  cooldown_minutes: 15,
+  enable_sound_alert: true,
+  updated_at: new Date().toISOString()
+};
+
+function readAlertConfigs() {
+  try {
+    if (fs.existsSync(ALERT_CONFIGS_FILE)) {
+      return { ...DEFAULT_ALERT_CONFIG, ...JSON.parse(fs.readFileSync(ALERT_CONFIGS_FILE, 'utf8') || '{}') };
+    }
+  } catch (e) {
+    console.warn('[alert_configs read error]', e.message);
+  }
+  return { ...DEFAULT_ALERT_CONFIG };
+}
+
+function writeAlertConfigs(cfg) {
+  try {
+    fs.mkdirSync(path.dirname(ALERT_CONFIGS_FILE), { recursive: true });
+    fs.writeFileSync(ALERT_CONFIGS_FILE, JSON.stringify(cfg, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[alert_configs write error]', e.message);
+  }
+}
+
+function readSystemAlerts() {
+  try {
+    if (fs.existsSync(SYSTEM_ALERTS_FILE)) {
+      return JSON.parse(fs.readFileSync(SYSTEM_ALERTS_FILE, 'utf8') || '[]');
+    }
+  } catch (e) {
+    console.warn('[system_alerts read error]', e.message);
+  }
+  return [];
+}
+
+function writeSystemAlerts(list) {
+  try {
+    fs.mkdirSync(path.dirname(SYSTEM_ALERTS_FILE), { recursive: true });
+    fs.writeFileSync(SYSTEM_ALERTS_FILE, JSON.stringify(list, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[system_alerts write error]', e.message);
+  }
+}
+
+const PRIORITY_RANK = {
+  CRITICAL: 4,
+  HIGH: 3,
+  NORMAL: 2,
+  INFO: 1
+};
+
+async function dispatchSystemAlert({ priority = 'NORMAL', sourceType = 'device', deviceId = null, slotId = null, title, message }) {
+  try {
+    const config = readAlertConfigs();
+    const now = new Date();
+    
+    // Check cooldown to prevent duplicate alerts
+    const cooldownMs = (config.cooldown_minutes || 15) * 60 * 1000;
+    const existing = readSystemAlerts();
+    const isRecentDuplicate = existing.some(a => 
+      a.status === 'active' && 
+      a.title === title && 
+      (deviceId ? a.device_id === deviceId : true) && 
+      (slotId ? a.slot_id === slotId : true) &&
+      (now.getTime() - new Date(a.created_at).getTime()) < cooldownMs
+    );
+    if (isRecentDuplicate) {
+      return null;
+    }
+
+    const alertId = crypto.randomUUID();
+    const newAlert = {
+      id: alertId,
+      priority,
+      source_type: sourceType,
+      device_id: deviceId,
+      slot_id: slotId,
+      title,
+      message,
+      status: 'active',
+      notified_line: false,
+      created_at: now.toISOString(),
+      resolved_at: null
+    };
+
+    // Save to Supabase or fallback
+    try {
+      const { data, error } = await db.from('system_alerts').insert(newAlert).select('*').single();
+      if (!error && data) {
+        existing.unshift(data);
+        writeSystemAlerts(existing.slice(0, 200));
+      } else {
+        throw error || new Error('insert failed');
+      }
+    } catch (dbErr) {
+      existing.unshift(newAlert);
+      writeSystemAlerts(existing.slice(0, 200));
+    }
+
+    // LINE Admin push notification according to priority setting
+    const minRank = PRIORITY_RANK[config.line_admin_min_priority || 'HIGH'] || 3;
+    const currentRank = PRIORITY_RANK[priority] || 2;
+    if (config.enable_line_admin_notify && currentRank >= minRank) {
+      try {
+        const { data: admins } = await db.from('users').select('id, name, line_user_id').eq('role', 'admin');
+        const iconMap = { CRITICAL: '🔴 [CRITICAL ALERT] วิกฤต!', HIGH: '🟠 [HIGH ALERT] สำคัญ!', NORMAL: '🟡 [ALERT] ทั่วไป', INFO: '🔵 [INFO] แจ้งเตือน' };
+        const thaiTime = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' });
+        const lineMsg = [
+          iconMap[priority] || '⚠️ แจ้งเตือนระบบ',
+          '━━━━━━━━━━━━━━━━━━━',
+          `📢 หัวข้อ: ${title}`,
+          `💬 รายละเอียด: ${message}`,
+          ...(slotId ? [`🅿️ ช่องจอด: ${slotId}`] : []),
+          ...(deviceId ? [`⌁ อุปกรณ์: ${deviceId}`] : []),
+          `⏱️ เวลา: ${thaiTime} น.`,
+          '━━━━━━━━━━━━━━━━━━━',
+          priority === 'CRITICAL' ? '🚨 กรุณาเข้าตรวจสอบระบบทันที' : 'ℹ️ ระบบ Smart Parking อัตโนมัติ'
+        ].join('\n');
+
+        let sent = false;
+        for (const admin of admins || []) {
+          if (admin.line_user_id) {
+            const ok = await pushLine(admin.line_user_id, lineMsg);
+            if (ok) sent = true;
+          }
+        }
+        if (sent) {
+          try {
+            await db.from('system_alerts').update({ notified_line: true }).eq('id', alertId);
+          } catch (e) {}
+        }
+      } catch (lineErr) {
+        console.warn('[line admin push error]', lineErr.message);
+      }
+    }
+    return newAlert;
+  } catch (err) {
+    console.error('[dispatchSystemAlert error]', err);
+    return null;
+  }
+}
+
 const app=express();
 const configuredOrigins = [process.env.CORS_ORIGIN, process.env.CORS_ORIGIN_PROD]
   .filter(Boolean)
@@ -154,6 +317,17 @@ async function lifecycle(){
         // 3. เปลี่ยนสถานะช่องจอดกลับมาเป็นว่าง (available)
         await db.from('slots').update({ status: 'available', updated_at: now.toISOString() }).eq('id', b.slot_id);
 
+        const alertCfg = readAlertConfigs();
+        if (alertCfg.enable_noshow_alert) {
+          dispatchSystemAlert({
+            priority: alertCfg.noshow_priority || 'HIGH',
+            sourceType: 'booking',
+            slotId: b.slot_id,
+            title: `ตัดสิทธิ์การจอง No-Show (ช่อง ${b.slot_id})`,
+            message: `ไม่พบการเข้าจอดภายใน 15 นาทีหลังถึงเวลาเริ่มจอง ระบบตัดสิทธิ์ ปิดไม้กั้น และคืนสถานะช่องว่างแล้ว`
+          }).catch(() => {});
+        }
+
         if (u?.line_user_id) {
           const noShowMsg = [
             '❌ ยกเลิกการจองอัตโนมัติ (No-Show)',
@@ -186,9 +360,70 @@ async function lifecycle(){
         }
         await db.from('bookings').update({notified:true}).eq('id',b.id);
       }
+
+      // ตรวจสอบจอดรถเกินเวลา (Overtime Alert)
+      const overtimeMinutes = (now - end) / 60000;
+      if (b.status === 'active' && overtimeMinutes >= 15) {
+        const alertCfg = readAlertConfigs();
+        if (alertCfg.enable_overtime_alert) {
+          dispatchSystemAlert({
+            priority: alertCfg.overtime_priority || 'HIGH',
+            sourceType: 'booking',
+            slotId: b.slot_id,
+            title: `จอดรถเกินเวลา ช่อง ${b.slot_id} (${Math.floor(overtimeMinutes)} นาที)`,
+            message: `รถจอดเกินเวลาที่จองไว้ ${Math.floor(overtimeMinutes)} นาที กำลังคิดค่าบริการส่วนเกินสะสม`
+          }).catch(() => {});
+        }
+      }
+
       const exitDetected=b.status==='active'&&sensorFresh&&sensor?.presence==='empty'&&barrier?.state==='closed';
       if(exitDetected){await finishBooking(b,'sensor-exit');continue;}
       // หมายเหตุ: ไม่ auto-complete เมื่อหมดเวลา เพื่อให้ผู้ใช้อยู่ต่อได้ (overtime จะถูกคิดเมื่อกดจบการจอดหรือรถออก)
+    }
+
+    // ─── ตรวจสอบสุขภาพอุปกรณ์ฮาร์ดแวร์ (Device Health & Fault Monitoring) ───
+    try {
+      const { data: allDevices } = await db.from('devices').select('*');
+      const alertCfg = readAlertConfigs();
+      const offlineTimeoutMs = (alertCfg.offline_timeout_sec || 120) * 1000;
+
+      for (const dev of allDevices || []) {
+        const lastUpdated = dev.updated_at ? new Date(dev.updated_at).getTime() : 0;
+        const isDead = (now.getTime() - lastUpdated) > offlineTimeoutMs;
+
+        // 1. ตรวจสอบ Offline / Heartbeat Timeout
+        if (isDead && dev.status !== 'offline') {
+          await db.from('devices').update({ status: 'offline', updated_at: now.toISOString() }).eq('id', dev.id);
+          if (alertCfg.enable_offline_alert) {
+            dispatchSystemAlert({
+              priority: alertCfg.offline_priority || 'CRITICAL',
+              sourceType: 'device',
+              deviceId: dev.id,
+              slotId: dev.linked_slot,
+              title: `อุปกรณ์ ${dev.name || dev.id} ขาดการเชื่อมต่อ (Offline)`,
+              message: `ไม่พบสัญญาณ Heartbeat เกิน ${alertCfg.offline_timeout_sec} วินาที กรุณาตรวจสอบการเชื่อมต่อหรือการจ่ายไฟ`
+            }).catch(() => {});
+          }
+        }
+
+        // 2. ตรวจสอบไม้กั้นค้าง (Barrier Gate Stuck / Left Open Anomaly)
+        if (dev.type === 'barrier' && dev.state === 'open' && alertCfg.enable_barrier_fault_alert) {
+          const stuckSec = alertCfg.barrier_stuck_sec || 300;
+          const gateOpenDuration = (now.getTime() - lastUpdated) / 1000;
+          if (gateOpenDuration > stuckSec) {
+            dispatchSystemAlert({
+              priority: alertCfg.barrier_fault_priority || 'CRITICAL',
+              sourceType: 'device',
+              deviceId: dev.id,
+              slotId: dev.linked_slot,
+              title: `ไม้กั้นช่อง ${dev.linked_slot} เปิดค้างผิดปกติ`,
+              message: `ไม้กั้นอยู่ในสถานะเปิดค้างนานกว่า ${Math.floor(gateOpenDuration / 60)} นาที ตรวจสอบกลไกหรือสิ่งกีดขวาง`
+            }).catch(() => {});
+          }
+        }
+      }
+    } catch (devCheckErr) {
+      console.warn('[lifecycle device check error]', devCheckErr.message);
     }
   }catch(error){console.error('[lifecycle]',error);}
   finally{lifecycleRunning=false;}
@@ -216,7 +451,17 @@ app.post('/api/auth/login',async(req,res)=>{try{const username=String(req.body.u
 app.get('/api/bootstrap',auth,async(req,res)=>{try{await lifecycle();const out={};const required=['slots','bookings','credit_history','devices'];const optional=['credit_requests','maintenance_logs','parking_maps','vehicles'];const userFields='id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at';let usersQuery=db.from('users').select(userFields);if(req.user.role!=='admin')usersQuery=usersQuery.eq('id',req.user.id);const {data:users,error:userError}=await usersQuery;if(userError)throw userError;out.users=users||[];for(const table of required){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['bookings','credit_history'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error)throw error;out[table]=data||[];}
 const slotsMeta=readSlotsMeta();
 out.slots=(out.slots||[]).map(s=>{const meta=slotsMeta[s.id]||{};return{...s,price_per_hour:s.price_per_hour!==undefined&&s.price_per_hour!==null?Number(s.price_per_hour):(meta.price_per_hour??20),pos_x:s.pos_x!==undefined&&s.pos_x!==null?Number(s.pos_x):(meta.pos_x??null),pos_y:s.pos_y!==undefined&&s.pos_y!==null?Number(s.pos_y):(meta.pos_y??null),type:s.type||meta.type||'ลูกค้าทั่วไป'};});
-for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['credit_requests','vehicles'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);if(table==='vehicles'){out[table]=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);}else out[table]=[];}else{out[table]=data||[];if(table==='vehicles'&&out[table].length===0){const fallback=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);if(fallback.length>0)out[table]=fallback;}}}res.json(out);}catch(error){console.error('[bootstrap]',error);res.status(500).json({error:`โหลดข้อมูลไม่สำเร็จ: ${error.message}`});}});
+for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['credit_requests','vehicles'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);if(table==='vehicles'){out[table]=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);}else out[table]=[];}else{out[table]=data||[];if(table==='vehicles'&&out[table].length===0){const fallback=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);if(fallback.length>0)out[table]=fallback;}}}
+const alertCfg=readAlertConfigs();
+let systemAlerts=[];
+try{
+  const {data:dbAlerts,error:alErr}=await db.from('system_alerts').select('*').order('created_at',{ascending:false}).limit(100);
+  if(!alErr&&Array.isArray(dbAlerts))systemAlerts=dbAlerts;
+  else systemAlerts=readSystemAlerts();
+}catch(e){systemAlerts=readSystemAlerts();}
+out.system_alerts=systemAlerts;
+out.alert_configs=alertCfg;
+res.json(out);}catch(error){console.error('[bootstrap]',error);res.status(500).json({error:`โหลดข้อมูลไม่สำเร็จ: ${error.message}`});}});
 app.post('/api/bookings',auth,async(req,res)=>{
   try{
     const {slotId,date,time,duration,vehicleId,vehicle_id,licensePlate,license_plate,vehicleType,vehicle_type,saveVehicle,save_vehicle}=req.body;
@@ -527,6 +772,102 @@ app.post('/api/admin/maintenance/:id/resolve',auth,admin,async(req,res)=>{try{co
 app.post('/api/admin/maps',auth,admin,upload.single('image'),async(req,res)=>{try{if(!req.file)return res.status(400).json({error:'กรุณาเลือกไฟล์ PNG, JPG หรือ WebP'});const floor=Number(req.body.floor||1);const ext=req.file.mimetype==='image/png'?'png':req.file.mimetype==='image/webp'?'webp':'jpg';const path=`floor-${floor}/${Date.now()}-${crypto.randomUUID()}.${ext}`;const {error:uploadError}=await db.storage.from('parking-maps').upload(path,req.file.buffer,{contentType:req.file.mimetype,upsert:false});if(uploadError)throw uploadError;const {data:urlData}=db.storage.from('parking-maps').getPublicUrl(path);const {data,error}=await db.from('parking_maps').insert({id:id(),name:String(req.body.name||`ผังชั้น ${floor}`),floor,image_url:urlData.publicUrl,created_by:req.user.id}).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.patch('/api/admin/maps/:id',auth,admin,upload.single('image'),async(req,res)=>{try{const {data:map,error:fetchError}=await db.from('parking_maps').select('*').eq('id',req.params.id).maybeSingle();if(fetchError)throw fetchError;if(!map)return res.status(404).json({error:'ไม่พบผังลานจอด'});const updates={};if(req.body.name&&String(req.body.name).trim()){updates.name=String(req.body.name).trim();}if(req.body.floor){updates.floor=Number(req.body.floor);}if(req.file){const floor=updates.floor||map.floor||1;const ext=req.file.mimetype==='image/png'?'png':req.file.mimetype==='image/webp'?'webp':'jpg';const path=`floor-${floor}/${Date.now()}-${crypto.randomUUID()}.${ext}`;const {error:uploadError}=await db.storage.from('parking-maps').upload(path,req.file.buffer,{contentType:req.file.mimetype,upsert:false});if(uploadError)throw uploadError;const {data:urlData}=db.storage.from('parking-maps').getPublicUrl(path);updates.image_url=urlData.publicUrl;try{const url=new URL(map.image_url);const pathParts=url.pathname.split('/object/public/parking-maps/');if(pathParts.length>1){const storagePath=decodeURIComponent(pathParts[1]);await db.storage.from('parking-maps').remove([storagePath]);}}catch(storageErr){console.warn('[map update] old storage remove warning:',storageErr.message);}}if(Object.keys(updates).length===0){return res.status(400).json({error:'ไม่มีข้อมูลที่ต้องอัปเดต'});}const {data,error}=await db.from('parking_maps').update(updates).eq('id',map.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.delete('/api/admin/maps/:id',auth,admin,async(req,res)=>{try{const {data:map,error:fetchError}=await db.from('parking_maps').select('*').eq('id',req.params.id).maybeSingle();if(fetchError)throw fetchError;if(!map)return res.status(404).json({error:'ไม่พบผังลานจอด'});try{const url=new URL(map.image_url);const pathParts=url.pathname.split('/object/public/parking-maps/');if(pathParts.length>1){const storagePath=decodeURIComponent(pathParts[1]);await db.storage.from('parking-maps').remove([storagePath]);}}catch(storageErr){console.warn('[map delete] storage remove warning:',storageErr.message);}const {error:dbError}=await db.from('parking_maps').delete().eq('id',map.id);if(dbError)throw dbError;res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
+
+// ─── Admin: Alert Configuration & System Alerts ───
+app.get('/api/admin/alert-configs', auth, admin, (req, res) => {
+  res.json(readAlertConfigs());
+});
+
+app.patch('/api/admin/alert-configs', auth, admin, async (req, res) => {
+  try {
+    const current = readAlertConfigs();
+    const updated = { ...current, ...req.body, updated_at: new Date().toISOString() };
+    writeAlertConfigs(updated);
+    try {
+      await db.from('alert_configs').upsert(updated);
+    } catch (ignore) {}
+    res.json(updated);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/system-alerts', auth, admin, async (req, res) => {
+  try {
+    const { data, error } = await db.from('system_alerts').select('*').order('created_at', { ascending: false }).limit(100);
+    if (!error && Array.isArray(data)) return res.json(data);
+    res.json(readSystemAlerts());
+  } catch (e) {
+    res.json(readSystemAlerts());
+  }
+});
+
+app.post('/api/admin/system-alerts/:id/acknowledge', auth, admin, async (req, res) => {
+  try {
+    const alertId = req.params.id;
+    try {
+      await db.from('system_alerts').update({ status: 'acknowledged' }).eq('id', alertId);
+    } catch (ignore) {}
+    const all = readSystemAlerts();
+    const idx = all.findIndex(a => a.id === alertId);
+    if (idx !== -1) {
+      all[idx].status = 'acknowledged';
+      writeSystemAlerts(all);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/system-alerts/:id/resolve', auth, admin, async (req, res) => {
+  try {
+    const alertId = req.params.id;
+    const now = new Date().toISOString();
+    try {
+      await db.from('system_alerts').update({ status: 'resolved', resolved_at: now }).eq('id', alertId);
+    } catch (ignore) {}
+    const all = readSystemAlerts();
+    const idx = all.findIndex(a => a.id === alertId);
+    if (idx !== -1) {
+      all[idx].status = 'resolved';
+      all[idx].resolved_at = now;
+      writeSystemAlerts(all);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/system-alerts/clear-resolved', auth, admin, async (req, res) => {
+  try {
+    try {
+      await db.from('system_alerts').delete().eq('status', 'resolved');
+    } catch (ignore) {}
+    const all = readSystemAlerts().filter(a => a.status !== 'resolved');
+    writeSystemAlerts(all);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/system-alerts/test', auth, admin, async (req, res) => {
+  try {
+    const { priority = 'HIGH', title = 'ทดสอบระบบแจ้งเตือน Smart Parking', message = 'ข้อความทดสอบการแจ้งเตือนและการส่ง LINE แจ้งเตือนแอดมิน' } = req.body;
+    const result = await dispatchSystemAlert({
+      priority,
+      sourceType: 'system',
+      title: String(title).trim(),
+      message: String(message).trim()
+    });
+    res.json({ ok: true, alert: result });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 
 // ─── IoT: Batch Telemetry จาก ESP32 Controller (esp32-f1-left, esp32-f1-right, esp32-f2-left, esp32-f2-right) ───
 // รองรับทั้ง Floor-1 (A1-A6), Floor-2 (B1-B6) และบอร์ดเดี่ยวทุกตัว
