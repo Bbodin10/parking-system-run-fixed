@@ -104,6 +104,7 @@ async function finishBooking(input,reason='manual'){
   if(!claimed)return {ok:true,alreadyFinalized:true,reason};
   if(overtimeAmount)await credit(b.user_id,'reduce',overtimeAmount,`ค่าจอดเกินเวลา ${b.slot_id}`);
   await db.from('slots').update({status:'available',updated_at:now.toISOString()}).eq('id',b.slot_id);
+  await db.from('devices').update({state:'closed',updated_at:now.toISOString()}).eq('type','barrier').eq('linked_slot',b.slot_id);
   const u=await userById(b.user_id);
   if(u?.line_user_id){
     const actualStr = actual >= 60 ? `${Math.floor(actual/60)} ชม. ${actual%60} นาที` : `${actual} นาที`;

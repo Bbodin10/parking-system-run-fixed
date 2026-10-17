@@ -5,19 +5,20 @@
 #include <ESP32Servo.h>
 
 /* ================= CONFIGURABLE PARAMETERS ================= */
-#define FLOOR_NUMBER        2
-#define FLOOR_DEVICE_ID     "Floor-2"
+#define FLOOR_NUMBER 2
+#define FLOOR_DEVICE_ID "Floor-2"
 
-#define SLOT_PREFIX         "B"
-#define LOCAL_SLOT_OFFSET   3
+#define SLOT_PREFIX "B"
+#define LOCAL_SLOT_OFFSET 3
 
 /* ================= ALGORITHM CONSTRAINTS ================= */
-const float HYSTERESIS_ENTER_CM = 9.0f;       // ต่ำกว่านี้ = มีรถจอด
-const float HYSTERESIS_EXIT_CM = 10.0f;       // สูงกว่านี้ = ช่องว่าง
-const unsigned long DEBOUNCE_TIME_MS = 2000;  // สถานะต้องนิ่ง 2 วินาที
+const float HYSTERESIS_ENTER_CM = 9.0f;      // ต่ำกว่านี้ = มีรถจอด
+const float HYSTERESIS_EXIT_CM = 10.0f;      // สูงกว่านี้ = ช่องว่าง
+const unsigned long DEBOUNCE_TIME_MS = 1000; // สถานะต้องนิ่ง 1 วินาที
 const unsigned long TERMINAL_LOG_INTERVAL = 2000;
-const int SERVO_CLOSED_ANGLE = 0;
-const int SERVO_OPEN_ANGLE = 90;
+const int SERVO_CLOSED_ANGLE = 90;
+const int SERVO_OPEN_ANGLE = 0;
+const unsigned long AUTO_CLOSE_DELAY_MS = 3000; // ปิดไม้กั้นอัตโนมัติหลังรถออกจากช่องจอด 3 วินาที
 
 /* ================= ESP-NOW TIMING ================= */
 const unsigned long ESPNOW_SEND_INTERVAL_MS = 500;

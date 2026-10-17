@@ -1,8 +1,7 @@
 /* =============================================================================
- * Project: ESP32 Smart Parking Slot Controller (Floor 2 Right: Slots B4, B5, B6)
- * Role: ESP-NOW Slave — ส่ง Telemetry ไป F2-Left, รับคำสั่งไม้กั้น
- * Architecture: FreeRTOS Dual-Core + ESP-NOW Peer-to-Peer
- * Features:
+ * Project: ESP32 Smart Parking Slot Controller (Floor 2 Right: Slots B4, B5,
+ * B6) Role: ESP-NOW Slave — ส่ง Telemetry ไป F2-Left, รับคำสั่งไม้กั้น Architecture:
+ * FreeRTOS Dual-Core + ESP-NOW Peer-to-Peer Features:
  *   - Core 1: SensorTask - Ultrasonic Round-Robin (B4-B6), Hysteresis,
  *             Debounce & Local Common-Anode LED Indicators
  *   - Core 0: CommTask - ESP-NOW Send Telemetry ทุก 500ms/Event พร้อม Retry
@@ -18,11 +17,12 @@
 #include <esp_wifi.h>
 
 /* ============================ CONFIGURATION ============================ */
-// ⚠️ MAC Address ของบอร์ด Floor 2 Left (Master)
-// เมื่อเปิดบอร์ด F2-Left ให้อ่าน MAC Address จาก Serial Monitor แล้วนำมาใส่ที่นี่:
-uint8_t masterMac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+// ⚠️ MAC Address ของบอร์ด Central Master (Floor 1 Left)
+// เมื่อเปิดบอร์ด F1-Left ให้อ่าน MAC Address จาก Serial Monitor แล้วนำมาใส่ที่นี่:
+uint8_t masterMac[] = {0x20, 0x50, 0x0D, 0x76, 0xC8, 0x5C};
 
-// ⚠️ WiFi Channel ของ Router "B03_WIFI" (อ่านได้จาก Serial Monitor ของบอร์ด F2-Left)
+// ⚠️ WiFi Channel ของ Router "B03_WIFI" (อ่านได้จาก Serial Monitor ของบอร์ด
+// F1-Left)
 const int WIFI_CHANNEL = 1;
 
 /* ======================= HARDWARE (FLOOR 2 RIGHT) ======================= */
@@ -40,6 +40,9 @@ volatile bool commStatusChanged = false;
 // ESP-NOW Send Status
 volatile bool lastSendSuccess = false;
 volatile unsigned long lastSendTime = 0;
+
+// Auto-Close Timer สำหรับแต่ละช่องจอด (ปิดหลังรถออกจากช่อง 3 วินาที)
+unsigned long autoCloseTimer[NUM_SLOTS] = {0, 0, 0};
 
 /* ------------------- FUNCTION DECLARATIONS ------------------- */
 float measureUltrasonicSingle(int trigPin, int echoPin);
@@ -78,7 +81,8 @@ void onEspNowSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 /* =============================================================================
  * SETUP
- * ============================================================================= */
+ * =============================================================================
+ */
 void setup() {
   Serial.begin(115200);
   delay(200);
@@ -98,9 +102,26 @@ void setup() {
 
     slots[i].servoInstance.setPeriodHertz(50);
     slots[i].servoInstance.attach(slots[i].pinServo, 500, 2400);
+  }
+
+  // ─── ไม้กั้นทดสอบเปิด-ปิดตัวเอง 1 ครั้งทุกช่องเมื่อเริ่มทำงาน (Boot Self-Test) ───
+  Serial.println();
+  Serial.println("[ACTUATOR] Running Boot Self-Test: Sweeping barrier gates (OPEN -> CLOSE)...");
+  for (int i = 0; i < NUM_SLOTS; i++) {
+    Serial.printf("[ACTUATOR] Self-testing slot %s barrier gate...\n", slots[i].slotId);
+
+    // 1. หมุนเปิด (OPEN: SERVO_OPEN_ANGLE)
+    slots[i].servoInstance.write(SERVO_OPEN_ANGLE);
+    slots[i].isGateOpen = true;
+    delay(700);
+
+    // 2. หมุนปิด (CLOSED: SERVO_CLOSED_ANGLE)
     slots[i].servoInstance.write(SERVO_CLOSED_ANGLE);
     slots[i].isGateOpen = false;
+    delay(700);
   }
+  Serial.println("[ACTUATOR] Boot Self-Test Completed. All gates locked in CLOSED state.");
+  Serial.println("[ACTUATOR] Ready to receive OPEN commands from Web / Master.\n");
 
   // WiFi STA mode สำหรับ ESP-NOW (ไม่ต้องต่อเราเตอร์)
   WiFi.mode(WIFI_STA);
@@ -110,8 +131,9 @@ void setup() {
 
   Serial.println("==========================================================");
   Serial.printf("[WIFI] Channel locked to: %d\n", WIFI_CHANNEL);
-  Serial.printf("[INFO] ★ My MAC Address: %s  <- นำไปใส่ peerMacRight ใน F2-Left\n",
-                WiFi.macAddress().c_str());
+  Serial.printf(
+      "[INFO] ★ My MAC Address: %s  <- นำไปใส่ peerMacRight ใน F2-Left\n",
+      WiFi.macAddress().c_str());
   Serial.println("==========================================================");
 
   if (esp_now_init() != ESP_OK) {
@@ -137,16 +159,15 @@ void setup() {
   scanSensorsSequential();
 
   xTaskCreatePinnedToCore(sensorTaskFunc, "SensorTask", 4096, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(commTaskFunc,   "CommTask",   4096, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(commTaskFunc, "CommTask", 4096, NULL, 1, NULL, 0);
 }
 
-void loop() {
-  vTaskDelay(portMAX_DELAY);
-}
+void loop() { vTaskDelay(portMAX_DELAY); }
 
 /* =============================================================================
  * SENSOR TASK (Core 1)
- * ============================================================================= */
+ * =============================================================================
+ */
 void sensorTaskFunc(void *pvParameters) {
   TickType_t lastLog = xTaskGetTickCount();
 
@@ -176,7 +197,8 @@ void sensorTaskFunc(void *pvParameters) {
 
 /* =============================================================================
  * COMM TASK (Core 0)
- * ============================================================================= */
+ * =============================================================================
+ */
 void commTaskFunc(void *pvParameters) {
   unsigned long lastSend = 0;
 
@@ -201,8 +223,8 @@ void commTaskFunc(void *pvParameters) {
 
       bool sent = false;
       for (int attempt = 0; attempt <= ESPNOW_MAX_RETRIES; attempt++) {
-        esp_err_t result = esp_now_send(
-            masterMac, (uint8_t *)&payload, sizeof(payload));
+        esp_err_t result =
+            esp_now_send(masterMac, (uint8_t *)&payload, sizeof(payload));
 
         if (result == ESP_OK) {
           sent = true;
@@ -231,7 +253,8 @@ void commTaskFunc(void *pvParameters) {
 
 /* =============================================================================
  * SENSOR SCANNING & HYSTERESIS
- * ============================================================================= */
+ * =============================================================================
+ */
 float measureUltrasonicSingle(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -240,7 +263,8 @@ float measureUltrasonicSingle(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
 
   unsigned long duration = pulseIn(echoPin, HIGH, 18000);
-  if (duration == 0) return -1.0f;
+  if (duration == 0)
+    return -1.0f;
   return (float)(duration * 0.0343 / 2.0);
 }
 
@@ -261,13 +285,29 @@ void scanSensorsSequential() {
       if (slots[i].debounceTimer == 0) {
         slots[i].debounceTimer = now;
       } else if (now - slots[i].debounceTimer >= DEBOUNCE_TIME_MS) {
+        bool wasOccupied = slots[i].confirmedOccupied;
         slots[i].confirmedOccupied = slots[i].candidateOccupied;
         slots[i].debounceTimer = 0;
         statusChangedEvent = true;
         updateSlotIndicators(i);
+
+        // ─── เมื่อรถออกจากช่องจอด (เคยมีรถจอด -> กลายเป็นช่องว่าง) ───
+        if (wasOccupied && !slots[i].confirmedOccupied) {
+          Serial.printf("[AUTO-CLOSE] Slot %s: Car exited slot! Starting 3-second countdown to close barrier...\n", slots[i].slotId);
+          autoCloseTimer[i] = now;
+        }
       }
     } else {
       slots[i].debounceTimer = 0;
+    }
+
+    // ─── ปิดไม้กั้นอัตโนมัติเมื่อครบ 3 วินาทีหลังจากรถออกจากช่องจอด ───
+    if (autoCloseTimer[i] > 0 && (now - autoCloseTimer[i] >= AUTO_CLOSE_DELAY_MS)) {
+      autoCloseTimer[i] = 0;
+      if (slots[i].isGateOpen) {
+        Serial.printf("[AUTO-CLOSE] Slot %s: 3 seconds elapsed after car exit -> Closing barrier gate.\n", slots[i].slotId);
+        updateBarrierGate(i, false);
+      }
     }
 
     delay(25);
@@ -276,21 +316,23 @@ void scanSensorsSequential() {
 
 /* =============================================================================
  * ACTUATOR & INDICATOR CONTROLS (Common-Anode: Active-LOW)
- * ============================================================================= */
+ * =============================================================================
+ */
 void updateSlotIndicators(int index) {
   if (slots[index].confirmedOccupied) {
     digitalWrite(slots[index].pinLedRed, LOW);    // แดงติด
     digitalWrite(slots[index].pinLedGreen, HIGH); // เขียวดับ
   } else {
-    digitalWrite(slots[index].pinLedRed, HIGH);   // แดงดับ
-    digitalWrite(slots[index].pinLedGreen, LOW);  // เขียวติด
+    digitalWrite(slots[index].pinLedRed, HIGH);  // แดงดับ
+    digitalWrite(slots[index].pinLedGreen, LOW); // เขียวติด
   }
 }
 
 void updateBarrierGate(int index, bool open) {
   if (slots[index].isGateOpen != open) {
     slots[index].isGateOpen = open;
-    slots[index].servoInstance.write(open ? SERVO_OPEN_ANGLE : SERVO_CLOSED_ANGLE);
+    slots[index].servoInstance.write(open ? SERVO_OPEN_ANGLE
+                                          : SERVO_CLOSED_ANGLE);
     Serial.printf("[ACTUATOR] Slot %s Barrier -> %s (%d deg)\n",
                   slots[index].slotId, open ? "OPEN" : "CLOSED",
                   open ? SERVO_OPEN_ANGLE : SERVO_CLOSED_ANGLE);
@@ -299,11 +341,14 @@ void updateBarrierGate(int index, bool open) {
 
 /* =============================================================================
  * SERIAL TERMINAL DASHBOARD (Floor 2 Right)
- * ============================================================================= */
+ * =============================================================================
+ */
 void printTerminalDashboard() {
   Serial.println("\n===== [FLOOR 2 RIGHT SLAVE DASHBOARD] =====");
-  Serial.println("SLOT | DISTANCE | SENSOR RAW | CONFIRMED    | BARRIER  | LED");
-  Serial.println("-----|----------|------------|--------------|----------|------");
+  Serial.println(
+      "SLOT | DISTANCE | SENSOR RAW | CONFIRMED    | BARRIER  | LED");
+  Serial.println(
+      "-----|----------|------------|--------------|----------|------");
 
   for (int i = 0; i < NUM_SLOTS; i++) {
     char distBuf[10];
@@ -324,7 +369,7 @@ void printTerminalDashboard() {
   Serial.printf("ESP-NOW -> Master: %s (last: %lu ms ago)\n",
                 lastSendSuccess ? "✓ OK" : "✗ FAIL",
                 lastSendTime > 0 ? (millis() - lastSendTime) : 0);
-  Serial.printf("Channel: %d | Heap: %u bytes\n",
-                WIFI_CHANNEL, ESP.getFreeHeap());
+  Serial.printf("Channel: %d | Heap: %u bytes\n", WIFI_CHANNEL,
+                ESP.getFreeHeap());
   Serial.println("=====================================");
 }
