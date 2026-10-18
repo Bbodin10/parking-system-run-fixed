@@ -97,13 +97,14 @@ select:focus-visible {
 .brand-mark {
   width: 48px;
   height: 48px;
-  border-radius: 10px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
-  color: #10151c;
-  font: 800 26px 'Barlow Condensed';
-  background: repeating-linear-gradient(135deg, var(--amber), var(--amber) 5px, #18202a 5px, #18202a 10px);
-  box-shadow: 0 0 0 1px #f4c44e33
+  color: #071b19;
+  font: 800 26px 'Barlow Condensed', sans-serif;
+  background: linear-gradient(135deg, #36dcc9 0%, #2087ff 100%);
+  box-shadow: 0 0 20px rgba(54, 220, 201, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .brand-mark.small {
