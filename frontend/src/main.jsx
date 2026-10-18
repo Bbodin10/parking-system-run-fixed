@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 
@@ -245,9 +246,47 @@ function LineConnectModal({ user, onClose, notify, reload }) {
     }
   };
 
-  return (
-    <div className="modal-backdrop" onClick={onClose} style={{ zIndex: 9999 }}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480, width: '92%', borderRadius: 12, padding: 22 }}>
+  return createPortal(
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 99999,
+        background: 'rgba(6, 10, 18, 0.85)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        overflowY: 'auto',
+        boxSizing: 'border-box'
+      }}
+    >
+      <div
+        className="booking-modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: 480,
+          width: '100%',
+          margin: 'auto',
+          background: '#19212b',
+          border: '1.5px solid #3a4758',
+          borderRadius: 14,
+          padding: 24,
+          boxShadow: '0 25px 70px rgba(0, 0, 0, 0.85)',
+          boxSizing: 'border-box',
+          position: 'relative',
+          color: '#f8fafc'
+        }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 24 }}>📱</span>
@@ -365,7 +404,8 @@ function LineConnectModal({ user, onClose, notify, reload }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

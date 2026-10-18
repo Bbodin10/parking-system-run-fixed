@@ -727,18 +727,20 @@ td {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 99999;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   padding: 24px 16px;
   background: #06090dbd;
-  backdrop-filter: blur(7px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box
 }
 
+.modal-card,
 .booking-modal {
   width: min(480px, 100%);
   max-height: calc(100vh - 48px);
