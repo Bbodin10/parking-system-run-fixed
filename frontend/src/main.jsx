@@ -193,7 +193,184 @@ function Login({ onLogin }) {
   );
 }
 
-function Header({ user, onLogout, lastUpdated, data, setView }) {
+function LineConnectModal({ user, onClose, notify, reload }) {
+  const [copied, setCopied] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
+
+  const handleCopyCode = () => {
+    if (user?.line_link_code) {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(user.line_link_code).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2500);
+        });
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = user.line_link_code;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+      }
+    }
+  };
+
+  const handleTestMessage = async () => {
+    setTesting(true);
+    try {
+      await api('/auth/line/test-message', { method: 'POST' });
+      notify?.('ส่งข้อความทดสอบเข้า LINE Bot สำเร็จแล้ว! กรุณาเปิดดูในแอป LINE 📱', false);
+    } catch (e) {
+      notify?.(e.message || 'ส่งข้อความทดสอบไม่สำเร็จ', true);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleUnlink = async () => {
+    if (!window.confirm('คุณต้องการยกเลิกการเชื่อมต่อบัญชี LINE ใช่หรือไม่?')) return;
+    setUnlinking(true);
+    try {
+      await api('/auth/line/unlink', { method: 'POST' });
+      notify?.('ยกเลิกการเชื่อมต่อ LINE เรียบร้อยแล้ว', false);
+      reload?.();
+      onClose();
+    } catch (e) {
+      notify?.(e.message || 'เกิดข้อผิดพลาดในการยกเลิก', true);
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} style={{ zIndex: 9999 }}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480, width: '92%', borderRadius: 12, padding: 22 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 24 }}>📱</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17, color: '#f8fafc' }}>จัดการการเชื่อมต่อ LINE</h3>
+              <span className="muted" style={{ fontSize: 12 }}>รับการแจ้งเตือนแบบเรียลไทม์ผ่านบอท @302ypwvm</span>
+            </div>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose} style={{ fontSize: 22, cursor: 'pointer', background: 'none', border: 'none', color: '#94a3b8' }}>✕</button>
+        </div>
+
+        {user?.line_user_id ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1.5px solid rgba(16, 185, 129, 0.4)', borderRadius: 10, padding: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 18 }}>🟢</span>
+                <strong style={{ color: '#34d399', fontSize: 15 }}>เชื่อมต่อ LINE สำเร็จแล้ว</strong>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: '#cbd5e1', lineHeight: 1.5 }}>
+                บัญชีของคุณ (<strong>{user.name}</strong>) ได้เชื่อมโยงเข้ากับระบบเรียบร้อยแล้ว {user.role === 'admin' ? 'คุณจะได้รับแจ้งเตือนสถานะอุปกรณ์และข้อผิดพลาดของระบบอัตโนมัติ' : 'คุณจะได้รับแจ้งเตือนการจองและสรุปเวลาจอดอัตโนมัติ'}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <a
+                href="https://line.me/R/ti/p/@302ypwvm"
+                target="_blank"
+                rel="noreferrer"
+                className="button"
+                style={{ background: '#06c755', color: '#ffffff', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none', padding: '10px 16px', borderRadius: 8 }}
+              >
+                <span>💬</span>
+                <span>เปิดห้องแชท Bot (@302ypwvm)</span>
+              </a>
+
+              <button
+                type="button"
+                className="button secondary"
+                onClick={handleTestMessage}
+                disabled={testing}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 16px', borderRadius: 8, fontWeight: 600 }}
+              >
+                <span>🔔</span>
+                <span>{testing ? 'กำลังส่ง...' : 'ทดสอบส่งข้อความเข้า LINE มือถือ'}</span>
+              </button>
+
+              <button
+                type="button"
+                className="button danger compact"
+                onClick={handleUnlink}
+                disabled={unlinking}
+                style={{ marginTop: 6, alignSelf: 'center', fontSize: 12 }}
+              >
+                {unlinking ? 'กำลังยกเลิก...' : 'ยกเลิกการเชื่อมต่อ LINE'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid rgba(239, 68, 68, 0.35)', borderRadius: 10, padding: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 18 }}>🔴</span>
+                <strong style={{ color: '#f87171', fontSize: 15 }}>ยังไม่ได้เชื่อมต่อบัญชี LINE</strong>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: '#cbd5e1', lineHeight: 1.5 }}>
+                {user?.role === 'admin'
+                  ? 'กรุณาเชื่อมต่อ LINE เพื่อรับการแจ้งเตือนเร่งด่วนเมื่ออุปกรณ์ Offline, ไม้กั้นค้าง, หรือระบบมีเหตุผิดปกติ'
+                  : 'กรุณาเชื่อมต่อ LINE เพื่อรับแจ้งเตือนเมื่อจองที่จอดรถ, เตือนก่อนหมดเวลา และสรุปค่าบริการอัตโนมัติ'}
+              </p>
+            </div>
+
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14 }}>
+              <div style={{ fontWeight: 600, color: 'var(--cyan)', marginBottom: 8, fontSize: 13 }}>
+                วิธีที่ 1: เชื่อมต่อทันทีด้วย LINE Login (แนะนำ)
+              </div>
+              <button
+                type="button"
+                className="button full"
+                onClick={() => redirectToLine('link')}
+                style={{ background: '#06c755', color: '#ffffff', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 16px', borderRadius: 8, fontSize: 14, cursor: 'pointer', border: 'none' }}
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
+                <span>กดเชื่อมต่อด้วย LINE Login</span>
+              </button>
+            </div>
+
+            {user?.line_link_code && (
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14 }}>
+                <div style={{ fontWeight: 600, color: '#fbbf24', marginBottom: 6, fontSize: 13 }}>
+                  วิธีที่ 2: ผูกผ่าน LINE Chat Bot ด้วยรหัส
+                </div>
+                <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.6 }}>
+                  1. แอดเพื่อนบอท: <a href="https://line.me/R/ti/p/@302ypwvm" target="_blank" rel="noreferrer" style={{ color: '#38bdf8', fontWeight: 600 }}>@302ypwvm (Parking Alert Bot)</a><br />
+                  2. ส่งรหัสเชื่อมโยงนี้ในแชทบอท:
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, background: '#0f172a', padding: '10px 14px', borderRadius: 8, border: '1.5px solid rgba(56, 189, 248, 0.4)' }}>
+                  <code style={{ fontSize: 20, fontWeight: 700, letterSpacing: 3, color: '#38bdf8', flex: 1 }}>{user.line_link_code}</code>
+                  <button
+                    type="button"
+                    className="button compact"
+                    onClick={handleCopyCode}
+                    style={{ background: copied ? '#10b981' : '#334155', color: '#fff', fontSize: 12, padding: '6px 12px', borderRadius: 6 }}
+                  >
+                    {copied ? '✓ คัดลอกแล้ว!' : '📋 คัดลอกรหัส'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18, borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12 }}>
+          <button type="button" className="button secondary" onClick={onClose} style={{ padding: '8px 16px' }}>
+            ปิดหน้าต่าง
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Header({ user, onLogout, lastUpdated, data, setView, notify, reload }) {
+  const [showLineModal, setShowLineModal] = useState(false);
   const timeStr = lastUpdated
     ? lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' })
     : '--:--:--';
@@ -226,11 +403,41 @@ function Header({ user, onLogout, lastUpdated, data, setView }) {
         </button>
       )}
       {user.role !== 'admin' && <span className={`badge credit-pill ${Number(user.credit || 0) > 0 ? 'available' : 'unavailable'}`}>เครดิต ฿{formatMoney(user.credit)}</span>}
-      <span className={`badge line-pill ${user.line_user_id ? 'available' : 'unavailable'}`}>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
+      <button
+        type="button"
+        onClick={() => setShowLineModal(true)}
+        className={`badge line-pill ${user.line_user_id ? 'available' : 'unavailable'}`}
+        style={{
+          cursor: 'pointer',
+          border: user.line_user_id ? '1.5px solid rgba(16, 185, 129, 0.6)' : '1.5px solid rgba(239, 68, 68, 0.6)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          padding: '5px 10px',
+          borderRadius: 7,
+          background: user.line_user_id ? 'rgba(19, 51, 36, 0.85)' : 'rgba(56, 22, 25, 0.85)',
+          color: user.line_user_id ? '#34d399' : '#f87171',
+          fontWeight: 600,
+          fontFamily: 'inherit',
+          transition: 'all 0.2s ease',
+        }}
+        title="คลิกเพื่อจัดการการเชื่อมต่อ LINE หรือดูรหัสผูกบัญชี"
+      >
+        <span style={{ fontSize: 11 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
+        <span>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
+      </button>
       <span className={`role ${user.role}`}>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้'}</span>
       <span className="avatar">{user.name?.slice(0, 1)}</span>
       <button className="button compact" onClick={onLogout}>ออกจากระบบ</button>
     </div>
+    {showLineModal && (
+      <LineConnectModal
+        user={user}
+        onClose={() => setShowLineModal(false)}
+        notify={notify}
+        reload={reload}
+      />
+    )}
   </header>;
 }
 
@@ -1382,8 +1589,21 @@ function UserHistory({ data, user, notify }) {
               </button>
               <span className="line-cta-subtext">เพิ่มเพื่อนบอท @302ypwvm อัตโนมัติ</span>
               {user.line_link_code && (
-                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', textAlign: 'center' }}>
-                  หรือแอดไลน์ <strong>@302ypwvm</strong> แล้วส่งรหัส: <strong style={{ color: 'var(--cyan)', background: 'rgba(54, 220, 201, 0.1)', padding: '2px 8px', borderRadius: 6, letterSpacing: 1 }}>{user.line_link_code}</strong>
+                <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span>หรือแอดไลน์ <strong>@302ypwvm</strong> แล้วส่งรหัส:</span>
+                  <strong style={{ color: 'var(--cyan)', background: 'rgba(54, 220, 201, 0.1)', padding: '2px 8px', borderRadius: 6, letterSpacing: 1 }}>{user.line_link_code}</strong>
+                  <button
+                    type="button"
+                    className="button compact secondary"
+                    style={{ fontSize: 11, padding: '2px 8px' }}
+                    onClick={() => {
+                      if (navigator?.clipboard?.writeText) {
+                        navigator.clipboard.writeText(user.line_link_code).then(() => notify?.('คัดลอกรหัสแล้ว!', false));
+                      }
+                    }}
+                  >
+                    📋 คัดลอก
+                  </button>
                 </div>
               )}
             </>
@@ -2913,7 +3133,12 @@ function playAlertChime(priority) {
   } catch (e) {}
 }
 
-function AdminAlerts({ data, reload, notify }) {
+function AdminAlerts({ data, user, reload, notify }) {
+  const liveAdmin = (data?.users || []).find(u => u.id === user?.id) || user || (data?.users || []).find(u => u.id === JSON.parse(localStorage.user || '{}').id) || JSON.parse(localStorage.user || '{}');
+  const adminsList = (data?.users || []).filter(u => u.role === 'admin');
+  const readyAdminsCount = adminsList.filter(u => u.line_user_id).length;
+  const [lineModalOpen, setLineModalOpen] = useState(false);
+  const [testingMyLine, setTestingMyLine] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
   const [priorityFilter, setPriorityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -3112,6 +3337,51 @@ function AdminAlerts({ data, reload, notify }) {
               <span>🟢 ปิดงานแล้ว (Resolved)</span>
             </div>
           </div>
+
+          {!liveAdmin?.line_user_id && (
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1.5px solid rgba(239, 68, 68, 0.35)',
+              borderRadius: 10,
+              padding: '12px 16px',
+              marginBottom: 16,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: 12
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 22 }}>⚠️</span>
+                <div>
+                  <strong style={{ color: '#f87171', fontSize: 14 }}>
+                    บัญชีแอดมินของคุณ ({liveAdmin?.name || 'Admin'}) ยังไม่ได้เชื่อมต่อ LINE
+                  </strong>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#cbd5e1' }}>
+                    เมื่อเกิดเหตุฉุกเฉินหรืออุปกรณ์ออฟไลน์ บอทจะไม่สามารถส่ง LINE Push แจ้งเตือนเข้ามือถือของคุณได้
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="button compact"
+                  onClick={() => redirectToLine('link')}
+                  style={{ background: '#06c755', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span>🟢</span>
+                  <span>เชื่อมต่อ LINE ทันที</span>
+                </button>
+                <button
+                  type="button"
+                  className="button secondary compact"
+                  onClick={() => setLineModalOpen(true)}
+                >
+                  📋 ดูรหัสผูกแชทบอท
+                </button>
+              </div>
+            </div>
+          )}
 
           <section className="panel">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -3416,10 +3686,153 @@ function AdminAlerts({ data, reload, notify }) {
           </section>
 
           <section className="panel">
-            <h3 style={{ fontSize: 16, marginBottom: 12, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h3 style={{ fontSize: 16, marginBottom: 14, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>📱</span>
               <span>3. ช่องทางการแจ้งเตือน & ป้องกันการรบกวน (Notification Channels)</span>
             </h3>
+
+            {/* กล่องสถานะ LINE ของผู้ดูแลระบบ (Admin LINE Status & Control) */}
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.75)',
+              border: liveAdmin?.line_user_id ? '1.5px solid rgba(16, 185, 129, 0.45)' : '1.5px solid rgba(239, 68, 68, 0.45)',
+              borderRadius: 10,
+              padding: 16,
+              marginBottom: 16
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 18 }}>{liveAdmin?.line_user_id ? '🟢' : '🔴'}</span>
+                    <strong style={{ fontSize: 15, color: '#f8fafc' }}>
+                      สถานะ LINE ของคุณ ({liveAdmin?.name || 'Admin'}):
+                    </strong>
+                    <span className={`badge ${liveAdmin?.line_user_id ? 'available' : 'unavailable'}`} style={{ fontSize: 12, padding: '3px 8px' }}>
+                      {liveAdmin?.line_user_id ? '✓ เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}
+                    </span>
+                  </div>
+                  <p className="muted" style={{ margin: '4px 0 0', fontSize: 12.5 }}>
+                    {liveAdmin?.line_user_id
+                      ? 'คุณพร้อมรับข้อความแจ้งเตือนสถานะอุปกรณ์ผ่าน LINE Bot (@302ypwvm) แล้ว'
+                      : 'บอทจะไม่สามารถส่งข้อความแจ้งเตือนหาคุณได้จนกว่าจะเชื่อมต่อบัญชี LINE'}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {liveAdmin?.line_user_id ? (
+                    <>
+                      <button
+                        type="button"
+                        className="button primary compact"
+                        disabled={testingMyLine}
+                        onClick={async () => {
+                          setTestingMyLine(true);
+                          try {
+                            await api('/auth/line/test-message', { method: 'POST' });
+                            notify?.('ส่งข้อความทดสอบเข้า LINE มือถือของคุณสำเร็จแล้ว! 📱', false);
+                          } catch (e) {
+                            notify?.(e.message || 'ส่งข้อความทดสอบไม่สำเร็จ', true);
+                          } finally {
+                            setTestingMyLine(false);
+                          }
+                        }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
+                      >
+                        <span>🔔</span>
+                        <span>{testingMyLine ? 'กำลังส่ง...' : 'ทดสอบยิง LINE ถึงคุณ'}</span>
+                      </button>
+                      <a
+                        href="https://line.me/R/ti/p/@302ypwvm"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="button secondary compact"
+                        style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <span>💬</span>
+                        <span>เปิดแชท Bot</span>
+                      </a>
+                      <button
+                        type="button"
+                        className="button danger compact"
+                        onClick={async () => {
+                          if (!window.confirm('คุณต้องการยกเลิกการเชื่อมต่อ LINE ใช่หรือไม่?')) return;
+                          try {
+                            await api('/auth/line/unlink', { method: 'POST' });
+                            notify?.('ยกเลิกการเชื่อมต่อ LINE แล้ว', false);
+                            reload?.();
+                          } catch (e) {
+                            notify?.(e.message || 'เกิดข้อผิดพลาด', true);
+                          }
+                        }}
+                      >
+                        ยกเลิกการเชื่อมต่อ
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="button compact"
+                        onClick={() => redirectToLine('link')}
+                        style={{ background: '#06c755', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <span>🟢</span>
+                        <span>เชื่อมต่อด้วย LINE Login</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="button secondary compact"
+                        onClick={() => setLineModalOpen(true)}
+                      >
+                        📋 ดูรหัสผูกแชทบอท
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* รายชื่อแอดมินทั้งหมดในระบบ */}
+              <div style={{ fontSize: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span className="muted" style={{ fontWeight: 600 }}>รายชื่อผู้ดูแลระบบในระบบ ({adminsList.length} ท่าน):</span>
+                  <span style={{ color: readyAdminsCount > 0 ? '#34d399' : '#f87171', fontWeight: 600 }}>
+                    พร้อมรับ LINE: {readyAdminsCount} / {adminsList.length} ท่าน
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 8 }}>
+                  {adminsList.map(a => (
+                    <div
+                      key={a.id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 12px',
+                        borderRadius: 6,
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.08)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span>{a.line_user_id ? '🟢' : '🔴'}</span>
+                        <div>
+                          <strong style={{ color: '#f8fafc' }}>{a.name}</strong>
+                          <div className="muted" style={{ fontSize: 11 }}>{a.username}</div>
+                        </div>
+                      </div>
+                      <div>
+                        {a.line_user_id ? (
+                          <span className="badge available" style={{ fontSize: 11, padding: '2px 6px' }}>✓ เชื่อมต่อแล้ว</span>
+                        ) : (
+                          <span style={{ color: '#fbbf24', fontSize: 11, textAlign: 'right', display: 'block' }}>
+                            รหัส: <code style={{ color: 'var(--cyan)', fontWeight: 700 }}>{a.line_link_code || '-'}</code>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -3542,6 +3955,15 @@ function AdminAlerts({ data, reload, notify }) {
             </form>
           </div>
         </div>
+      )}
+
+      {lineModalOpen && (
+        <LineConnectModal
+          user={liveAdmin}
+          onClose={() => setLineModalOpen(false)}
+          notify={notify}
+          reload={reload}
+        />
       )}
     </>
   );
@@ -4170,9 +4592,9 @@ function App() {
   const liveUser = data.users.find((item) => item.id === user.id) || user;
   const activeAlertCount = (data?.system_alerts || []).filter(a => a.status === 'active').length;
   const content = liveUser.role === 'admin'
-    ? { dashboard: <AdminDashboard data={data} setView={setView} />, analytics: <AdminAnalytics data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, alerts: <AdminAlerts data={data} reload={load} notify={notify} />, layout: <AdminLayout data={data} reload={load} notify={notify} /> }[view]
+    ? { dashboard: <AdminDashboard data={data} setView={setView} />, analytics: <AdminAnalytics data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, alerts: <AdminAlerts data={data} user={liveUser} reload={load} notify={notify} />, layout: <AdminLayout data={data} reload={load} notify={notify} /> }[view]
     : { booking: <UserBooking data={data} user={liveUser} notify={notify} setView={setView} />, control: <UserControl data={data} user={liveUser} notify={notify} />, history: <UserHistory data={data} user={liveUser} notify={notify} /> }[view];
-  return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} data={data} setView={setView} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} activeAlertCount={activeAlertCount} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
+  return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} data={data} setView={setView} notify={notify} reload={load} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} activeAlertCount={activeAlertCount} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
