@@ -41,10 +41,10 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <section className="panel" style={{ border: '1px solid #ef4444', background: '#201215', padding: 24, borderRadius: 12, margin: '20px auto', maxWidth: 600 }}>
-          <h2 style={{ color: '#ef4444', margin: '0 0 10px' }}>⚠️ เกิดข้อผิดพลาดในการแสดงผล</h2>
+          <h2 style={{ color: '#ef4444', margin: '0 0 10px' }}>เกิดข้อผิดพลาดในการแสดงผล</h2>
           <p style={{ color: '#cbd5e1', fontSize: 14 }}>{this.state.error?.message || 'เกิดข้อผิดพลาดภายในหน้านี้'}</p>
           <button className="button primary compact" style={{ marginTop: 12 }} onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}>
-            🔄 โหลดหน้านี้ใหม่
+            โหลดหน้านี้ใหม่
           </button>
         </section>
       );
@@ -116,13 +116,13 @@ function Login({ onLogin }) {
               <path d="M5 3h7c3.866 0 7 3.134 7 7s-3.134 7-7 7H9v4H5V3zm4 4v6h3c1.657 0 3-1.343 3-3s-1.343-3-3-3H9z" />
             </svg>
           </div>
-          <span className="login-badge">⚡ SMART IOT PARKING</span>
+          <span className="login-badge">SMART IOT PARKING</span>
           <h1>ระบบจัดการที่จอดรถ</h1>
           <p>ตรวจสอบสถานะช่องจอดแบบเรียลไทม์ จองล่วงหน้า พร้อมระบบควบคุมไม้กั้น</p>
           <div className="login-features">
             <div className="feature-item"><span>🟢</span> ตรวจจับสถานะว่าง/มีรถจอดเรียลไทม์</div>
-            <div className="feature-item"><span>🔒</span> ไม้กั้นประจำช่องอัตโนมัติ 12 จุด</div>
-            <div className="feature-item"><span>💬</span> แจ้งเตือนเวลาจอดและรับสลิปผ่าน LINE</div>
+            <div className="feature-item"><span>•</span> ไม้กั้นประจำช่องอัตโนมัติ 12 จุด</div>
+            <div className="feature-item"><span>•</span> แจ้งเตือนเวลาจอดและรับสลิปผ่าน LINE</div>
           </div>
         </div>
 
@@ -146,7 +146,7 @@ function Login({ onLogin }) {
             </div>
 
             <div className="login-card-header">
-              <h2>{mode === 'login' ? 'ยินดีต้อนรับ 👋' : 'สร้างบัญชีใหม่ ✨'}</h2>
+              <h2>{mode === 'login' ? 'ยินดีต้อนรับ' : 'สร้างบัญชีใหม่'}</h2>
               <p className="muted">{mode === 'login' ? 'กรอกข้อมูลเพื่อเข้าสู่ระบบจัดการที่จอดรถ' : 'กรอกข้อมูลเพื่อเริ่มต้นใช้งานระบบ Smart Parking'}</p>
             </div>
 
@@ -223,7 +223,7 @@ function LineConnectModal({ user, onClose, notify, reload }) {
     setTesting(true);
     try {
       await api('/auth/line/test-message', { method: 'POST' });
-      notify?.('ส่งข้อความทดสอบเข้า LINE Bot สำเร็จแล้ว! กรุณาเปิดดูในแอป LINE 📱', false);
+      notify?.('ส่งข้อความทดสอบเข้า LINE Bot สำเร็จแล้ว กรุณาเปิดดูในแอป LINE', false);
     } catch (e) {
       notify?.(e.message || 'ส่งข้อความทดสอบไม่สำเร็จ', true);
     } finally {
@@ -288,12 +288,9 @@ function LineConnectModal({ user, onClose, notify, reload }) {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 24 }}>📱</span>
-            <div>
-              <h3 style={{ margin: 0, fontSize: 17, color: '#f8fafc' }}>จัดการการเชื่อมต่อ LINE</h3>
-              <span className="muted" style={{ fontSize: 12 }}>รับการแจ้งเตือนแบบเรียลไทม์ผ่านบอท @302ypwvm</span>
-            </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 17, color: '#f8fafc' }}>จัดการการเชื่อมต่อ LINE</h3>
+            <span className="muted" style={{ fontSize: 12 }}>รับการแจ้งเตือนแบบเรียลไทม์ผ่านบอท @302ypwvm</span>
           </div>
           <button type="button" className="modal-close" onClick={onClose} style={{ fontSize: 22, cursor: 'pointer', background: 'none', border: 'none', color: '#94a3b8' }}>✕</button>
         </div>
@@ -318,7 +315,6 @@ function LineConnectModal({ user, onClose, notify, reload }) {
                 className="button"
                 style={{ background: '#06c755', color: '#ffffff', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none', padding: '10px 16px', borderRadius: 8 }}
               >
-                <span>💬</span>
                 <span>เปิดห้องแชท Bot (@302ypwvm)</span>
               </a>
 
@@ -329,7 +325,6 @@ function LineConnectModal({ user, onClose, notify, reload }) {
                 disabled={testing}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px 16px', borderRadius: 8, fontWeight: 600 }}
               >
-                <span>🔔</span>
                 <span>{testing ? 'กำลังส่ง...' : 'ทดสอบส่งข้อความเข้า LINE มือถือ'}</span>
               </button>
 
@@ -390,7 +385,7 @@ function LineConnectModal({ user, onClose, notify, reload }) {
                     onClick={handleCopyCode}
                     style={{ background: copied ? '#10b981' : '#334155', color: '#fff', fontSize: 12, padding: '6px 12px', borderRadius: 6 }}
                   >
-                    {copied ? '✓ คัดลอกแล้ว!' : '📋 คัดลอกรหัส'}
+                    {copied ? '✓ คัดลอกแล้ว' : 'คัดลอกรหัส'}
                   </button>
                 </div>
               </div>
@@ -438,7 +433,7 @@ function Header({ user, onLogout, lastUpdated, data, setView, notify, reload }) 
           onClick={() => setView('alerts')}
           title="คลิกเพื่อดูรายการแจ้งเตือนทั้งหมด"
         >
-          <span>{criticalCount > 0 ? '🚨' : '⚠️'}</span>
+          <span>{criticalCount > 0 ? '🔴' : '🟡'}</span>
           <span>{activeAlerts.length} แจ้งเตือน</span>
         </button>
       )}
@@ -485,10 +480,10 @@ function Sidebar({ user, view, setView, activeAlertCount = 0 }) {
   const items = user.role === 'admin'
     ? [
         ['dashboard', '▦', 'ภาพรวมการจอง'],
-        ['analytics', '📊', 'สถิติการใช้งาน'],
+        ['analytics', '▤', 'สถิติการใช้งาน'],
         ['users', '♙', 'จัดการผู้ใช้'],
         ['devices', '⌁', 'อุปกรณ์ / ไม้กั้น'],
-        ['alerts', '🚨', `แจ้งเตือน & ข้อผิดพลาด${activeAlertCount > 0 ? ` (${activeAlertCount})` : ''}`],
+        ['alerts', activeAlertCount > 0 ? '🔴' : '●', `แจ้งเตือน & ข้อผิดพลาด${activeAlertCount > 0 ? ` (${activeAlertCount})` : ''}`],
         ['layout', '⊞', 'จัดการผังลานจอด']
       ]
     : [
@@ -530,11 +525,11 @@ function StatCards({ slots, devices, bookings, user }) {
 
 function getSlotTypeMeta(type) {
   const t = type || 'ลูกค้าทั่วไป';
-  if (t === 'สมาชิก') return { label: 'สมาชิก', icon: '⭐', className: 'member' };
-  if (t === 'ผู้พิการ') return { label: 'ผู้พิการ', icon: '♿', className: 'disabled' };
-  if (t === 'ชาร์จ EV') return { label: 'ชาร์จ EV', icon: '⚡', className: 'ev' };
-  if (t === 'ปกติ' || t === 'ลูกค้าทั่วไป') return { label: 'ลูกค้าทั่วไป', icon: '🚗', className: 'general' };
-  return { label: t, icon: '🅿️', className: 'general' };
+  if (t === 'สมาชิก') return { label: 'สมาชิก', icon: '', className: 'member' };
+  if (t === 'ผู้พิการ') return { label: 'ผู้พิการ', icon: '', className: 'disabled' };
+  if (t === 'ชาร์จ EV') return { label: 'ชาร์จ EV', icon: '', className: 'ev' };
+  if (t === 'ปกติ' || t === 'ลูกค้าทั่วไป') return { label: 'ลูกค้าทั่วไป', icon: '', className: 'general' };
+  return { label: t, icon: '', className: 'general' };
 }
 
 function InteractiveFloorMap({ map, slots, devices, isAdmin, onSlotClick, onSlotMove, selectedSlotId }) {
@@ -633,7 +628,7 @@ function InteractiveFloorMap({ map, slots, devices, isAdmin, onSlotClick, onSlot
               <span className={`sensor-dot ${sensorDotClass}`} style={{ position: 'static', width: 7, height: 7 }} />
             </div>
             <div className="slot-pin-meta">
-              <span>{typeMeta.icon}</span>
+              {typeMeta.icon ? <span>{typeMeta.icon}</span> : null}
               <span className="slot-pin-price">฿{slot.price_per_hour || 20}</span>
             </div>
           </div>
@@ -658,7 +653,7 @@ function SlotGrid({ slots, devices, onSelect }) {
       <strong>{slot.code}</strong>
       <small>{label}</small>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-        <span className={`slot-type-pill ${typeMeta.className}`}>{typeMeta.icon} {typeMeta.label}</span>
+        <span className={`slot-type-pill ${typeMeta.className}`}>{typeMeta.label}</span>
         <span style={{ fontSize: 11, color: '#facc15', fontWeight: 700 }}>฿{slot.price_per_hour || 20}/ชม.</span>
       </div>
     </button>;
@@ -754,7 +749,7 @@ function UserBooking({ data, user, notify, setView }) {
       });
       setSelected(null);
       setBooking(getInitialBookingTime());
-      notify('จองที่จอดรถสำเร็จแล้ว! 🎉');
+      notify('จองที่จอดรถสำเร็จแล้ว!');
     } catch (err) {
       setModalError(err.message || 'จองไม่สำเร็จ');
     } finally {
@@ -778,7 +773,7 @@ function UserBooking({ data, user, notify, setView }) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 600 }}>ประเภทช่อง:</span>
         {['all', 'ลูกค้าทั่วไป', 'สมาชิก', 'ผู้พิการ'].map((t) => {
-          const meta = t === 'all' ? { label: 'ทั้งหมด', icon: '🅿️' } : getSlotTypeMeta(t);
+          const meta = t === 'all' ? { label: 'ทั้งหมด', icon: '' } : getSlotTypeMeta(t);
           return (
             <button
               key={t}
@@ -787,7 +782,7 @@ function UserBooking({ data, user, notify, setView }) {
               style={{ fontSize: 12, padding: '4px 10px' }}
               onClick={() => setTypeFilter(t)}
             >
-              {meta.icon} {meta.label}
+              {meta.icon ? `${meta.icon} ` : ''}{meta.label}
             </button>
           );
         })}
@@ -806,7 +801,7 @@ function UserBooking({ data, user, notify, setView }) {
               className={`button compact ${viewMode === 'map' ? 'primary' : ''}`}
               onClick={() => setViewMode('map')}
             >
-              🗺️ ผังแปลนจริง
+              ผังแปลนจริง
             </button>
           </div>
         )}
@@ -862,7 +857,7 @@ function UserBooking({ data, user, notify, setView }) {
 
             {modalError && (
               <div className="alert error" style={{ margin: '14px 0 10px', fontSize: 13, lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <span>⚠️ {modalError}</span>
+                <span>{modalError}</span>
               </div>
             )}
 
@@ -904,7 +899,7 @@ function UserBooking({ data, user, notify, setView }) {
             {/* ส่วนเลือกรถยนต์ที่จะเข้าจอด */}
             <div style={{ marginTop: 8, marginBottom: 8 }}>
               <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13, color: '#e2e8f0' }}>
-                🚗 เลือกรถที่จะเข้าจอด <span style={{ color: '#f87171' }}>*</span>
+                เลือกรถที่จะเข้าจอด <span style={{ color: '#f87171' }}>*</span>
               </label>
               {userVehicles.length > 0 ? (
                 <>
@@ -1049,7 +1044,7 @@ function UserBooking({ data, user, notify, setView }) {
                   gap: 6
                 }}>
                   <span style={{ color: '#f87171', fontSize: 13, fontWeight: 600 }}>
-                    ⚠️ เครดิตไม่เพียงพอ (ขาดอีก ฿{formatMoney(totalAmount - userCredit)})
+                    🔴 เครดิตไม่เพียงพอ (ขาดอีก ฿{formatMoney(totalAmount - userCredit)})
                   </span>
                   <span className="muted" style={{ fontSize: 12 }}>
                     ต้องมีเครดิตอย่างน้อย ฿{formatMoney(totalAmount)} จึงจะสามารถยืนยันการจองได้
@@ -1083,7 +1078,7 @@ function UserBooking({ data, user, notify, setView }) {
                       setView?.('history');
                     }}
                   >
-                    💳 ไปที่หน้าขอเติมเครดิต
+                    ไปที่หน้าขอเติมเครดิต
                   </button>
                   <button
                     type="button"
@@ -1163,11 +1158,11 @@ function UserControl({ data, user, notify }) {
   }
 
   async function cancelBooking(booking) {
-    const confirmMsg = `ยืนยันการยกเลิกการจองช่อง ${booking.slot_id} หรือไม่?\n\n💰 ระบบจะคืนเครดิต ฿${formatMoney(booking.amount)} เข้าบัญชีของคุณทันที`;
+    const confirmMsg = `ยืนยันการยกเลิกการจองช่อง ${booking.slot_id} หรือไม่?\n\nระบบจะคืนเครดิต ฿${formatMoney(booking.amount)} เข้าบัญชีของคุณทันที`;
     if (!window.confirm(confirmMsg)) return;
     try {
       await api(`/bookings/${booking.id}/cancel`, { method: 'POST' });
-      notify(`ยกเลิกการจองช่อง ${booking.slot_id} สำเร็จ! คืนเครดิต ฿${formatMoney(booking.amount)} เรียบร้อยแล้ว 🎉`);
+      notify(`ยกเลิกการจองช่อง ${booking.slot_id} สำเร็จ! คืนเครดิต ฿${formatMoney(booking.amount)} เรียบร้อยแล้ว`);
     } catch (err) {
       notify(err.message, true);
     }
@@ -1213,11 +1208,11 @@ function UserControl({ data, user, notify }) {
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 {device && (
                   <span className={`badge ${device.state === 'open' ? 'available' : 'unavailable'}`}>
-                    {device.state === 'open' ? '🔓 ไม้กั้นเปิด' : '🔒 ไม้กั้นปิด'}
+                    {device.state === 'open' ? '🟢 ไม้กั้นเปิด' : '🔴 ไม้กั้นปิด'}
                   </span>
                 )}
                 <span className={`badge ${isOvertime ? 'unavailable' : booking.status === 'active' ? 'available' : 'pending'}`}>
-                  {isOvertime ? '⚠️ เกินเวลา' : booking.status === 'active' ? '🚗 กำลังจอด' : '⏳ รอเข้าจอด'}
+                  {isOvertime ? '🔴 เกินเวลา' : booking.status === 'active' ? '🟢 กำลังจอด' : '🟡 รอเข้าจอด'}
                 </span>
               </div>
             </div>
@@ -1225,7 +1220,7 @@ function UserControl({ data, user, notify }) {
             {/* ข้อมูลเวลา */}
             <div style={{ marginTop: 8, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 3 }}>
               <div style={{ color: '#e2e8f0', fontWeight: 600 }}>
-                📅 {booking.date} · 🕐 {startTimeStr} - {endTimeStr} น.
+                {booking.date} · {startTimeStr} - {endTimeStr} น.
               </div>
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>
                 ระยะเวลาจอง: {booking.duration} ชม. · ยอดที่ชำระ: ฿{formatMoney(booking.amount)}
@@ -1242,7 +1237,7 @@ function UserControl({ data, user, notify }) {
                     fontFamily: 'JetBrains Mono, monospace',
                     fontWeight: 600
                   }}>
-                    🚗 {booking.license_plate}
+                    {booking.license_plate}
                   </span>
                   <span style={{ fontSize: 12, color: 'var(--muted)' }}>
                     ({booking.vehicle_type || 'รถเก๋ง (Sedan)'})
@@ -1256,7 +1251,7 @@ function UserControl({ data, user, notify }) {
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {minutesUntilStart > 0 ? (
                   <small style={{ color: '#38bdf8', display: 'block', fontWeight: 500 }}>
-                    ⏳ จะถึงเวลาเริ่มจองในอีก {Math.ceil(minutesUntilStart)} นาที
+                    จะถึงเวลาเริ่มจองในอีก {Math.ceil(minutesUntilStart)} นาที
                   </small>
                 ) : minutesSinceStart < 15 ? (
                   <div style={{
@@ -1267,7 +1262,7 @@ function UserControl({ data, user, notify }) {
                     fontSize: 12
                   }}>
                     <div style={{ color: '#fbbf24', fontWeight: 600 }}>
-                      🚗 ถึงเวลาเริ่มจองแล้ว! กรุณานำรถเข้าจอด
+                      ถึงเวลาเริ่มจองแล้ว! กรุณานำรถเข้าจอด
                     </div>
                     <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
                       เหลือเวลาอีก {Math.ceil(15 - minutesSinceStart)} นาที หากเกิน 15 นาทีระบบจะตัดเป็น No-Show ปิดไม้กั้น และคืนช่องว่าง
@@ -1282,7 +1277,7 @@ function UserControl({ data, user, notify }) {
                     fontSize: 12
                   }}>
                     <div style={{ color: '#f87171', fontWeight: 600 }}>
-                      ❌ หมดเวลาเข้าจอด (No-Show เกิน 15 นาที)
+                      🔴 หมดเวลาเข้าจอด (No-Show เกิน 15 นาที)
                     </div>
                     <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
                       ระบบตัดสิทธิ์การควบคุม ปิดไม้กั้น และคืนสถานะช่องจอดเป็น "ว่าง" เรียบร้อยแล้ว
@@ -1311,7 +1306,7 @@ function UserControl({ data, user, notify }) {
                       style={{ marginTop: 8 }}
                       onClick={() => cancelBooking(booking)}
                     >
-                      ✕ ยกเลิกการจอง (คืนเครดิต ฿{formatMoney(booking.amount)})
+                      ยกเลิกการจอง (คืนเครดิต ฿{formatMoney(booking.amount)})
                     </button>
                   </div>
                 ) : !isNoShowExpired ? (
@@ -1323,7 +1318,7 @@ function UserControl({ data, user, notify }) {
                     fontSize: 12
                   }}>
                     <div style={{ color: '#f87171', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>🔒 หมดเวลายกเลิกการจอง</span>
+                      <span>หมดเวลายกเลิกการจอง</span>
                     </div>
                     <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
                       เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ({startTimeStr} น.) จึงไม่สามารถยกเลิกได้
@@ -1338,17 +1333,17 @@ function UserControl({ data, user, notify }) {
               <div style={{ marginTop: 10 }}>
                 {isOvertime ? (
                   <div style={{ background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, padding: '8px 10px', fontSize: 12 }}>
-                    <div style={{ color: '#f87171', fontWeight: 'bold', marginBottom: 4 }}>⚠️ เกินเวลาจอด {overtimeMinutes} นาที</div>
+                    <div style={{ color: '#f87171', fontWeight: 'bold', marginBottom: 4 }}>🔴 เกินเวลาจอด {overtimeMinutes} นาที</div>
                     <div style={{ color: 'var(--muted)' }}>ค่าจอดเพิ่มเติม: <strong style={{ color: '#fbbf24', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', letterSpacing: 'normal' }}>{overtimeCost.toLocaleString('th-TH')}฿</strong> (คิด {overtimeHours} ชม. × ฿{slot?.price_per_hour || RATE_PER_HOUR})</div>
                     <div style={{ color: 'var(--muted)', marginTop: 2 }}>กดจบการจอดเพื่อหยุดคิดเงินและรับสลิป</div>
                   </div>
                 ) : minutesLeft <= 15 && minutesLeft > 0 ? (
                   <div style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#fbbf24' }}>
-                    ⏳ ใกล้หมดเวลา เหลือ {Math.ceil(minutesLeft)} นาที
+                    🟡 ใกล้หมดเวลา เหลือ {Math.ceil(minutesLeft)} นาที
                   </div>
                 ) : (
                   <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#38bdf8' }}>
-                    🚗 กำลังจอด เหลือเวลา {Math.ceil(minutesLeft)} นาที
+                    🟢 กำลังจอด เหลือเวลา {Math.ceil(minutesLeft)} นาที
                   </div>
                 )}
 
@@ -1358,7 +1353,7 @@ function UserControl({ data, user, notify }) {
                   style={{ marginTop: 8 }}
                   onClick={() => finishBooking(booking)}
                 >
-                  🏁 จบการจอด (รับสลิปสรุปค่าบริการ)
+                  จบการจอด (รับสลิปสรุปค่าบริการ)
                 </button>
               </div>
             )}
@@ -1383,7 +1378,6 @@ function UserControl({ data, user, notify }) {
                   justifyContent: 'space-between'
                 }}>
                   <span style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>{device.state === 'open' ? '🔓' : '🔒'}</span>
                     <span>สถานะไม้กั้น:</span>
                   </span>
                   <span style={{
@@ -1402,7 +1396,7 @@ function UserControl({ data, user, notify }) {
               {device && (
                 isNoShowExpired ? (
                   <button className="button full" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                    🔒 ตัดการควบคุมแล้ว (No-Show เกิน 15 นาที)
+                    ตัดการควบคุมแล้ว (No-Show เกิน 15 นาที)
                   </button>
                 ) : canCancel ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1424,7 +1418,6 @@ function UserControl({ data, user, notify }) {
                       }}
                     >
                       <span style={{ fontWeight: 600, fontSize: 13, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span>🔒</span>
                         <span>ควบคุมไม้กั้นได้เมื่อถึง 15 นาทีก่อนเวลาจอง</span>
                       </span>
                       <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>
@@ -1437,7 +1430,7 @@ function UserControl({ data, user, notify }) {
                     className={`button full ${device.state === 'open' ? 'danger' : 'primary'}`}
                     onClick={() => toggle(device)}
                   >
-                    {device.state === 'open' ? '🔒 สั่งปิดไม้กั้น' : '🔓 สั่งเปิดไม้กั้น'}
+                    {device.state === 'open' ? 'สั่งปิดไม้กั้น' : 'สั่งเปิดไม้กั้น'}
                   </button>
                 )
               )}
@@ -1503,13 +1496,13 @@ function UserHistory({ data, user, notify }) {
           method: 'POST',
           body: JSON.stringify(vehicleForm)
         });
-        notify('เพิ่มยานพาหนะสำเร็จแล้ว 🚗');
+        notify('เพิ่มยานพาหนะสำเร็จแล้ว');
       } else {
         await api(`/vehicles/${vehicleForm.id}`, {
           method: 'PATCH',
           body: JSON.stringify(vehicleForm)
         });
-        notify('อัปเดตข้อมูลยานพาหนะแล้ว 🚗');
+        notify('อัปเดตข้อมูลยานพาหนะแล้ว');
       }
       setVehicleModal(null);
     } catch (err) {
@@ -1525,7 +1518,7 @@ function UserHistory({ data, user, notify }) {
         method: 'PATCH',
         body: JSON.stringify({ is_default: true })
       });
-      notify('ตั้งเป็นรถคันหลักเรียบร้อยแล้ว ⭐');
+      notify('ตั้งเป็นรถคันหลักเรียบร้อยแล้ว');
     } catch (err) {
       notify(err.message, true);
     }
@@ -1546,7 +1539,7 @@ function UserHistory({ data, user, notify }) {
     if (type === 'finish' && !window.confirm('ยืนยันจบการจอดและสรุปค่าบริการใช่หรือไม่?')) return;
     try {
       await api(`/bookings/${id}/${type}`, { method: 'POST' });
-      notify(type === 'cancel' ? 'ยกเลิกการจองและคืนเครดิตแล้ว 🎉' : 'จบการจอดแล้ว');
+      notify(type === 'cancel' ? 'ยกเลิกการจองและคืนเครดิตแล้ว' : 'จบการจอดแล้ว');
     } catch (err) {
       notify(err.message, true);
     }
@@ -1595,17 +1588,17 @@ function UserHistory({ data, user, notify }) {
           {user.line_user_id ? (
             <div className="line-linked-buttons">
               <a href="https://line.me/R/ti/p/@302ypwvm" target="_blank" rel="noreferrer" className="button secondary">
-                💬 เปิดห้องแชท Bot
+                เปิดห้องแชท Bot
               </a>
               <button type="button" className="button compact secondary" onClick={async () => {
                 try {
                   await api('/auth/line/test-message', { method: 'POST' });
-                  notify('ส่งข้อความทดสอบเข้า LINE Bot สำเร็จแล้ว! กรุณาเปิดดูใน LINE 📱');
+                  notify('ส่งข้อความทดสอบเข้า LINE Bot สำเร็จแล้ว กรุณาเปิดดูใน LINE');
                 } catch (e) {
                   notify(e.message, true);
                 }
               }}>
-                🔔 เทสระบบแจ้งเตือน
+                เทสระบบแจ้งเตือน
               </button>
               <button type="button" className="button danger compact" onClick={async () => {
                 if (!window.confirm('คุณต้องการยกเลิกการเชื่อมต่อ LINE ใช่หรือไม่?')) return;
@@ -1638,11 +1631,11 @@ function UserHistory({ data, user, notify }) {
                     style={{ fontSize: 11, padding: '2px 8px' }}
                     onClick={() => {
                       if (navigator?.clipboard?.writeText) {
-                        navigator.clipboard.writeText(user.line_link_code).then(() => notify?.('คัดลอกรหัสแล้ว!', false));
+                        navigator.clipboard.writeText(user.line_link_code).then(() => notify?.('คัดลอกรหัสแล้ว', false));
                       }
                     }}
                   >
-                    📋 คัดลอก
+                    คัดลอก
                   </button>
                 </div>
               )}
@@ -1653,12 +1646,9 @@ function UserHistory({ data, user, notify }) {
     </section>
     <section className="panel">
       <div className="panel-title">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 22 }}>🚗</span>
-          <div>
-            <h2 style={{ margin: 0 }}>ยานพาหนะของฉัน</h2>
-            <span className="muted" style={{ fontSize: 13 }}>{myVehicles.length} คันในระบบ</span>
-          </div>
+        <div>
+          <h2 style={{ margin: 0 }}>ยานพาหนะของฉัน</h2>
+          <span className="muted" style={{ fontSize: 13 }}>{myVehicles.length} คันในระบบ</span>
         </div>
         <button type="button" className="button primary compact" onClick={openAddVehicle}>
           + เพิ่มรถยนต์
@@ -1689,7 +1679,7 @@ function UserHistory({ data, user, notify }) {
                 )}
               </div>
               <div className="vehicle-type">
-                🏷️ {v.vehicle_type || 'รถเก๋ง (Sedan)'}
+                {v.vehicle_type || 'รถเก๋ง (Sedan)'}
               </div>
               {(v.brand || v.model || v.color) && (
                 <div className="vehicle-meta">
@@ -1704,14 +1694,14 @@ function UserHistory({ data, user, notify }) {
                   className="button compact secondary"
                   onClick={() => openEditVehicle(v)}
                 >
-                  ✏️ แก้ไข
+                  แก้ไข
                 </button>
                 <button
                   type="button"
                   className="button compact danger"
                   onClick={() => handleDeleteVehicle(v.id, v.license_plate)}
                 >
-                  🗑️ ลบ
+                  ลบ
                 </button>
               </div>
             </div>
@@ -1726,7 +1716,7 @@ function UserHistory({ data, user, notify }) {
           borderRadius: 8,
           border: '1px dashed var(--border)'
         }}>
-          <p style={{ margin: '0 0 10px', fontSize: 14 }}>🚗 ยังไม่มีข้อมูลยานพาหนะที่บันทึกไว้</p>
+          <p style={{ margin: '0 0 10px', fontSize: 14 }}>ยังไม่มีข้อมูลยานพาหนะที่บันทึกไว้</p>
           <button type="button" className="button secondary compact" onClick={openAddVehicle}>
             + กดเพิ่มรถยนต์ของคุณตอนนี้
           </button>
@@ -1810,7 +1800,7 @@ function UserHistory({ data, user, notify }) {
                   <td>{item.reason}</td>
                   <td>
                     <span className={`badge ${item.status === 'approved' ? 'available' : item.status === 'rejected' ? 'unavailable' : 'pending'}`}>
-                      {item.status === 'approved' ? '✓ อนุมัติแล้ว' : item.status === 'rejected' ? '✕ ปฏิเสธ' : '⏳ รออนุมัติ'}
+                      {item.status === 'approved' ? '🟢 อนุมัติแล้ว' : item.status === 'rejected' ? '🔴 ปฏิเสธ' : '🟡 รออนุมัติ'}
                     </span>
                   </td>
                   <td>{formatDate(item.created_at)}</td>
@@ -1824,7 +1814,7 @@ function UserHistory({ data, user, notify }) {
     <section className="panel"><div className="panel-title"><h2>รายการจองล่าสุด</h2><span className="muted">{mine.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ยานพาหนะ</th><th>วันเวลา</th><th>ระยะเวลา</th><th>ยอดเงิน</th><th>สถานะ</th><th /></tr></thead><tbody>{mine.map((booking) => {
       const start = parseThaiDateTime(booking.date, booking.time);
       const canCancel = booking.status === 'pending' && (start.getTime() - Date.now()) >= 15 * 60 * 1000;
-      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: '#fff', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="button compact secondary" title="ทดสอบยิงเตือนเวลาใกล้หมด 15 นาทีเข้า LINE ทันที" onClick={async () => { try { await api(`/bookings/${booking.id}/test-remind`, { method: 'POST' }); notify(`ยิงแจ้งเตือนใกล้หมดเวลาช่อง ${booking.slot_id} เข้า LINE แล้ว ⏰`); } catch (err) { notify(err.message, true); } }}>⏰ เทสเตือนหมดเวลา</button><button type="button" className="button primary compact" onClick={() => action(booking.id, 'finish')}>จบการจอด (รับสลิป)</button>{booking.status === 'pending' && (canCancel ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel')}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว">🔒 หมดเวลายกเลิก</button>)}</div>}</td></tr>;
+      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: '#fff', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="button compact secondary" title="ทดสอบยิงเตือนเวลาใกล้หมด 15 นาทีเข้า LINE ทันที" onClick={async () => { try { await api(`/bookings/${booking.id}/test-remind`, { method: 'POST' }); notify(`ยิงแจ้งเตือนใกล้หมดเวลาช่อง ${booking.slot_id} เข้า LINE แล้ว`); } catch (err) { notify(err.message, true); } }}>เทสเตือนหมดเวลา</button><button type="button" className="button primary compact" onClick={() => action(booking.id, 'finish')}>จบการจอด (รับสลิป)</button>{booking.status === 'pending' && (canCancel ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel')}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว">หมดเวลายกเลิก</button>)}</div>}</td></tr>;
     })}</tbody></table></div></section>
 
     {vehicleModal && (
@@ -1841,7 +1831,7 @@ function UserHistory({ data, user, notify }) {
 
           {vehicleError && (
             <div className="alert error" style={{ margin: '14px 0 10px', fontSize: 13 }}>
-              <span>⚠️ {vehicleError}</span>
+              <span>{vehicleError}</span>
             </div>
           )}
 
@@ -1957,7 +1947,7 @@ function AdminDashboard({ data, setView }) {
             fontSize: 24,
             flexShrink: 0
           }}>
-            📊
+            ▤
           </div>
           <div>
             <h3 style={{ margin: 0, fontSize: 17, color: '#fff' }}>สถิติและการวิเคราะห์การใช้ช่องจอด</h3>
@@ -2023,13 +2013,7 @@ function AdminAnalytics({ data }) {
     return '#f472b6';
   };
 
-  const getTypeIcon = (type) => {
-    if (type === 'สมาชิก') return '⭐';
-    if (type === 'ผู้พิการ') return '♿';
-    if (type === 'ชาร์จ EV') return '⚡';
-    if (type === 'ลูกค้าทั่วไป' || type === 'ปกติ') return '🚗';
-    return '🅿️';
-  };
+  const getTypeIcon = () => '';
 
   // Helper date formatter
   const toIso = (d) => {
@@ -2308,21 +2292,21 @@ function AdminAnalytics({ data }) {
               className={`analytics-period-btn ${period === 'day' ? 'active' : ''}`}
               onClick={() => setPeriod('day')}
             >
-              📅 รายวัน (Daily)
+              รายวัน (Daily)
             </button>
             <button
               type="button"
               className={`analytics-period-btn ${period === 'week' ? 'active' : ''}`}
               onClick={() => setPeriod('week')}
             >
-              🗓️ รายสัปดาห์ (Weekly)
+              รายสัปดาห์ (Weekly)
             </button>
             <button
               type="button"
               className={`analytics-period-btn ${period === 'month' ? 'active' : ''}`}
               onClick={() => setPeriod('month')}
             >
-              📆 รายเดือน (Monthly)
+              รายเดือน (Monthly)
             </button>
           </div>
 
@@ -2360,7 +2344,7 @@ function AdminAnalytics({ data }) {
           className={`analytics-chip ${slotTypeFilter === 'all' ? 'active' : ''}`}
           onClick={() => setSlotTypeFilter('all')}
         >
-          🌟 ทุกประเภท ({validBookings.length})
+          ทุกประเภท ({validBookings.length})
         </button>
         {allSlotTypes.map((t) => {
           const count = validBookings.filter((b) => getBookingType(b) === t).length;
@@ -2375,7 +2359,6 @@ function AdminAnalytics({ data }) {
               }}
               onClick={() => setSlotTypeFilter(t)}
             >
-              <span>{getTypeIcon(t)}</span>
               <span>{t}</span>
               <span style={{ opacity: 0.75, fontSize: 11 }}>({count})</span>
             </button>
@@ -2387,8 +2370,7 @@ function AdminAnalytics({ data }) {
       <div className="analytics-kpi-grid">
         <div className="analytics-kpi-card" style={{ '--kpi-color': '#36dcc9' }}>
           <div className="analytics-kpi-label">
-            <span>🚗 การใช้งานทั้งหมด</span>
-            <span style={{ fontSize: 16 }}>📊</span>
+            <span>การใช้งานทั้งหมด</span>
           </div>
           <div className="analytics-kpi-val">{totals.totalBookings.toLocaleString('th-TH')} <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--muted)' }}>ครั้ง</span></div>
           <div className="analytics-kpi-sub">
@@ -2398,8 +2380,7 @@ function AdminAnalytics({ data }) {
 
         <div className="analytics-kpi-card" style={{ '--kpi-color': '#fbbf24' }}>
           <div className="analytics-kpi-label">
-            <span>💰 รายได้ค่าจอดรวม</span>
-            <span style={{ fontSize: 16 }}>💵</span>
+            <span>รายได้ค่าจอดรวม</span>
           </div>
           <div className="analytics-kpi-val" style={{ color: '#fbbf24' }}>฿{totals.totalRevenue.toLocaleString('th-TH')}</div>
           <div className="analytics-kpi-sub">
@@ -2409,8 +2390,7 @@ function AdminAnalytics({ data }) {
 
         <div className="analytics-kpi-card" style={{ '--kpi-color': '#38bdf8' }}>
           <div className="analytics-kpi-label">
-            <span>⏱️ ชั่วโมงการจอดรวม</span>
-            <span style={{ fontSize: 16 }}>⏳</span>
+            <span>ชั่วโมงการจอดรวม</span>
           </div>
           <div className="analytics-kpi-val">{totals.totalHours.toLocaleString('th-TH')} <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--muted)' }}>ชม.</span></div>
           <div className="analytics-kpi-sub">
@@ -2420,8 +2400,7 @@ function AdminAnalytics({ data }) {
 
         <div className="analytics-kpi-card" style={{ '--kpi-color': '#a78bfa' }}>
           <div className="analytics-kpi-label">
-            <span>🔥 วันที่มีการใช้สูงสุด</span>
-            <span style={{ fontSize: 16 }}>📅</span>
+            <span>วันที่มีการใช้สูงสุด</span>
           </div>
           <div className="analytics-kpi-val" style={{ color: '#a78bfa', fontSize: 24 }}>
             {dayOfWeekDistribution.peakDay ? `วัน${dayOfWeekDistribution.peakDay.name}` : '-'}
@@ -2438,7 +2417,7 @@ function AdminAnalytics({ data }) {
         <div className="chart-card">
           <div className="chart-card-header">
             <h3 className="chart-card-title">
-              <span>📈 แนวโน้มการใช้ช่องจอด</span>
+              <span>แนวโน้มการใช้ช่องจอด</span>
               <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>
                 ({period === 'day' ? `รายวัน ${dayRange} วัน` : period === 'week' ? 'รายสัปดาห์ (8 สัปดาห์)' : 'รายเดือน (6 เดือน)'})
               </span>
@@ -2619,9 +2598,9 @@ function AdminAnalytics({ data }) {
                   <strong style={{ color: '#fff' }}>{trendData[hoveredIndex].fullDate}</strong>
                 </div>
                 <div style={{ display: 'flex', gap: 10, fontFamily: 'JetBrains Mono' }}>
-                  <span style={{ color: 'var(--cyan)' }}>🚗 {trendData[hoveredIndex].count} ครั้ง</span>
-                  <span style={{ color: '#fbbf24' }}>💰 ฿{trendData[hoveredIndex].revenue.toLocaleString('th-TH')}</span>
-                  <span style={{ color: '#a78bfa' }}>⏱️ {trendData[hoveredIndex].hours} ชม.</span>
+                  <span style={{ color: 'var(--cyan)' }}>{trendData[hoveredIndex].count} ครั้ง</span>
+                  <span style={{ color: '#fbbf24' }}>฿{trendData[hoveredIndex].revenue.toLocaleString('th-TH')}</span>
+                  <span style={{ color: '#a78bfa' }}>{trendData[hoveredIndex].hours} ชม.</span>
                 </div>
               </div>
             )}
@@ -2632,7 +2611,7 @@ function AdminAnalytics({ data }) {
         <div className="chart-card">
           <div className="chart-card-header">
             <h3 className="chart-card-title">
-              <span>🏷️ สัดส่วนตามชนิดช่องจอด</span>
+              <span>สัดส่วนตามชนิดช่องจอด</span>
             </h3>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>
               รวม {typeBreakdown.totalBookings} รายการ
@@ -2689,7 +2668,7 @@ function AdminAnalytics({ data }) {
                   <div className="donut-legend-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span className="donut-color-dot" style={{ background: item.color }} />
-                      <strong style={{ color: '#fff' }}>{item.icon} {item.type}</strong>
+                      <strong style={{ color: '#fff' }}>{item.type}</strong>
                     </div>
                     <div>
                       <strong style={{ color: item.color, fontFamily: 'JetBrains Mono' }}>
@@ -2724,7 +2703,7 @@ function AdminAnalytics({ data }) {
           <div className="chart-card-header">
             <div>
               <h3 className="chart-card-title">
-                <span>📅 ความหนาแน่นตามวันในสัปดาห์</span>
+                <span>ความหนาแน่นตามวันในสัปดาห์</span>
               </h3>
               <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 12 }}>
                 สถิติการใช้งานแยกตามวันจันทร์ - อาทิตย์ เพื่อดูพฤติกรรมช่วงเวลาหนาแน่น
@@ -2732,7 +2711,7 @@ function AdminAnalytics({ data }) {
             </div>
             {dayOfWeekDistribution.peakDay && (
               <span className="badge pending" style={{ fontSize: 11.5, padding: '4px 9px' }}>
-                🔥 วัน{dayOfWeekDistribution.peakDay.name} แน่นสุด ({dayOfWeekDistribution.peakDay.count} คัน)
+                วัน{dayOfWeekDistribution.peakDay.name} แน่นสุด ({dayOfWeekDistribution.peakDay.count} คัน)
               </span>
             )}
           </div>
@@ -2770,7 +2749,7 @@ function AdminAnalytics({ data }) {
         <div className="chart-card">
           <div className="chart-card-header">
             <h3 className="chart-card-title">
-              <span>🏆 ช่องจอดที่ถูกใช้งานสูงสุด</span>
+              <span>ช่องจอดที่ถูกใช้งานสูงสุด</span>
             </h3>
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>
               Top 6 ช่องจอด
@@ -2784,7 +2763,7 @@ function AdminAnalytics({ data }) {
               return (
                 <div key={item.slotId} className="slot-leader-item">
                   <div className="slot-leader-badge" style={{ borderColor: idx === 0 ? '#fbbf24' : '#36485e' }}>
-                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                    #{idx + 1}
                   </div>
                   <div className="slot-leader-content">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
@@ -2821,7 +2800,7 @@ function AdminAnalytics({ data }) {
       {/* ─── ตารางสรุปเชิงลึกแยกตามชนิดช่องจอด ─── */}
       <section className="panel" style={{ marginTop: 8 }}>
         <div className="panel-title">
-          <h2>📋 ตารางสรุปสถิติแยกตามชนิดช่องจอด</h2>
+          <h2>ตารางสรุปสถิติแยกตามชนิดช่องจอด</h2>
           <span className="muted">{typeBreakdown.list.length} ประเภทช่องจอด</span>
         </div>
         <div className="table-wrap">
@@ -2845,7 +2824,7 @@ function AdminAnalytics({ data }) {
                     <td>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <span className="donut-color-dot" style={{ background: row.color }} />
-                        <strong>{row.icon} {row.type}</strong>
+                        <strong>{row.type}</strong>
                       </div>
                     </td>
                     <td>{row.slotsCount} ช่อง</td>
@@ -2907,7 +2886,7 @@ function AdminUsers({ data, notify }) {
   async function review(id, action) {
     try {
       await api(`/admin/credit-requests/${id}/${action}`, { method: 'POST' });
-      notify(action === 'approve' ? 'อนุมัติคำขอเติมเครดิตแล้ว ✅' : 'ปฏิเสธคำขอแล้ว ❌');
+      notify(action === 'approve' ? 'อนุมัติคำขอเติมเครดิตแล้ว' : 'ปฏิเสธคำขอแล้ว');
     } catch (err) {
       notify(err.message, true);
     }
@@ -2927,14 +2906,14 @@ function AdminUsers({ data, notify }) {
               className={`button compact ${activeTab === 'pending' ? 'primary' : ''}`}
               onClick={() => setActiveTab('pending')}
             >
-              ⏳ รอดำเนินการ ({pending.length})
+              รอดำเนินการ ({pending.length})
             </button>
             <button
               type="button"
               className={`button compact ${activeTab === 'all' ? 'primary' : ''}`}
               onClick={() => setActiveTab('all')}
             >
-              📋 ประวัติคำขอทั้งหมด ({allRequests.length})
+              ประวัติคำขอทั้งหมด ({allRequests.length})
             </button>
           </div>
         </div>
@@ -2979,7 +2958,7 @@ function AdminUsers({ data, notify }) {
                     <td>{item.reason}</td>
                     <td>
                       <span className={`badge ${item.status === 'approved' ? 'available' : item.status === 'rejected' ? 'unavailable' : 'pending'}`}>
-                        {item.status === 'approved' ? '✓ อนุมัติแล้ว' : item.status === 'rejected' ? '✕ ปฏิเสธ' : '⏳ รออนุมัติ'}
+                        {item.status === 'approved' ? '🟢 อนุมัติแล้ว' : item.status === 'rejected' ? '🔴 ปฏิเสธ' : '🟡 รออนุมัติ'}
                       </span>
                     </td>
                     <td>{formatDate(item.created_at)}</td>
@@ -3132,7 +3111,7 @@ function AdminDevices({ data, reload, notify }) {
               <td><strong>{device.linked_slot || '-'}</strong></td>
               <td>ชั้น {device.floor}</td>
               <td><span className={`badge ${device.status}`}>{device.status}</span></td>
-              <td>{device.type === 'barrier' ? (device.state === 'open' ? '🔓 เปิด' : '🔒 ปิด') : (device.presence === 'occupied' ? '🚗 มีรถ' : 'ว่าง')}</td>
+              <td>{device.type === 'barrier' ? (device.state === 'open' ? '🟢 เปิด' : '🔴 ปิด') : (device.presence === 'occupied' ? '🔴 มีรถ' : '🟢 ว่าง')}</td>
               <td>
                 <button className="button compact" onClick={() => rename(device)}>เปลี่ยนชื่อ</button> <button className="button compact" onClick={() => link(device)}>ผูกช่อง</button> {device.type === 'barrier' && <button className="button primary compact" onClick={() => toggle(device)}>เปิด/ปิด</button>}
               </td>
@@ -3309,7 +3288,7 @@ function AdminAlerts({ data, user, reload, notify }) {
       });
       playAlertChime(testForm.priority);
       setTestModal(false);
-      notify(`ส่งการแจ้งเตือนทดสอบระดับ ${testForm.priority} สำเร็จ (ส่งเข้า LINE แอดมินตามเงื่อนไขเรียบร้อย) 🎉`);
+      notify(`ส่งการแจ้งเตือนทดสอบระดับ ${testForm.priority} สำเร็จ (ส่งเข้า LINE แอดมินตามเงื่อนไขเรียบร้อย)`);
       await reload?.();
     } catch (err) {
       notify(err.message, true);
@@ -3326,7 +3305,7 @@ function AdminAlerts({ data, user, reload, notify }) {
         method: 'PATCH',
         body: JSON.stringify(config)
       });
-      notify('บันทึกการตั้งค่าการแจ้งเตือนและความผิดพลาดเรียบร้อยแล้ว ✅');
+      notify('บันทึกการตั้งค่าการแจ้งเตือนและความผิดพลาดเรียบร้อยแล้ว');
       await reload?.();
     } catch (err) {
       notify(err.message, true);
@@ -3347,13 +3326,13 @@ function AdminAlerts({ data, user, reload, notify }) {
           className={`button ${activeTab === 'list' ? 'primary' : 'secondary'}`}
           onClick={() => setActiveTab('list')}
         >
-          📋 รายการแจ้งเตือนระบบ ({alerts.filter(a => a.status === 'active').length})
+          รายการแจ้งเตือนระบบ ({alerts.filter(a => a.status === 'active').length})
         </button>
         <button
           className={`button ${activeTab === 'settings' ? 'primary' : 'secondary'}`}
           onClick={() => setActiveTab('settings')}
         >
-          ⚙️ ตั้งค่าเงื่อนไข & ลำดับความสำคัญ (Settings)
+          ตั้งค่าเงื่อนไข & ลำดับความสำคัญ (Settings)
         </button>
       </div>
 
@@ -3392,7 +3371,7 @@ function AdminAlerts({ data, user, reload, notify }) {
               gap: 12
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 22 }}>⚠️</span>
+                <span style={{ fontSize: 16 }}>🔴</span>
                 <div>
                   <strong style={{ color: '#f87171', fontSize: 14 }}>
                     บัญชีแอดมินของคุณ ({liveAdmin?.name || 'Admin'}) ยังไม่ได้เชื่อมต่อ LINE
@@ -3409,7 +3388,6 @@ function AdminAlerts({ data, user, reload, notify }) {
                   onClick={() => redirectToLine('link')}
                   style={{ background: '#06c755', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
-                  <span>🟢</span>
                   <span>เชื่อมต่อ LINE ทันที</span>
                 </button>
                 <button
@@ -3417,7 +3395,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   className="button secondary compact"
                   onClick={() => setLineModalOpen(true)}
                 >
-                  📋 ดูรหัสผูกแชทบอท
+                  ดูรหัสผูกแชทบอท
                 </button>
               </div>
             </div>
@@ -3428,7 +3406,7 @@ function AdminAlerts({ data, user, reload, notify }) {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
                 <input
                   type="text"
-                  placeholder="🔍 ค้นหาหัวข้อ / ข้อความ / ช่องจอด..."
+                  placeholder="ค้นหาหัวข้อ / ข้อความ / ช่องจอด..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   style={{ minWidth: 220, padding: '6px 12px', fontSize: 13, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
@@ -3438,7 +3416,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   onChange={(e) => setPriorityFilter(e.target.value)}
                   style={selectStyle}
                 >
-                  <option style={optionStyle} value="all">🔍 ทุกระดับความสำคัญ</option>
+                  <option style={optionStyle} value="all">ทุกระดับความสำคัญ</option>
                   <option style={{ ...optionStyle, color: '#f87171' }} value="CRITICAL">🔴 CRITICAL เท่านั้น</option>
                   <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH เท่านั้น</option>
                   <option style={{ ...optionStyle, color: '#38bdf8' }} value="NORMAL">🟡 NORMAL เท่านั้น</option>
@@ -3449,20 +3427,20 @@ function AdminAlerts({ data, user, reload, notify }) {
                   onChange={(e) => setStatusFilter(e.target.value)}
                   style={selectStyle}
                 >
-                  <option style={optionStyle} value="all">📋 ทุกสถานะ</option>
-                  <option style={{ ...optionStyle, color: '#f87171' }} value="active">⚠️ ยังไม่ดำเนินการ (Active)</option>
-                  <option style={{ ...optionStyle, color: '#facc15' }} value="acknowledged">👁️ รับทราบแล้ว (Acknowledged)</option>
-                  <option style={{ ...optionStyle, color: '#4ade80' }} value="resolved">✅ ปิดงานแล้ว (Resolved)</option>
+                  <option style={optionStyle} value="all">ทุกสถานะ</option>
+                  <option style={{ ...optionStyle, color: '#f87171' }} value="active">🔴 ยังไม่ดำเนินการ (Active)</option>
+                  <option style={{ ...optionStyle, color: '#facc15' }} value="acknowledged">🟡 รับทราบแล้ว (Acknowledged)</option>
+                  <option style={{ ...optionStyle, color: '#4ade80' }} value="resolved">🟢 ปิดงานแล้ว (Resolved)</option>
                 </select>
               </div>
 
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="button primary compact" onClick={() => setTestModal(true)}>
-                  🔔 ทดสอบส่งแจ้งเตือน
+                  ทดสอบส่งแจ้งเตือน
                 </button>
                 {resolvedCount > 0 && (
                   <button className="button secondary compact" onClick={clearResolved}>
-                    🧹 ล้างประวัติที่แก้ไขแล้ว
+                    ล้างประวัติที่แก้ไขแล้ว
                   </button>
                 )}
               </div>
@@ -3502,19 +3480,19 @@ function AdminAlerts({ data, user, reload, notify }) {
                           <strong style={{ fontSize: 14, color: '#f1f5f9' }}>{item.title}</strong>
                           {item.slot_id && (
                             <span style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>
-                              🅿️ {item.slot_id}
+                              ช่อง {item.slot_id}
                             </span>
                           )}
                           {item.device_id && (
                             <span style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--muted)', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>
-                              ⌁ {item.device_id}
+                              {item.device_id}
                             </span>
                           )}
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                            ⏱️ {new Date(item.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' })} น.
+                            {new Date(item.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Bangkok' })} น.
                           </span>
                           <span style={{
                             fontSize: 11,
@@ -3524,7 +3502,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                             background: item.status === 'resolved' ? 'rgba(34,197,94,0.15)' : item.status === 'acknowledged' ? 'rgba(234,179,8,0.15)' : 'rgba(239,68,68,0.15)',
                             color: item.status === 'resolved' ? '#4ade80' : item.status === 'acknowledged' ? '#facc15' : '#f87171'
                           }}>
-                            {item.status === 'resolved' ? '✅ ปิดงานแล้ว' : item.status === 'acknowledged' ? '👁️ รับทราบแล้ว' : '⚠️ รอตรวจสอบ'}
+                            {item.status === 'resolved' ? '🟢 ปิดงานแล้ว' : item.status === 'acknowledged' ? '🟡 รับทราบแล้ว' : '🔴 รอตรวจสอบ'}
                           </span>
                         </div>
                       </div>
@@ -3535,19 +3513,19 @@ function AdminAlerts({ data, user, reload, notify }) {
 
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                         <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                          {item.notified_line ? '📱 ส่งแจ้งเตือนเข้า LINE Admin แล้ว' : 'ℹ️ แจ้งเตือนในระบบ'}
+                          {item.notified_line ? 'ส่งแจ้งเตือนเข้า LINE Admin แล้ว' : 'แจ้งเตือนในระบบ'}
                           {item.resolved_at && ` · ปิดงานเมื่อ ${new Date(item.resolved_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`}
                         </span>
 
                         <div style={{ display: 'flex', gap: 6 }}>
                           {item.status === 'active' && (
                             <button className="button secondary compact" onClick={() => acknowledge(item.id)}>
-                              👁️ รับทราบปัญหา
+                              รับทราบปัญหา
                             </button>
                           )}
                           {item.status !== 'resolved' && (
                             <button className="button primary compact" onClick={() => resolve(item.id)}>
-                              ✅ ปิดงานแก้ไขแล้ว
+                              ปิดงานแก้ไขแล้ว
                             </button>
                           )}
                         </div>
@@ -3558,7 +3536,7 @@ function AdminAlerts({ data, user, reload, notify }) {
               </div>
             ) : (
               <p className="muted" style={{ textAlign: 'center', padding: '24px 0' }}>
-                🎉 ไม่พบรายการแจ้งเตือนตามเงื่อนไขที่เลือก (ระบบทำงานปกติ)
+                ไม่พบรายการแจ้งเตือนตามเงื่อนไขที่เลือก (ระบบทำงานปกติ)
               </p>
             )}
           </section>
@@ -3566,9 +3544,8 @@ function AdminAlerts({ data, user, reload, notify }) {
       ) : (
         <form onSubmit={handleSaveConfig} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <section className="panel">
-            <h3 style={{ fontSize: 16, marginBottom: 12, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>⌁</span>
-              <span>1. การตรวจจับความผิดพลาดของอุปกรณ์ (Hardware Faults)</span>
+            <h3 style={{ fontSize: 16, marginBottom: 12, color: 'var(--cyan)' }}>
+              1. การตรวจจับความผิดพลาดของอุปกรณ์ (Hardware Faults)
             </h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
@@ -3673,9 +3650,8 @@ function AdminAlerts({ data, user, reload, notify }) {
           </section>
 
           <section className="panel">
-            <h3 style={{ fontSize: 16, marginBottom: 12, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>🅿️</span>
-              <span>2. การตรวจจับเหตุการณ์ระบบและการจอง (Operational Alerts)</span>
+            <h3 style={{ fontSize: 16, marginBottom: 12, color: 'var(--cyan)' }}>
+              2. การตรวจจับเหตุการณ์ระบบและการจอง (Operational Alerts)
             </h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
@@ -3726,9 +3702,8 @@ function AdminAlerts({ data, user, reload, notify }) {
           </section>
 
           <section className="panel">
-            <h3 style={{ fontSize: 16, marginBottom: 14, color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span>📱</span>
-              <span>3. ช่องทางการแจ้งเตือน & ป้องกันการรบกวน (Notification Channels)</span>
+            <h3 style={{ fontSize: 16, marginBottom: 14, color: 'var(--cyan)' }}>
+              3. ช่องทางการแจ้งเตือน & ป้องกันการรบกวน (Notification Channels)
             </h3>
 
             {/* กล่องสถานะ LINE ของผู้ดูแลระบบ (Admin LINE Status & Control) */}
@@ -3768,7 +3743,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                           setTestingMyLine(true);
                           try {
                             await api('/auth/line/test-message', { method: 'POST' });
-                            notify?.('ส่งข้อความทดสอบเข้า LINE มือถือของคุณสำเร็จแล้ว! 📱', false);
+                            notify?.('ส่งข้อความทดสอบเข้า LINE มือถือของคุณสำเร็จแล้ว!', false);
                           } catch (e) {
                             notify?.(e.message || 'ส่งข้อความทดสอบไม่สำเร็จ', true);
                           } finally {
@@ -3777,7 +3752,6 @@ function AdminAlerts({ data, user, reload, notify }) {
                         }}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}
                       >
-                        <span>🔔</span>
                         <span>{testingMyLine ? 'กำลังส่ง...' : 'ทดสอบยิง LINE ถึงคุณ'}</span>
                       </button>
                       <a
@@ -3787,7 +3761,6 @@ function AdminAlerts({ data, user, reload, notify }) {
                         className="button secondary compact"
                         style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
-                        <span>💬</span>
                         <span>เปิดแชท Bot</span>
                       </a>
                       <button
@@ -3815,7 +3788,6 @@ function AdminAlerts({ data, user, reload, notify }) {
                         onClick={() => redirectToLine('link')}
                         style={{ background: '#06c755', color: '#fff', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                       >
-                        <span>🟢</span>
                         <span>เชื่อมต่อด้วย LINE Login</span>
                       </button>
                       <button
@@ -3823,7 +3795,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                         className="button secondary compact"
                         onClick={() => setLineModalOpen(true)}
                       >
-                        📋 ดูรหัสผูกแชทบอท
+                        ดูรหัสผูกแชทบอท
                       </button>
                     </>
                   )}
@@ -3902,7 +3874,7 @@ function AdminAlerts({ data, user, reload, notify }) {
               </div>
 
               <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>🛡️ Cooldown ป้องกันส่งซ้ำ (Anti-Spam)</div>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Cooldown ป้องกันส่งซ้ำ (Anti-Spam)</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
                   <div>
                     <span className="muted">ระยะเวลากั้นส่งซ้ำ: </span>
@@ -3937,7 +3909,7 @@ function AdminAlerts({ data, user, reload, notify }) {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <button type="submit" className="button primary" disabled={savingConfig}>
-              {savingConfig ? 'กำลังบันทึก...' : '💾 บันทึกการตั้งค่าการแจ้งเตือน'}
+              {savingConfig ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่าการแจ้งเตือน'}
             </button>
           </div>
         </form>
@@ -3946,7 +3918,7 @@ function AdminAlerts({ data, user, reload, notify }) {
       {testModal && (
         <div className="modal-backdrop" onClick={() => setTestModal(false)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
-            <h3 style={{ fontSize: 16, marginBottom: 12 }}>🔔 ทดสอบส่งการแจ้งเตือน</h3>
+            <h3 style={{ fontSize: 16, marginBottom: 12 }}>ทดสอบส่งการแจ้งเตือน</h3>
             <form onSubmit={handleTestSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="field">
                 <label>เลือกระดับความสำคัญ (Priority):</label>
@@ -3989,7 +3961,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   ยกเลิก
                 </button>
                 <button type="submit" className="button primary" disabled={testSubmitting}>
-                  {testSubmitting ? 'กำลังส่ง...' : '🚀 ยืนยันการส่งทดสอบ'}
+                  {testSubmitting ? 'กำลังส่ง...' : 'ยืนยันการส่งทดสอบ'}
                 </button>
               </div>
             </form>
@@ -4064,7 +4036,7 @@ function AdminLayout({ data, reload, notify }) {
         type: finalType
       });
       setSlotToEdit(null);
-      notify(`บันทึกการตั้งค่าช่อง ${finalCode} เรียบร้อยแล้ว (฿${finalPrice}/ชม. · ${finalType}) ✅`);
+      notify(`บันทึกการตั้งค่าช่อง ${finalCode} เรียบร้อยแล้ว (฿${finalPrice}/ชม. · ${finalType})`);
     } catch (err) {
       notify(err.message, true);
     }
@@ -4075,7 +4047,7 @@ function AdminLayout({ data, reload, notify }) {
     const defaultY = 45 + Math.floor((slot.slot_order || 0) / 3) * 14;
     try {
       await patchSlot(slot, { pos_x: defaultX, pos_y: defaultY });
-      notify(`นำช่อง ${slot.code} วางบนผังแล้ว ลากไปยังตำแหน่งที่ต้องการได้เลย 📍`);
+      notify(`นำช่อง ${slot.code} วางบนผังแล้ว ลากไปยังตำแหน่งที่ต้องการได้เลย`);
     } catch (err) {
       notify(err.message, true);
     }
@@ -4106,7 +4078,7 @@ function AdminLayout({ data, reload, notify }) {
       await api('/admin/maps', { method: 'POST', body: form });
       formEl?.reset();
       await reload?.();
-      notify('อัปโหลดผังลานจอดแล้ว ✅');
+      notify('อัปโหลดผังลานจอดแล้ว');
     } catch (err) {
       notify(err.message, true);
     }
@@ -4114,7 +4086,7 @@ function AdminLayout({ data, reload, notify }) {
   async function renameMap(item) {
     const newName = window.prompt('ชื่อผังใหม่', item.name);
     if (!newName || newName === item.name) return;
-    try { await api(`/admin/maps/${item.id}`, { method: 'PATCH', body: JSON.stringify({ name: newName }) }); await reload?.(); notify('เปลี่ยนชื่อผังแล้ว ✅'); }
+    try { await api(`/admin/maps/${item.id}`, { method: 'PATCH', body: JSON.stringify({ name: newName }) }); await reload?.(); notify('เปลี่ยนชื่อผังแล้ว'); }
     catch (err) { notify(err.message, true); }
   }
   async function replaceMapImage(item, file) {
@@ -4125,14 +4097,14 @@ function AdminLayout({ data, reload, notify }) {
       notify('กำลังอัปโหลดเปลี่ยนรูปผังใหม่...');
       await api(`/admin/maps/${item.id}`, { method: 'PATCH', body: form });
       await reload?.();
-      notify('เปลี่ยนรูปภาพผังลานจอดสำเร็จแล้ว ✅');
+      notify('เปลี่ยนรูปภาพผังลานจอดสำเร็จแล้ว');
     } catch (err) {
       notify(err.message, true);
     }
   }
   async function deleteMap(item) {
     if (!window.confirm(`ยืนยันการลบผัง "${item.name}" หรือไม่?\nรูปภาพจะถูกลบออกจากระบบถาวร`)) return;
-    try { await api(`/admin/maps/${item.id}`, { method: 'DELETE' }); await reload?.(); notify('ลบผังลานจอดแล้ว ✅'); }
+    try { await api(`/admin/maps/${item.id}`, { method: 'DELETE' }); await reload?.(); notify('ลบผังลานจอดแล้ว'); }
     catch (err) { notify(err.message, true); }
   }
 
@@ -4171,13 +4143,13 @@ function AdminLayout({ data, reload, notify }) {
           <div style={{ marginTop: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <strong style={{ fontSize: 15, color: '#fff' }}>📍 ผังแปลนจริงแบบลากวาง ({activeMap.name})</strong>
+                <strong style={{ fontSize: 15, color: '#fff' }}>ผังแปลนจริงแบบลากวาง ({activeMap.name})</strong>
                 <span style={{ fontSize: 11, color: 'var(--cyan)', background: 'rgba(54,220,201,0.12)', border: '1px solid rgba(54,220,201,0.3)', padding: '2px 8px', borderRadius: 999 }}>
                   วางแล้ว {placedSlots.length}/{slots.length} ช่อง
                 </span>
               </div>
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                💡 <strong>วิธีใช้:</strong> คลิกลากช่องจอดไปวางที่ตำแหน่งจริงบนรูปภาพ | คลิกที่ช่องเพื่อแก้ไขราคาและประเภท
+                <strong>วิธีใช้:</strong> คลิกลากช่องจอดไปวางที่ตำแหน่งจริงบนรูปภาพ | คลิกที่ช่องเพื่อแก้ไขราคาและประเภท
               </div>
             </div>
 
@@ -4189,7 +4161,7 @@ function AdminLayout({ data, reload, notify }) {
               onSlotClick={(slot) => openEditModal(slot)}
               onSlotMove={async (slot, x, y) => {
                 await patchSlot(slot, { pos_x: x, pos_y: y });
-                notify(`บันทึกตำแหน่งช่อง ${slot.code} บนผังแล้ว (${x}%, ${y}%) ✅`);
+                notify(`บันทึกตำแหน่งช่อง ${slot.code} บนผังแล้ว (${x}%, ${y}%)`);
               }}
               selectedSlotId={selected}
             />
@@ -4198,7 +4170,7 @@ function AdminLayout({ data, reload, notify }) {
             {unplacedSlots.length > 0 && (
               <div className="unplaced-tray">
                 <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600 }}>
-                  📌 ช่องจอดที่ยังไม่ได้วางตำแหน่ง ({unplacedSlots.length} ช่อง):
+                  ช่องจอดที่ยังไม่ได้วางตำแหน่ง ({unplacedSlots.length} ช่อง):
                 </span>
                 {unplacedSlots.map((slot) => (
                   <button
@@ -4221,12 +4193,12 @@ function AdminLayout({ data, reload, notify }) {
                 type="button"
                 className="button compact"
                 onClick={() => setLightboxMap(activeMap)}
-              >🔍 ดูรูปเต็ม</button>
+              >ดูรูปเต็ม</button>
               <label
                 className="button compact"
                 style={{ cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center' }}
               >
-                📷 เปลี่ยนรูปภาพ
+                เปลี่ยนรูปภาพ
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
@@ -4243,12 +4215,12 @@ function AdminLayout({ data, reload, notify }) {
                 type="button"
                 className="button compact"
                 onClick={() => renameMap(activeMap)}
-              >✏️ เปลี่ยนชื่อ</button>
+              >เปลี่ยนชื่อ</button>
               <button
                 type="button"
                 className="button danger compact"
                 onClick={() => deleteMap(activeMap)}
-              >🗑 ลบ</button>
+              >ลบ</button>
             </div>
           </div>
         )}
@@ -4293,20 +4265,20 @@ function AdminLayout({ data, reload, notify }) {
                 <span className={`sensor-dot ${sensorDotClass}`} title={isCarPresent ? 'เซ็นเซอร์: ตรวจพบวัตถุ (สีแดง)' : 'เซ็นเซอร์: ว่าง (สีเขียว)'} />
                 <div className="slot-top">
                   <strong>{slot.code}</strong>
-                  <span className={`slot-type-pill ${typeMeta.className}`}>{typeMeta.icon} {typeMeta.label}</span>
+                  <span className={`slot-type-pill ${typeMeta.className}`}>{typeMeta.label}</span>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', margin: '4px 0 8px' }}>
                   <span style={{ color: '#fbbf24', fontWeight: 700, fontSize: 13 }}>฿{slot.price_per_hour || 20}/ชม.</span>
                   <span style={{ fontSize: 10.5, color: slot.pos_x != null ? 'var(--cyan)' : 'var(--muted)' }}>
-                    {slot.pos_x != null ? `📍 บนผัง (${slot.pos_x}%, ${slot.pos_y}%)` : '⚠️ ยังไม่วางบนผัง'}
+                    {slot.pos_x != null ? `บนผัง (${slot.pos_x}%, ${slot.pos_y}%)` : 'ยังไม่วางบนผัง'}
                   </span>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, width: '100%', marginBottom: 6 }}>
-                  <button className="button compact primary" onClick={() => openEditModal(slot)}>⚙️ ตั้งค่า</button>
+                  <button className="button compact primary" onClick={() => openEditModal(slot)}>ตั้งค่า</button>
                   {slot.pos_x == null ? (
-                    <button className="button compact" onClick={() => placeSlotOnMap(slot)}>📍 วางบนผัง</button>
+                    <button className="button compact" onClick={() => placeSlotOnMap(slot)}>วางบนผัง</button>
                   ) : (
                     <button className="button compact" onClick={() => chooseSwap(slot)}>{selected === slot.id ? 'ยกเลิกสลับ' : 'สลับลำดับ'}</button>
                   )}
@@ -4364,13 +4336,13 @@ function AdminLayout({ data, reload, notify }) {
         <div className="modal-backdrop" onMouseDown={() => setSlotToEdit(null)}>
           <div className="slot-edit-dialog" onMouseDown={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 style={{ margin: 0, fontSize: 18, color: '#fff' }}>⚙️ จัดการช่องจอด {slotToEdit.code}</h3>
+              <h3 style={{ margin: 0, fontSize: 18, color: '#fff' }}>จัดการช่องจอด {slotToEdit.code}</h3>
               <button type="button" className="modal-close" onClick={() => setSlotToEdit(null)}>✕</button>
             </div>
 
             <div className="slot-edit-field">
               <label className="slot-edit-label">
-                🔤 ชื่อ / รหัสช่องจอด
+                ชื่อ / รหัสช่องจอด
               </label>
               <input
                 className="slot-edit-input"
@@ -4382,7 +4354,7 @@ function AdminLayout({ data, reload, notify }) {
 
             <div className="slot-edit-field">
               <label className="slot-edit-label">
-                💰 ราคาค่าจอดต่อชั่วโมง
+                ราคาค่าจอดต่อชั่วโมง
               </label>
               <div className="slot-edit-input-group">
                 <input
@@ -4400,7 +4372,7 @@ function AdminLayout({ data, reload, notify }) {
 
             <div className="slot-edit-field">
               <label className="slot-edit-label">
-                🏷️ ประเภทช่องจอด
+                ประเภทช่องจอด
               </label>
               <select
                 className="slot-edit-input"
@@ -4410,18 +4382,18 @@ function AdminLayout({ data, reload, notify }) {
                   if (e.target.value !== 'custom') setEditType(e.target.value);
                 }}
               >
-                <option value="ลูกค้าทั่วไป">🚗 ลูกค้าทั่วไป (General)</option>
-                <option value="สมาชิก">⭐ สมาชิก (VIP / Member)</option>
-                <option value="ผู้พิการ">♿ ผู้พิการ (Accessible)</option>
-                <option value="ชาร์จ EV">⚡ ชาร์จ EV (EV Charging)</option>
-                <option value="custom">➕ กำหนดประเภทเอง...</option>
+                <option value="ลูกค้าทั่วไป">ลูกค้าทั่วไป (General)</option>
+                <option value="สมาชิก">สมาชิก (VIP / Member)</option>
+                <option value="ผู้พิการ">ผู้พิการ (Accessible)</option>
+                <option value="ชาร์จ EV">ชาร์จ EV (EV Charging)</option>
+                <option value="custom">+ กำหนดประเภทเอง...</option>
               </select>
             </div>
 
             {editTypePreset === 'custom' && (
               <div className="slot-edit-field">
                 <label className="slot-edit-label" style={{ color: 'var(--cyan)' }}>
-                  ✏️ ระบุชื่อประเภทช่องจอดเอง
+                  ระบุชื่อประเภทช่องจอดเอง
                 </label>
                 <input
                   className="slot-edit-input"
@@ -4441,7 +4413,6 @@ function AdminLayout({ data, reload, notify }) {
                 <div style={{ marginTop: 12, marginBottom: 6, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <span style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>{barrierDevice.state === 'open' ? '🔓' : '🔒'}</span>
                       <span>ไม้กั้นช่อง {slotToEdit.code}:</span>
                     </span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: barrierDevice.state === 'open' ? 'var(--green)' : '#f87171' }}>
@@ -4462,7 +4433,7 @@ function AdminLayout({ data, reload, notify }) {
                       }
                     }}
                   >
-                    {barrierDevice.state === 'open' ? '🔒 สั่งปิดไม้กั้น' : '🔓 สั่งเปิดไม้กั้น'}
+                    {barrierDevice.state === 'open' ? 'สั่งปิดไม้กั้น' : 'สั่งเปิดไม้กั้น'}
                   </button>
                 </div>
               );
@@ -4474,7 +4445,7 @@ function AdminLayout({ data, reload, notify }) {
                 className="button primary"
                 onClick={saveSlotSettings}
               >
-                💾 บันทึกการเปลี่ยนแปลง
+                บันทึกการเปลี่ยนแปลง
               </button>
 
               {slotToEdit.pos_x != null && (
@@ -4488,7 +4459,7 @@ function AdminLayout({ data, reload, notify }) {
                     notify(`ลบตำแหน่งช่อง ${slotToEdit.code} ออกจากผังรูปภาพแล้ว`);
                   }}
                 >
-                  🗑️ ลบตำแหน่งออกจากผังรูปภาพ
+                  ลบตำแหน่งออกจากผังรูปภาพ
                 </button>
               )}
             </div>
@@ -4601,7 +4572,7 @@ function App() {
           if (res.mode === 'linked') {
             localStorage.user = JSON.stringify(res.user);
             setUser((curr) => ({ ...curr, ...res.user }));
-            setNotice({ text: 'เชื่อมต่อ LINE สำเร็จแล้ว! พร้อมรับการแจ้งเตือนทันที 🎉', error: false });
+            setNotice({ text: 'เชื่อมต่อ LINE สำเร็จแล้ว! พร้อมรับการแจ้งเตือนทันที', error: false });
             load();
           } else {
             localStorage.token = res.token;
@@ -4609,7 +4580,7 @@ function App() {
             setUser(res.user);
             setData(null);
             setView(res.user.role === 'admin' ? 'dashboard' : 'booking');
-            setNotice({ text: `ยินดีต้อนรับคุณ ${res.user.name} เข้าสู่ระบบสำเร็จ 🎉`, error: false });
+            setNotice({ text: `ยินดีต้อนรับคุณ ${res.user.name} เข้าสู่ระบบสำเร็จ`, error: false });
           }
         })
         .catch((err) => {
