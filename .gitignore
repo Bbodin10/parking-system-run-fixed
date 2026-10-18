@@ -18,3 +18,4 @@ dist/
 compile_commands.json
 .vscode/
 **/.vscode/
+database/system_alerts.json
