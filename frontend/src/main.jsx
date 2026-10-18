@@ -480,18 +480,18 @@ function Header({ user, onLogout, lastUpdated, data, setView, notify, reload }) 
 function Sidebar({ user, view, setView, activeAlertCount = 0 }) {
   const items = user.role === 'admin'
     ? [
-        ['dashboard', '▦', 'ภาพรวมการจอง'],
-        ['analytics', '▤', 'สถิติการใช้งาน'],
-        ['users', '♙', 'จัดการผู้ใช้'],
-        ['devices', '⌁', 'อุปกรณ์ / ไม้กั้น'],
-        ['alerts', activeAlertCount > 0 ? '🔴' : '●', `แจ้งเตือน & ข้อผิดพลาด${activeAlertCount > 0 ? ` (${activeAlertCount})` : ''}`],
-        ['layout', '⊞', 'จัดการผังลานจอด']
-      ]
+      ['dashboard', '▦', 'ภาพรวมการจอง'],
+      ['analytics', '▤', 'สถิติการใช้งาน'],
+      ['users', '♙', 'จัดการผู้ใช้'],
+      ['devices', '⌁', 'อุปกรณ์ / ไม้กั้น'],
+      ['alerts', activeAlertCount > 0 ? '🔴' : '●', `แจ้งเตือน & ข้อผิดพลาด${activeAlertCount > 0 ? ` (${activeAlertCount})` : ''}`],
+      ['layout', '⊞', 'จัดการผังลานจอด']
+    ]
     : [
-        ['booking', 'P', 'จองที่จอดรถ'],
-        ['control', '⌁', 'ควบคุมช่องจอด'],
-        ['history', '▤', 'ประวัติของฉัน']
-      ];
+      ['booking', 'P', 'จองที่จอดรถ'],
+      ['control', '⌁', 'ควบคุมช่องจอด'],
+      ['history', '▤', 'ประวัติของฉัน']
+    ];
   return <aside className="sidebar">{items.map(([id, icon, label]) =>
     <button key={id} className={`nav-item ${view === id ? 'active' : ''}`} onClick={() => setView(id)}><span>{icon}</span>{label}</button>
   )}</aside>;
@@ -553,7 +553,7 @@ function InteractiveFloorMap({ map, slots, devices, isAdmin, onSlotClick, onSlot
     const pointerId = event.pointerId;
     const targetEl = event.currentTarget;
     if (targetEl && targetEl.setPointerCapture) {
-      try { targetEl.setPointerCapture(pointerId); } catch (_) {}
+      try { targetEl.setPointerCapture(pointerId); } catch (_) { }
     }
 
     const startX = event.clientX;
@@ -577,7 +577,7 @@ function InteractiveFloorMap({ map, slots, devices, isAdmin, onSlotClick, onSlot
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       if (targetEl && targetEl.releasePointerCapture) {
-        try { targetEl.releasePointerCapture(pointerId); } catch (_) {}
+        try { targetEl.releasePointerCapture(pointerId); } catch (_) { }
       }
       setDraggingId(null);
       setDragPos(null);
@@ -3049,7 +3049,7 @@ function AdminUsers({ data, notify }) {
                       {item.type === 'add' ? '+ เพิ่มเครดิต' : '- หักเครดิต'}
                     </span>
                   </td>
-                  <td className={item.type === 'add' ? 'highlight' : ''}>
+                  <td className={item.type === 'add' ? 'highlight' : ''} style={item.type === 'add' ? { fontSize: 'inherit', fontWeight: 600 } : {}}>
                     {item.type === 'add' ? '+' : '-'}฿{formatMoney(item.amount)}
                   </td>
                   <td>{item.reason}</td>
@@ -3150,7 +3150,7 @@ function playAlertChime(priority) {
       osc.start();
       osc.stop(ctx.currentTime + 0.3);
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 function AdminAlerts({ data, user, reload, notify }) {

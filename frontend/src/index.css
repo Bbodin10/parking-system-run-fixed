@@ -370,7 +370,14 @@ select:focus-visible {
 
 .highlight {
   color: var(--cyan);
-  font: 700 22px 'JetBrains Mono'
+  font: 700 22px 'JetBrains Mono';
+}
+
+td.highlight {
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--cyan);
 }
 
 .tabs,
