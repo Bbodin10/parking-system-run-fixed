@@ -111,10 +111,8 @@ function Login({ onLogin }) {
     <main className="login-page">
       <div className="login-container">
         <div className="login-brand">
-          <div className="brand-mark">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
-              <path d="M5 3h7c3.866 0 7 3.134 7 7s-3.134 7-7 7H9v4H5V3zm4 4v6h3c1.657 0 3-1.343 3-3s-1.343-3-3-3H9z" />
-            </svg>
+          <div style={{ marginBottom: 16, display: 'inline-block' }}>
+            <img src="/logo.png" alt="Parking Logo" style={{ width: 68, height: 68, borderRadius: 16, objectFit: 'cover', boxShadow: '0 0 30px rgba(32, 135, 255, 0.4), 0 8px 18px rgba(0, 0, 0, 0.3)', border: '1px solid rgba(255, 255, 255, 0.2)' }} />
           </div>
           <span className="login-badge">SMART IOT PARKING</span>
           <h1>ระบบจัดการที่จอดรถ</h1>
@@ -413,7 +411,10 @@ function Header({ user, onLogout, lastUpdated, data, setView, notify, reload }) 
   const criticalCount = activeAlerts.filter(a => a.priority === 'CRITICAL').length;
 
   return <header className="topbar">
-    <div className="brand"><div className="brand-mark small">P</div><div><strong>ระบบจัดการที่จอดรถ</strong><span>SMART PARKING · SUPABASE · ESP32</span></div></div>
+    <div className="brand">
+      <img src="/logo.png" alt="Parking Logo" style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 15px rgba(32, 135, 255, 0.35)', border: '1px solid rgba(255, 255, 255, 0.15)' }} />
+      <div><strong>ระบบจัดการที่จอดรถ</strong><span>SMART PARKING · SUPABASE · ESP32</span></div>
+    </div>
     <div className="user-menu">
       <span className="connection-pill live-pill"><span className="live-dot" />LIVE · {timeStr}</span>
       {user.role === 'admin' && activeAlerts.length > 0 && (
