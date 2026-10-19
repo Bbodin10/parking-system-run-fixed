@@ -51,6 +51,8 @@ function writeSlotsMeta(meta) {
   }
 }
 
+const liveDistances = {};
+
 const ALERT_CONFIGS_FILE = path.join(DB_DIR, 'alert_configs.json');
 const SYSTEM_ALERTS_FILE = path.join(DB_DIR, 'system_alerts.json');
 
@@ -450,7 +452,8 @@ app.post('/api/auth/register',async(req,res)=>{try{const {username,email,passwor
 app.post('/api/auth/login',async(req,res)=>{try{const username=String(req.body.username||'').trim(),password=String(req.body.password||'');if(!username||!password)return res.status(400).json({error:'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'});const {data,error}=await db.from('users').select('*').or(`username.eq.${username},email.eq.${username}`).maybeSingle();if(error)throw error;if(!data||data.status!=='active'||!(data.password_hash?await bcrypt.compare(password,data.password_hash):data.password===password))return res.status(401).json({error:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'});delete data.password_hash;delete data.password;res.json({user:data,token:sign(data)});}catch(error){console.error('[login]',error);res.status(500).json({error:'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Backend และ Supabase'});}});
 app.get('/api/bootstrap',auth,async(req,res)=>{try{await lifecycle();const out={};const required=['slots','bookings','credit_history','devices'];const optional=['credit_requests','maintenance_logs','parking_maps','vehicles'];const userFields='id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at';let usersQuery=db.from('users').select(userFields);if(req.user.role!=='admin')usersQuery=usersQuery.eq('id',req.user.id);const {data:users,error:userError}=await usersQuery;if(userError)throw userError;out.users=users||[];for(const table of required){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['bookings','credit_history'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error)throw error;out[table]=data||[];}
 const slotsMeta=readSlotsMeta();
-out.slots=(out.slots||[]).map(s=>{const meta=slotsMeta[s.id]||{};return{...s,price_per_hour:s.price_per_hour!==undefined&&s.price_per_hour!==null?Number(s.price_per_hour):(meta.price_per_hour??20),pos_x:s.pos_x!==undefined&&s.pos_x!==null?Number(s.pos_x):(meta.pos_x??null),pos_y:s.pos_y!==undefined&&s.pos_y!==null?Number(s.pos_y):(meta.pos_y??null),type:s.type||meta.type||'ลูกค้าทั่วไป'};});
+out.slots=(out.slots||[]).map(s=>{const meta=slotsMeta[s.id]||{};return{...s,price_per_hour:s.price_per_hour!==undefined&&s.price_per_hour!==null?Number(s.price_per_hour):(meta.price_per_hour??20),pos_x:s.pos_x!==undefined&&s.pos_x!==null?Number(s.pos_x):(meta.pos_x??null),pos_y:s.pos_y!==undefined&&s.pos_y!==null?Number(s.pos_y):(meta.pos_y??null),type:s.type||meta.type||'ลูกค้าทั่วไป',sensor_enter_cm:s.sensor_enter_cm!==undefined&&s.sensor_enter_cm!==null?Number(s.sensor_enter_cm):(meta.sensor_enter_cm??9.0),sensor_exit_cm:s.sensor_exit_cm!==undefined&&s.sensor_exit_cm!==null?Number(s.sensor_exit_cm):(meta.sensor_exit_cm??11.0)};});
+out.devices=(out.devices||[]).map(d=>{if(d.type==='sensor'&&d.linked_slot&&liveDistances[d.linked_slot]!==undefined){return{...d,distance_cm:d.distance_cm??liveDistances[d.linked_slot]};}return d;});
 for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['credit_requests','vehicles'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);if(table==='vehicles'){out[table]=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);}else out[table]=[];}else{out[table]=data||[];if(table==='vehicles'&&out[table].length===0){const fallback=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);if(fallback.length>0)out[table]=fallback;}}}
 const alertCfg=readAlertConfigs();
 let systemAlerts=[];
@@ -765,7 +768,7 @@ app.post('/api/devices/:id/toggle',auth,async(req,res)=>{
 });
 app.patch('/api/admin/users/:id',auth,admin,async(req,res)=>{try{const patch={};if(['admin','user'].includes(req.body.role))patch.role=req.body.role;if(['active','inactive'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(!Object.keys(patch).length)return res.status(400).json({error:'ไม่มีข้อมูลที่ต้องแก้ไข'});const {data,error}=await db.from('users').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.patch('/api/admin/devices/:id',auth,admin,async(req,res)=>{try{const patch={};if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(typeof req.body.linked_slot==='string'||req.body.linked_slot===null)patch.linked_slot=req.body.linked_slot;if(['online','offline','error'].includes(req.body.status))patch.status=req.body.status;patch.updated_at=new Date().toISOString();const {data,error}=await db.from('devices').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
-app.patch('/api/admin/slots/:id',auth,admin,async(req,res)=>{try{const patch={};const metaPatch={};if(typeof req.body.code==='string'&&req.body.code.trim())patch.code=req.body.code.trim();if(['available','booked','unavailable'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.type==='string'&&req.body.type.trim()){patch.type=req.body.type.trim();metaPatch.type=patch.type;}if(req.body.price_per_hour!==undefined&&req.body.price_per_hour!==null&&!isNaN(Number(req.body.price_per_hour))){patch.price_per_hour=Math.max(0,Number(req.body.price_per_hour));metaPatch.price_per_hour=patch.price_per_hour;}if(req.body.pos_x!==undefined){patch.pos_x=req.body.pos_x===null?null:Number(req.body.pos_x);metaPatch.pos_x=patch.pos_x;}if(req.body.pos_y!==undefined){patch.pos_y=req.body.pos_y===null?null:Number(req.body.pos_y);metaPatch.pos_y=patch.pos_y;}const allMeta=readSlotsMeta();allMeta[req.params.id]={...(allMeta[req.params.id]||{}),...metaPatch};writeSlotsMeta(allMeta);patch.updated_at=new Date().toISOString();let updatedData=null;try{const {data,error}=await db.from('slots').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;updatedData=data;}catch(dbErr){console.warn('[slots update fallback]',dbErr.message);const safePatch={};if(patch.code)safePatch.code=patch.code;if(patch.status)safePatch.status=patch.status;if(patch.type)safePatch.type=patch.type;safePatch.updated_at=patch.updated_at;const {data:fbData,error:fbErr}=await db.from('slots').update(safePatch).eq('id',req.params.id).select('*').single();if(fbErr)throw fbErr;updatedData=fbData;}const merged={...updatedData,price_per_hour:updatedData.price_per_hour??allMeta[req.params.id]?.price_per_hour??20,pos_x:updatedData.pos_x??allMeta[req.params.id]?.pos_x??null,pos_y:updatedData.pos_y??allMeta[req.params.id]?.pos_y??null,type:updatedData.type||allMeta[req.params.id]?.type||'ลูกค้าทั่วไป'};res.json(merged);}catch(e){res.status(400).json({error:e.message});}});
+app.patch('/api/admin/slots/:id',auth,admin,async(req,res)=>{try{const patch={};const metaPatch={};if(typeof req.body.code==='string'&&req.body.code.trim())patch.code=req.body.code.trim();if(['available','booked','unavailable'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.type==='string'&&req.body.type.trim()){patch.type=req.body.type.trim();metaPatch.type=patch.type;}if(req.body.price_per_hour!==undefined&&req.body.price_per_hour!==null&&!isNaN(Number(req.body.price_per_hour))){patch.price_per_hour=Math.max(0,Number(req.body.price_per_hour));metaPatch.price_per_hour=patch.price_per_hour;}if(req.body.pos_x!==undefined){patch.pos_x=req.body.pos_x===null?null:Number(req.body.pos_x);metaPatch.pos_x=patch.pos_x;}if(req.body.pos_y!==undefined){patch.pos_y=req.body.pos_y===null?null:Number(req.body.pos_y);metaPatch.pos_y=patch.pos_y;}if(req.body.sensor_enter_cm!==undefined&&req.body.sensor_enter_cm!==null&&!isNaN(Number(req.body.sensor_enter_cm))){const val=Math.max(1,Math.min(200,Number(req.body.sensor_enter_cm)));patch.sensor_enter_cm=val;metaPatch.sensor_enter_cm=val;}if(req.body.sensor_exit_cm!==undefined&&req.body.sensor_exit_cm!==null&&!isNaN(Number(req.body.sensor_exit_cm))){const val=Math.max(1,Math.min(200,Number(req.body.sensor_exit_cm)));patch.sensor_exit_cm=val;metaPatch.sensor_exit_cm=val;}const allMeta=readSlotsMeta();allMeta[req.params.id]={...(allMeta[req.params.id]||{}),...metaPatch};writeSlotsMeta(allMeta);patch.updated_at=new Date().toISOString();let updatedData=null;try{const {data,error}=await db.from('slots').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;updatedData=data;}catch(dbErr){console.warn('[slots update fallback]',dbErr.message);const safePatch={};if(patch.code)safePatch.code=patch.code;if(patch.status)safePatch.status=patch.status;if(patch.type)safePatch.type=patch.type;safePatch.updated_at=patch.updated_at;const {data:fbData,error:fbErr}=await db.from('slots').update(safePatch).eq('id',req.params.id).select('*').single();if(fbErr)throw fbErr;updatedData=fbData;}const merged={...updatedData,price_per_hour:updatedData.price_per_hour??allMeta[req.params.id]?.price_per_hour??20,pos_x:updatedData.pos_x??allMeta[req.params.id]?.pos_x??null,pos_y:updatedData.pos_y??allMeta[req.params.id]?.pos_y??null,type:updatedData.type||allMeta[req.params.id]?.type||'ลูกค้าทั่วไป',sensor_enter_cm:updatedData.sensor_enter_cm??allMeta[req.params.id]?.sensor_enter_cm??9.0,sensor_exit_cm:updatedData.sensor_exit_cm??allMeta[req.params.id]?.sensor_exit_cm??11.0};res.json(merged);}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/admin/slots/swap',auth,admin,async(req,res)=>{try{const {firstId,secondId}=req.body;const {data:slots,error}=await db.from('slots').select('id,floor,slot_order').in('id',[firstId,secondId]);if(error)throw error;if(!slots||slots.length!==2)return res.status(404).json({error:'ไม่พบช่องจอด'});const a=slots.find(x=>x.id===firstId),b=slots.find(x=>x.id===secondId);await db.from('slots').update({floor:b.floor,slot_order:b.slot_order,updated_at:new Date().toISOString()}).eq('id',a.id);await db.from('slots').update({floor:a.floor,slot_order:a.slot_order,updated_at:new Date().toISOString()}).eq('id',b.id);res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/admin/maintenance',auth,admin,async(req,res)=>{try{const {slotId,problemDetail}=req.body;if(!slotId||!String(problemDetail||'').trim())return res.status(400).json({error:'กรุณาระบุช่องจอดและรายละเอียด'});const {data,error}=await db.from('maintenance_logs').insert({id:id(),slot_id:slotId,problem_detail:String(problemDetail).trim(),status:'open'}).select('*').single();if(error)throw error;await db.from('slots').update({status:'unavailable',updated_at:new Date().toISOString()}).eq('id',slotId);res.json(data);}catch(e){res.status(400).json({error:e.message});}});
 app.post('/api/admin/maintenance/:id/resolve',auth,admin,async(req,res)=>{try{const {data:m,error}=await db.from('maintenance_logs').select('*').eq('id',req.params.id).maybeSingle();if(error)throw error;if(!m)return res.status(404).json({error:'ไม่พบรายการซ่อม'});await db.from('maintenance_logs').update({status:'resolved',resolved_at:new Date().toISOString()}).eq('id',m.id);await db.from('slots').update({status:'available',updated_at:new Date().toISOString()}).eq('id',m.slot_id);res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
@@ -870,9 +873,8 @@ app.post('/api/admin/system-alerts/test', auth, admin, async (req, res) => {
 
 
 // ─── IoT: Batch Telemetry จาก ESP32 Controller (esp32-f1-left, esp32-f1-right, esp32-f2-left, esp32-f2-right) ───
-// รองรับทั้ง Floor-1 (A1-A6), Floor-2 (B1-B6) และบอร์ดเดี่ยวทุกตัว
 // Body: { device_id: string, slots: [{ slot_id: string, distance_cm?: number, occupied: boolean, status?: string, stale?: boolean }] }
-// Response: { ok: true, barriers: [{ slot_id: string, gate_open: boolean }] }
+// Response: { ok: true, barriers: [{ slot_id: string, gate_open: boolean }], thresholds: [{ slot_id: string, enter_cm: number, exit_cm: number }] }
 async function processBatchTelemetry(deviceId, slotReadings) {
   const now = new Date().toISOString();
   const barrierCommands = [];
@@ -885,17 +887,32 @@ async function processBatchTelemetry(deviceId, slotReadings) {
       const isOnline = !reading.stale;
       const isOccupied = Boolean(reading.occupied);
 
-      // 1. อัปเดตสถานะเซ็นเซอร์ประจำช่องจอด (online/offline ตามสถานะบอร์ด และ occupied ตามระยะ)
-      const sensorUpdate = db
-        .from('devices')
-        .update({
-          presence: isOccupied ? 'occupied' : 'empty',
-          car_present: isOccupied,
-          status: isOnline ? 'online' : 'offline',
-          updated_at: now,
-        })
-        .eq('type', 'sensor')
-        .eq('linked_slot', slotId);
+      if (typeof reading.distance_cm === 'number' && !isNaN(reading.distance_cm)) {
+        liveDistances[slotId] = Math.round(reading.distance_cm * 10) / 10;
+      }
+
+      // 1. อัปเดตสถานะเซ็นเซอร์ประจำช่องจอด (online/offline, occupied, distance_cm)
+      const sensorPatch = {
+        presence: isOccupied ? 'occupied' : 'empty',
+        car_present: isOccupied,
+        status: isOnline ? 'online' : 'offline',
+        updated_at: now,
+      };
+      if (liveDistances[slotId] !== undefined) {
+        sensorPatch.distance_cm = liveDistances[slotId];
+      }
+
+      const sensorUpdate = (async () => {
+        try {
+          const { error } = await db.from('devices').update(sensorPatch).eq('type', 'sensor').eq('linked_slot', slotId);
+          if (error && error.message && error.message.includes('distance_cm')) {
+            delete sensorPatch.distance_cm;
+            await db.from('devices').update(sensorPatch).eq('type', 'sensor').eq('linked_slot', slotId);
+          }
+        } catch (e) {
+          console.warn('[telemetry sensor update warning]', e.message);
+        }
+      })();
 
       // 2. อัปเดตสถานะไม้กั้นประจำช่องจอดให้ online พร้อมรับคำสั่ง
       const barrierUpdate = db
@@ -936,7 +953,16 @@ async function processBatchTelemetry(deviceId, slotReadings) {
   // สั่ง lifecycle ให้ตรวจสอบสถานะการจองทันทีที่มีรถเข้า/ออก
   lifecycle().catch((err) => console.error('[batch-telemetry lifecycle error]', err));
 
-  return barrierCommands;
+  // สร้างรายการเกณฑ์ระยะเซ็นเซอร์ (thresholds) ของแต่ละช่องจอดส่งกลับไปให้ ESP32
+  const slotsMeta = readSlotsMeta();
+  const allSlotIds = ['A1','A2','A3','A4','A5','A6','B1','B2','B3','B4','B5','B6'];
+  const thresholds = allSlotIds.map(sId => ({
+    slot_id: sId,
+    enter_cm: Number(slotsMeta[sId]?.sensor_enter_cm ?? 9.0),
+    exit_cm: Number(slotsMeta[sId]?.sensor_exit_cm ?? 11.0)
+  }));
+
+  return { barriers: barrierCommands, thresholds };
 }
 
 app.post('/api/iot/batch-telemetry', async (req, res) => {
@@ -946,8 +972,8 @@ app.post('/api/iot/batch-telemetry', async (req, res) => {
     if (!id || !Array.isArray(slotReadings)) {
       return res.status(400).json({ error: 'device_id และ slots array จำเป็น' });
     }
-    const barriers = await processBatchTelemetry(id, slotReadings);
-    res.json({ ok: true, barriers });
+    const result = await processBatchTelemetry(id, slotReadings);
+    res.json({ ok: true, barriers: result.barriers, thresholds: result.thresholds });
   } catch (e) {
     console.error('[iot/batch-telemetry]', e);
     res.status(500).json({ error: e.message });
@@ -961,8 +987,8 @@ app.post('/api/iot/telemetry', async (req, res) => {
     if (!id || !Array.isArray(slots)) {
       return res.status(400).json({ error: 'device_id และ slots array จำเป็นต้องระบุ' });
     }
-    const barriers = await processBatchTelemetry(id, slots);
-    res.json({ ok: true, barriers });
+    const result = await processBatchTelemetry(id, slots);
+    res.json({ ok: true, barriers: result.barriers, thresholds: result.thresholds });
   } catch (e) {
     console.error('[iot telemetry]', e);
     res.status(400).json({ error: e.message });

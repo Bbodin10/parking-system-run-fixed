@@ -3100,24 +3100,48 @@ function AdminDevices({ data, reload, notify }) {
             <th>ช่องที่ผูก</th>
             <th>ชั้น</th>
             <th>สถานะ</th>
-            <th>การทำงาน</th>
+            <th>การทำงาน / ค่าเซ็นเซอร์</th>
+            <th>เกณฑ์ตรวจจับ</th>
             <th />
           </tr>
         </thead>
         <tbody>
-          {filtered.map((device) => (
-            <tr key={device.id}>
-              <td>{device.name}</td>
-              <td>{device.type === 'barrier' ? 'ไม้กั้นช่อง' : 'เซ็นเซอร์'}</td>
-              <td><strong>{device.linked_slot || '-'}</strong></td>
-              <td>ชั้น {device.floor}</td>
-              <td><span className={`badge ${device.status}`}>{device.status}</span></td>
-              <td>{device.type === 'barrier' ? (device.state === 'open' ? '🟢 เปิด' : '🔴 ปิด') : (device.presence === 'occupied' ? '🔴 มีรถ' : '🟢 ว่าง')}</td>
-              <td>
-                <button className="button compact" onClick={() => rename(device)}>เปลี่ยนชื่อ</button> <button className="button compact" onClick={() => link(device)}>ผูกช่อง</button> {device.type === 'barrier' && <button className="button primary compact" onClick={() => toggle(device)}>เปิด/ปิด</button>}
-              </td>
-            </tr>
-          ))}
+          {filtered.map((device) => {
+            const linkedSlot = (data.slots || []).find((s) => s.id === device.linked_slot || s.code === device.linked_slot);
+            return (
+              <tr key={device.id}>
+                <td>{device.name}</td>
+                <td>{device.type === 'barrier' ? 'ไม้กั้นช่อง' : 'เซ็นเซอร์'}</td>
+                <td><strong>{device.linked_slot || '-'}</strong></td>
+                <td>ชั้น {device.floor}</td>
+                <td><span className={`badge ${device.status}`}>{device.status}</span></td>
+                <td>
+                  {device.type === 'barrier' ? (
+                    device.state === 'open' ? '🟢 เปิด (ยกขึ้น)' : '🔴 ปิด (กั้นช่อง)'
+                  ) : (
+                    <span>
+                      {device.presence === 'occupied' ? '🔴 มีรถจอด' : '🟢 ว่าง'}
+                      {device.distance_cm != null && (
+                        <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700, color: 'var(--cyan)' }}>
+                          ({device.distance_cm} ซม.)
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </td>
+                <td>
+                  {device.type === 'sensor' && linkedSlot ? (
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      เข้า ≤ <strong style={{ color: '#f87171' }}>{linkedSlot.sensor_enter_cm ?? 9}</strong> / ออก &gt; <strong style={{ color: '#4ade80' }}>{linkedSlot.sensor_exit_cm ?? 11}</strong> ซม.
+                    </span>
+                  ) : '-'}
+                </td>
+                <td>
+                  <button className="button compact" onClick={() => rename(device)}>เปลี่ยนชื่อ</button> <button className="button compact" onClick={() => link(device)}>ผูกช่อง</button> {device.type === 'barrier' && <button className="button primary compact" onClick={() => toggle(device)}>เปิด/ปิด</button>}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </section>
@@ -3991,6 +4015,8 @@ function AdminLayout({ data, reload, notify }) {
   const [editType, setEditType] = useState('ลูกค้าทั่วไป');
   const [editTypePreset, setEditTypePreset] = useState('ลูกค้าทั่วไป');
   const [editCode, setEditCode] = useState('');
+  const [editSensorEnter, setEditSensorEnter] = useState(9.0);
+  const [editSensorExit, setEditSensorExit] = useState(11.0);
 
   const slots = data.slots.filter((slot) => Number(slot.floor) === Number(floor)).sort((a, b) => a.slot_order - b.slot_order);
   const maps = (data.parking_maps || []).filter((item) => Number(item.floor) === Number(floor)).sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
@@ -4012,6 +4038,8 @@ function AdminLayout({ data, reload, notify }) {
     setSlotToEdit(slot);
     setEditPrice(Number(slot.price_per_hour || 20));
     setEditCode(slot.code);
+    setEditSensorEnter(Number(slot.sensor_enter_cm ?? 9.0));
+    setEditSensorExit(Number(slot.sensor_exit_cm ?? 11.0));
     const rawType = slot.type || 'ลูกค้าทั่วไป';
     const normalizedType = rawType === 'ปกติ' ? 'ลูกค้าทั่วไป' : rawType;
     const isStandard = ['ลูกค้าทั่วไป', 'สมาชิก', 'ผู้พิการ', 'ชาร์จ EV'].includes(normalizedType);
@@ -4029,15 +4057,24 @@ function AdminLayout({ data, reload, notify }) {
     const finalType = editTypePreset === 'custom' ? (editType.trim() || 'ลูกค้าทั่วไป') : editTypePreset;
     const finalPrice = Math.max(0, Number(editPrice || 0));
     const finalCode = editCode.trim() || slotToEdit.code;
+    const finalEnter = Math.max(1, Math.min(200, Number(editSensorEnter || 9.0)));
+    const finalExit = Math.max(1, Math.min(200, Number(editSensorExit || 11.0)));
+
+    if (finalExit <= finalEnter) {
+      notify('ระยะรถออก (Exit) ต้องมากกว่าระยะรถเข้า (Enter) เสมอ เพื่อป้องกันเซ็นเซอร์กระพริบ', true);
+      return;
+    }
 
     try {
       await patchSlot(slotToEdit, {
         code: finalCode,
         price_per_hour: finalPrice,
-        type: finalType
+        type: finalType,
+        sensor_enter_cm: finalEnter,
+        sensor_exit_cm: finalExit
       });
       setSlotToEdit(null);
-      notify(`บันทึกการตั้งค่าช่อง ${finalCode} เรียบร้อยแล้ว (฿${finalPrice}/ชม. · ${finalType})`);
+      notify(`บันทึกการตั้งค่าช่อง ${finalCode} เรียบร้อยแล้ว (เกณฑ์เซ็นเซอร์: เข้า ≤ ${finalEnter}cm / ออก > ${finalExit}cm)`);
     } catch (err) {
       notify(err.message, true);
     }
@@ -4405,6 +4442,92 @@ function AdminLayout({ data, reload, notify }) {
                 />
               </div>
             )}
+
+            {/* ─── ตั้งค่าเกณฑ์ระยะเซ็นเซอร์อัลตราโซนิก (Ultrasonic Sensor Thresholds) ─── */}
+            {(() => {
+              const sensorDev = (data.devices || []).find((d) => d.type === 'sensor' && (d.linked_slot === slotToEdit.id || d.linked_slot === slotToEdit.code));
+              return (
+                <div style={{ marginTop: 14, marginBottom: 10, padding: '12px 14px', background: 'rgba(56, 189, 248, 0.05)', borderRadius: 12, border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>📡 เซ็นเซอร์วัดระยะอัลตราโซนิก</span>
+                    </span>
+                    {sensorDev && (
+                      <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: sensorDev.status === 'online' ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.1)', color: sensorDev.status === 'online' ? '#4ade80' : 'var(--muted)' }}>
+                        {sensorDev.status === 'online' ? '🟢 ออนไลน์' : '⚪ ออฟไลน์'}
+                      </span>
+                    )}
+                  </div>
+
+                  {sensorDev && (
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 12, background: 'rgba(0,0,0,0.25)', padding: '8px 12px', borderRadius: 8, fontSize: 12 }}>
+                      <div>
+                        <span style={{ color: 'var(--muted)' }}>ระยะวัดจริงล่าสุด: </span>
+                        <strong style={{ color: sensorDev.distance_cm != null ? '#38bdf8' : 'var(--muted)', fontSize: 13 }}>
+                          {sensorDev.distance_cm != null ? `${sensorDev.distance_cm} ซม.` : 'ยังไม่มีค่า'}
+                        </strong>
+                      </div>
+                      <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 12 }}>
+                        <span style={{ color: 'var(--muted)' }}>สถานะตรวจจับ: </span>
+                        <strong style={{ color: sensorDev.presence === 'occupied' ? '#f87171' : '#4ade80' }}>
+                          {sensorDev.presence === 'occupied' ? '🚗 มีรถจอด' : '✨ ว่าง'}
+                        </strong>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label className="slot-edit-label" style={{ fontSize: 12, color: '#f87171', marginBottom: 4 }}>
+                        ระยะมีรถเข้า (Enter)
+                      </label>
+                      <div className="slot-edit-input-group" style={{ height: 38 }}>
+                        <input
+                          type="number"
+                          min="1"
+                          max="200"
+                          step="0.5"
+                          className="slot-edit-input"
+                          style={{ border: 'none', background: 'transparent', fontWeight: 700, color: '#f87171', fontSize: 15 }}
+                          value={editSensorEnter}
+                          onChange={(e) => setEditSensorEnter(e.target.value)}
+                        />
+                        <span className="slot-edit-input-suffix" style={{ fontSize: 12 }}>ซม.</span>
+                      </div>
+                      <span style={{ fontSize: 10.5, color: 'var(--muted)', display: 'block', marginTop: 3 }}>
+                        ถ้าระยะ ≤ ค่านี้ ถือว่ามีรถเข้า
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="slot-edit-label" style={{ fontSize: 12, color: '#4ade80', marginBottom: 4 }}>
+                        ระยะรถออก (Exit)
+                      </label>
+                      <div className="slot-edit-input-group" style={{ height: 38 }}>
+                        <input
+                          type="number"
+                          min="1"
+                          max="200"
+                          step="0.5"
+                          className="slot-edit-input"
+                          style={{ border: 'none', background: 'transparent', fontWeight: 700, color: '#4ade80', fontSize: 15 }}
+                          value={editSensorExit}
+                          onChange={(e) => setEditSensorExit(e.target.value)}
+                        />
+                        <span className="slot-edit-input-suffix" style={{ fontSize: 12 }}>ซม.</span>
+                      </div>
+                      <span style={{ fontSize: 10.5, color: 'var(--muted)', display: 'block', marginTop: 3 }}>
+                        ถ้าระยะ &gt; ค่านี้ ถือว่ารถออก
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
+                    💡 <em>ระบบใช้ Hysteresis (ระยะออกต้องมากกว่าระยะเข้า เช่น 9 ซม. / 11 ซม.) เพื่อป้องกันการตรวจจับสับสน</em>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ─── ควบคุมไม้กั้นประจำช่องจอด ─── */}
             {(() => {

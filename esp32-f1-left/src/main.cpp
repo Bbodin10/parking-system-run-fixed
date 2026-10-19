@@ -35,9 +35,9 @@ bool peerF2RightKnown = false;
 
 /* ======================== HARDWARE (FLOOR 1 LEFT) ======================= */
 SlotHardware slots[NUM_SLOTS] = {
-    {"A1", 23, 34, 19, 26, 25, Servo(), -1.0f, false, false, 0, false},
-    {"A2", 22, 35, 18, 33, 32, Servo(), -1.0f, false, false, 0, false},
-    {"A3", 21, 27, 4, 14, 13, Servo(), -1.0f, false, false, 0, false}};
+    {"A1", 23, 34, 19, 26, 25, Servo(), -1.0f, false, false, 0, false, 9.0f, 11.0f},
+    {"A2", 22, 35, 18, 33, 32, Servo(), -1.0f, false, false, 0, false, 9.0f, 11.0f},
+    {"A3", 21, 27, 4, 14, 13, Servo(), -1.0f, false, false, 0, false, 9.0f, 11.0f}};
 
 /* ------------------- INTER-TASK SHARED DATA --------------------- */
 SharedSlotData sharedLocalSlots[NUM_SLOTS];     // SensorTask เขียน, NetworkTask อ่าน
@@ -288,9 +288,12 @@ void scanSensorsSequential() {
     float rawDist = measureUltrasonicSingle(slots[i].pinTrig, slots[i].pinEcho);
     slots[i].distanceCm = rawDist;
 
-    if (rawDist > 0.0f && rawDist < HYSTERESIS_ENTER_CM) {
+    float enterThresh = slots[i].enterCm > 0.0f ? slots[i].enterCm : HYSTERESIS_ENTER_CM;
+    float exitThresh = slots[i].exitCm > 0.0f ? slots[i].exitCm : HYSTERESIS_EXIT_CM;
+
+    if (rawDist > 0.0f && rawDist < enterThresh) {
       slots[i].candidateOccupied = true;
-    } else if (rawDist > HYSTERESIS_EXIT_CM || rawDist < 0.0f) {
+    } else if (rawDist > exitThresh || rawDist < 0.0f) {
       slots[i].candidateOccupied = false;
     }
 
@@ -511,6 +514,7 @@ bool transmitBatchTelemetry(const char *reason) {
     DeserializationError err = deserializeJson(inDoc, responsePayload);
     if (!err && inDoc["barriers"].is<JsonArray>()) {
       JsonArray barriers = inDoc["barriers"].as<JsonArray>();
+      JsonArray thresholds = inDoc["thresholds"].as<JsonArray>();
 
       BarrierCommandPayload cmdF1Right = {0};
       BarrierCommandPayload cmdF2Left  = {0};
@@ -521,11 +525,26 @@ bool transmitBatchTelemetry(const char *reason) {
         bool gateOpen = b["gate_open"] | false;
         if (slotId == nullptr) continue;
 
+        // ค้นหาเกณฑ์ระยะเซ็นเซอร์สำหรับช่องจอดนี้
+        float enterVal = 9.0f;
+        float exitVal = 11.0f;
+        if (!thresholds.isNull()) {
+          for (JsonObject t : thresholds) {
+            if (strcmp(t["slot_id"] | "", slotId) == 0) {
+              enterVal = t["enter_cm"] | 9.0f;
+              exitVal = t["exit_cm"] | 11.0f;
+              break;
+            }
+          }
+        }
+
         // Check Local A1-A3
         bool isLocal = false;
         for (int i = 0; i < NUM_SLOTS; i++) {
           if (strcmp(slots[i].slotId, slotId) == 0) {
             updateBarrierGate(i, gateOpen);
+            slots[i].enterCm = enterVal;
+            slots[i].exitCm = exitVal;
             isLocal = true;
             break;
           }
@@ -539,6 +558,8 @@ bool transmitBatchTelemetry(const char *reason) {
             strncpy(cmdF1Right.commands[idx].slotId, slotId, 3);
             cmdF1Right.commands[idx].slotId[3] = '\0';
             cmdF1Right.commands[idx].gateOpen = gateOpen;
+            cmdF1Right.commands[idx].enterCm = enterVal;
+            cmdF1Right.commands[idx].exitCm = exitVal;
           }
         }
         // Route to F2-Left: B1, B2, B3
@@ -548,6 +569,8 @@ bool transmitBatchTelemetry(const char *reason) {
             strncpy(cmdF2Left.commands[idx].slotId, slotId, 3);
             cmdF2Left.commands[idx].slotId[3] = '\0';
             cmdF2Left.commands[idx].gateOpen = gateOpen;
+            cmdF2Left.commands[idx].enterCm = enterVal;
+            cmdF2Left.commands[idx].exitCm = exitVal;
           }
         }
         // Route to F2-Right: B4, B5, B6
@@ -557,6 +580,8 @@ bool transmitBatchTelemetry(const char *reason) {
             strncpy(cmdF2Right.commands[idx].slotId, slotId, 3);
             cmdF2Right.commands[idx].slotId[3] = '\0';
             cmdF2Right.commands[idx].gateOpen = gateOpen;
+            cmdF2Right.commands[idx].enterCm = enterVal;
+            cmdF2Right.commands[idx].exitCm = exitVal;
           }
         }
       }
