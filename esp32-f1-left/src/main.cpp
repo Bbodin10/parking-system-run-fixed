@@ -1,9 +1,11 @@
 /* =============================================================================
  * Project: ESP32 Central Smart Parking Master Gateway (Floor 1 Left)
  * Board Role: Central Master Gateway for Entire Parking System (A1-A6 & B1-B6)
- *   - Core 1: SensorTask - Local Ultrasonic (A1-A3), Hysteresis, Debounce, LEDs & Servos
+ *   - Core 1: SensorTask - Local Ultrasonic (A1-A3), Hysteresis, Debounce, LEDs
+ * & Servos
  *   - Core 0: NetworkTask - HTTPS 12-Slot Batch Telemetry to Railway Backend,
- *             ESP-NOW Receiver & Auto-Router for all 3 Slaves (F1-Right, F2-Left, F2-Right)
+ *             ESP-NOW Receiver & Auto-Router for all 3 Slaves (F1-Right,
+ * F2-Left, F2-Right)
  * =============================================================================
  */
 
@@ -26,39 +28,35 @@ const char *BACKEND_URL =
 // ⚠️ MAC Address ของบอร์ด Slaves ทั้ง 3 ตัว
 // (ระบบมี Auto-Learning MAC อัตโนมัติทันทีที่บอร์ดเปิดเครื่องและส่งข้อมูลเข้ามา)
 uint8_t peerF1Right[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // A4, A5, A6
-uint8_t peerF2Left[6]  = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // B1, B2, B3
+uint8_t peerF2Left[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};  // B1, B2, B3
 uint8_t peerF2Right[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // B4, B5, B6
 
 bool peerF1RightKnown = false;
-bool peerF2LeftKnown  = false;
+bool peerF2LeftKnown = false;
 bool peerF2RightKnown = false;
 
 /* ======================== HARDWARE (FLOOR 1 LEFT) ======================= */
-SlotHardware slots[NUM_SLOTS] = {
-    {"A1", 23, 34, 19, 26, 25, Servo(), -1.0f, false, false, 0, false, 9.0f, 11.0f},
-    {"A2", 22, 35, 18, 33, 32, Servo(), -1.0f, false, false, 0, false, 9.0f, 11.0f},
-    {"A3", 21, 27, 4, 14, 13, Servo(), -1.0f, false, false, 0, false, 9.0f, 11.0f}};
+SlotHardware slots[NUM_SLOTS] = {{"A1", 23, 34, 19, 26, 25, Servo(), -1.0f,
+                                  false, false, 0, false, 9.0f, 11.0f},
+                                 {"A2", 22, 35, 18, 33, 32, Servo(), -1.0f,
+                                  false, false, 0, false, 9.0f, 11.0f},
+                                 {"A3", 21, 27, 4, 14, 13, Servo(), -1.0f,
+                                  false, false, 0, false, 9.0f, 11.0f}};
 
 /* ------------------- INTER-TASK SHARED DATA --------------------- */
-SharedSlotData sharedLocalSlots[NUM_SLOTS];     // SensorTask เขียน, NetworkTask อ่าน
-SemaphoreHandle_t xDataMutex = NULL;            // Mutex ป้องกัน Race Condition
-volatile bool statusChangedEvent = false;       // Trigger จาก Sensor debouncing
-volatile bool networkStatusChanged = false;     // Trigger ส่งไปยัง NetworkTask
+SharedSlotData sharedLocalSlots[NUM_SLOTS]; // SensorTask เขียน, NetworkTask อ่าน
+SemaphoreHandle_t xDataMutex = NULL;        // Mutex ป้องกัน Race Condition
+volatile bool statusChangedEvent = false;   // Trigger จาก Sensor debouncing
+volatile bool networkStatusChanged = false; // Trigger ส่งไปยัง NetworkTask
 
 // Auto-Close Timer สำหรับแต่ละช่องจอด (ปิดหลังรถออกจากช่อง 3 วินาที)
 unsigned long autoCloseTimer[NUM_SLOTS] = {0, 0, 0};
 
 /* ------------------- REMOTE SLOT DATA (A4-A6, B1-B6 from ESP-NOW) ------ */
 volatile RemoteSlotData remoteSlots[NUM_REMOTE_SLOTS] = {
-    {"A4", -1.0f, false},
-    {"A5", -1.0f, false},
-    {"A6", -1.0f, false},
-    {"B1", -1.0f, false},
-    {"B2", -1.0f, false},
-    {"B3", -1.0f, false},
-    {"B4", -1.0f, false},
-    {"B5", -1.0f, false},
-    {"B6", -1.0f, false}};
+    {"A4", -1.0f, false}, {"A5", -1.0f, false}, {"A6", -1.0f, false},
+    {"B1", -1.0f, false}, {"B2", -1.0f, false}, {"B3", -1.0f, false},
+    {"B4", -1.0f, false}, {"B5", -1.0f, false}, {"B6", -1.0f, false}};
 volatile unsigned long lastRemoteSlotUpdate[NUM_REMOTE_SLOTS] = {0};
 
 /* ------------------- FUNCTION DECLARATIONS ---------------------- */
@@ -81,7 +79,8 @@ void registerPeerIfNeeded(const uint8_t *mac) {
     peerInfo.channel = 0;
     peerInfo.encrypt = false;
     if (esp_now_add_peer(&peerInfo) == ESP_OK) {
-      Serial.printf("[ESP-NOW] Auto-registered new Slave peer: %02X:%02X:%02X:%02X:%02X:%02X\n",
+      Serial.printf("[ESP-NOW] Auto-registered new Slave peer: "
+                    "%02X:%02X:%02X:%02X:%02X:%02X\n",
                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     }
   }
@@ -100,13 +99,19 @@ void onEspNowRecv(const uint8_t *mac, const uint8_t *data, int len) {
       const char *incomingId = payload.slots[i].slotId;
 
       // Auto-learn peer role from slot prefix
-      if (strncmp(incomingId, "A4", 2) == 0 || strncmp(incomingId, "A5", 2) == 0 || strncmp(incomingId, "A6", 2) == 0) {
+      if (strncmp(incomingId, "A4", 2) == 0 ||
+          strncmp(incomingId, "A5", 2) == 0 ||
+          strncmp(incomingId, "A6", 2) == 0) {
         memcpy(peerF1Right, mac, 6);
         peerF1RightKnown = true;
-      } else if (strncmp(incomingId, "B1", 2) == 0 || strncmp(incomingId, "B2", 2) == 0 || strncmp(incomingId, "B3", 2) == 0) {
+      } else if (strncmp(incomingId, "B1", 2) == 0 ||
+                 strncmp(incomingId, "B2", 2) == 0 ||
+                 strncmp(incomingId, "B3", 2) == 0) {
         memcpy(peerF2Left, mac, 6);
         peerF2LeftKnown = true;
-      } else if (strncmp(incomingId, "B4", 2) == 0 || strncmp(incomingId, "B5", 2) == 0 || strncmp(incomingId, "B6", 2) == 0) {
+      } else if (strncmp(incomingId, "B4", 2) == 0 ||
+                 strncmp(incomingId, "B5", 2) == 0 ||
+                 strncmp(incomingId, "B6", 2) == 0) {
         memcpy(peerF2Right, mac, 6);
         peerF2RightKnown = true;
       }
@@ -138,14 +143,16 @@ void onEspNowSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 /* =============================================================================
  * SETUP INITIALIZATION
- * ============================================================================= */
+ * =============================================================================
+ */
 void setup() {
   Serial.begin(115200);
   delay(200);
 
   Serial.println();
   Serial.println("==========================================================");
-  Serial.println("[CENTRAL MASTER GATEWAY] ESP32 Parking Controller Initializing...");
+  Serial.println(
+      "[CENTRAL MASTER GATEWAY] ESP32 Parking Controller Initializing...");
   Serial.println("==========================================================");
 
   // เตรียมพินฮาร์ดแวร์สำหรับช่องจอด A1-A3
@@ -165,9 +172,11 @@ void setup() {
 
   // ─── ไม้กั้นทดสอบเปิด-ปิดตัวเอง 1 ครั้งทุกช่องเมื่อเริ่มทำงาน (Boot Self-Test) ───
   Serial.println();
-  Serial.println("[ACTUATOR] Running Boot Self-Test: Sweeping barrier gates (OPEN -> CLOSE)...");
+  Serial.println("[ACTUATOR] Running Boot Self-Test: Sweeping barrier gates "
+                 "(OPEN -> CLOSE)...");
   for (int i = 0; i < NUM_SLOTS; i++) {
-    Serial.printf("[ACTUATOR] Self-testing slot %s barrier gate...\n", slots[i].slotId);
+    Serial.printf("[ACTUATOR] Self-testing slot %s barrier gate...\n",
+                  slots[i].slotId);
 
     // 1. หมุนเปิด (OPEN: SERVO_OPEN_ANGLE)
     slots[i].servoInstance.write(SERVO_OPEN_ANGLE);
@@ -179,8 +188,10 @@ void setup() {
     slots[i].isGateOpen = false;
     delay(700);
   }
-  Serial.println("[ACTUATOR] Boot Self-Test Completed. All gates locked in CLOSED state.");
-  Serial.println("[ACTUATOR] Ready to receive OPEN commands from Web / Backend.\n");
+  Serial.println(
+      "[ACTUATOR] Boot Self-Test Completed. All gates locked in CLOSED state.");
+  Serial.println(
+      "[ACTUATOR] Ready to receive OPEN commands from Web / Backend.\n");
 
   xDataMutex = xSemaphoreCreateMutex();
 
@@ -189,22 +200,23 @@ void setup() {
   scanSensorsSequential();
 
   // สร้าง FreeRTOS Tasks แยก Core
-  xTaskCreatePinnedToCore(sensorTaskFunc,  "SensorTask",  4096, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(networkTaskFunc, "NetworkTask", 8192, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(sensorTaskFunc, "SensorTask", 4096, NULL, 2, NULL, 1);
+  xTaskCreatePinnedToCore(networkTaskFunc, "NetworkTask", 8192, NULL, 1, NULL,
+                          0);
 
   transmitBatchTelemetry("Initial Power-on Synchronization");
 }
 
 /* =============================================================================
  * MAIN LOOP
- * ============================================================================= */
-void loop() {
-  vTaskDelay(portMAX_DELAY);
-}
+ * =============================================================================
+ */
+void loop() { vTaskDelay(portMAX_DELAY); }
 
 /* =============================================================================
  * SENSOR TASK (Core 1)
- * ============================================================================= */
+ * =============================================================================
+ */
 void sensorTaskFunc(void *pvParameters) {
   TickType_t lastTerminalLog = xTaskGetTickCount();
 
@@ -223,7 +235,8 @@ void sensorTaskFunc(void *pvParameters) {
       xSemaphoreGive(xDataMutex);
     }
 
-    if (xTaskGetTickCount() - lastTerminalLog >= pdMS_TO_TICKS(TERMINAL_LOG_INTERVAL)) {
+    if (xTaskGetTickCount() - lastTerminalLog >=
+        pdMS_TO_TICKS(TERMINAL_LOG_INTERVAL)) {
       lastTerminalLog = xTaskGetTickCount();
       printTerminalDashboard();
     }
@@ -234,7 +247,8 @@ void sensorTaskFunc(void *pvParameters) {
 
 /* =============================================================================
  * NETWORK TASK (Core 0)
- * ============================================================================= */
+ * =============================================================================
+ */
 void networkTaskFunc(void *pvParameters) {
   unsigned long lastPostTime = 0;
   unsigned long lastReconnect = 0;
@@ -258,7 +272,8 @@ void networkTaskFunc(void *pvParameters) {
     if (WiFi.status() != WL_CONNECTED &&
         (now - lastReconnect >= WIFI_RECONNECT_INTERVAL_MS)) {
       lastReconnect = now;
-      Serial.println("[WIFI] Warning: Connection lost! Attempting background reconnect...");
+      Serial.println("[WIFI] Warning: Connection lost! Attempting background "
+                     "reconnect...");
       WiFi.reconnect();
     }
 
@@ -268,7 +283,8 @@ void networkTaskFunc(void *pvParameters) {
 
 /* =============================================================================
  * SENSOR SCANNING & HYSTERESIS LOGIC
- * ============================================================================= */
+ * =============================================================================
+ */
 float measureUltrasonicSingle(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -277,7 +293,8 @@ float measureUltrasonicSingle(int trigPin, int echoPin) {
   digitalWrite(trigPin, LOW);
 
   unsigned long duration = pulseIn(echoPin, HIGH, 18000);
-  if (duration == 0) return -1.0f;
+  if (duration == 0)
+    return -1.0f;
   return (float)(duration * 0.0343 / 2.0);
 }
 
@@ -288,8 +305,10 @@ void scanSensorsSequential() {
     float rawDist = measureUltrasonicSingle(slots[i].pinTrig, slots[i].pinEcho);
     slots[i].distanceCm = rawDist;
 
-    float enterThresh = slots[i].enterCm > 0.0f ? slots[i].enterCm : HYSTERESIS_ENTER_CM;
-    float exitThresh = slots[i].exitCm > 0.0f ? slots[i].exitCm : HYSTERESIS_EXIT_CM;
+    float enterThresh =
+        slots[i].enterCm > 0.0f ? slots[i].enterCm : HYSTERESIS_ENTER_CM;
+    float exitThresh =
+        slots[i].exitCm > 0.0f ? slots[i].exitCm : HYSTERESIS_EXIT_CM;
 
     if (rawDist > 0.0f && rawDist < enterThresh) {
       slots[i].candidateOccupied = true;
@@ -309,7 +328,9 @@ void scanSensorsSequential() {
 
         // ─── เมื่อรถออกจากช่องจอด (เคยมีรถจอด -> กลายเป็นช่องว่าง) ───
         if (wasOccupied && !slots[i].confirmedOccupied) {
-          Serial.printf("[AUTO-CLOSE] Slot %s: Car exited slot! Starting 3-second countdown to close barrier...\n", slots[i].slotId);
+          Serial.printf("[AUTO-CLOSE] Slot %s: Car exited slot! Starting "
+                        "3-second countdown to close barrier...\n",
+                        slots[i].slotId);
           autoCloseTimer[i] = now;
         }
       }
@@ -318,10 +339,13 @@ void scanSensorsSequential() {
     }
 
     // ─── ปิดไม้กั้นอัตโนมัติเมื่อครบ 3 วินาทีหลังจากรถออกจากช่องจอด ───
-    if (autoCloseTimer[i] > 0 && (now - autoCloseTimer[i] >= AUTO_CLOSE_DELAY_MS)) {
+    if (autoCloseTimer[i] > 0 &&
+        (now - autoCloseTimer[i] >= AUTO_CLOSE_DELAY_MS)) {
       autoCloseTimer[i] = 0;
       if (slots[i].isGateOpen) {
-        Serial.printf("[AUTO-CLOSE] Slot %s: 3 seconds elapsed after car exit -> Closing barrier gate.\n", slots[i].slotId);
+        Serial.printf("[AUTO-CLOSE] Slot %s: 3 seconds elapsed after car exit "
+                      "-> Closing barrier gate.\n",
+                      slots[i].slotId);
         updateBarrierGate(i, false);
       }
     }
@@ -333,13 +357,14 @@ void scanSensorsSequential() {
 /* =============================================================================
  * ACTUATOR & INDICATOR CONTROLS (Common-Cathode RGB: Active-HIGH)
  * ขาร่วมต่อ GND: HIGH = ติด, LOW = ดับ
- * ============================================================================= */
+ * =============================================================================
+ */
 void updateSlotIndicators(int index) {
   if (slots[index].confirmedOccupied) {
-    digitalWrite(slots[index].pinLedRed, HIGH); // แดงติด (เมื่อมีรถจอด)
+    digitalWrite(slots[index].pinLedRed, HIGH);  // แดงติด (เมื่อมีรถจอด)
     digitalWrite(slots[index].pinLedGreen, LOW); // เขียวดับ
   } else {
-    digitalWrite(slots[index].pinLedRed, LOW);   // แดงดับ
+    digitalWrite(slots[index].pinLedRed, LOW);    // แดงดับ
     digitalWrite(slots[index].pinLedGreen, HIGH); // เขียวติด (เมื่อช่องว่าง)
   }
 }
@@ -347,7 +372,8 @@ void updateSlotIndicators(int index) {
 void updateBarrierGate(int index, bool open) {
   if (slots[index].isGateOpen != open) {
     slots[index].isGateOpen = open;
-    slots[index].servoInstance.write(open ? SERVO_OPEN_ANGLE : SERVO_CLOSED_ANGLE);
+    slots[index].servoInstance.write(open ? SERVO_OPEN_ANGLE
+                                          : SERVO_CLOSED_ANGLE);
     Serial.printf("[ACTUATOR] Slot %s Barrier Gate -> %s (%d deg)\n",
                   slots[index].slotId, open ? "OPEN" : "CLOSED",
                   open ? SERVO_OPEN_ANGLE : SERVO_CLOSED_ANGLE);
@@ -356,11 +382,14 @@ void updateBarrierGate(int index, bool open) {
 
 /* =============================================================================
  * SERIAL TERMINAL DASHBOARD
- * ============================================================================= */
+ * =============================================================================
+ */
 void printTerminalDashboard() {
   Serial.println("\n===== [CENTRAL MASTER GATEWAY DASHBOARD] =====");
-  Serial.println("SLOT | DISTANCE | SENSOR RAW | CONFIRMED    | BARRIER  | LED");
-  Serial.println("-----|----------|------------|--------------|----------|------");
+  Serial.println(
+      "SLOT | DISTANCE | SENSOR RAW | CONFIRMED    | BARRIER  | LED");
+  Serial.println(
+      "-----|----------|------------|--------------|----------|------");
 
   // Local Slots (A1-A3)
   for (int i = 0; i < NUM_SLOTS; i++) {
@@ -385,21 +414,24 @@ void printTerminalDashboard() {
     if (remoteSlots[i].distanceCm < 0)
       snprintf(distBuf, sizeof(distBuf), " OutRange");
     else
-      snprintf(distBuf, sizeof(distBuf), "  %5.1f  ", remoteSlots[i].distanceCm);
+      snprintf(distBuf, sizeof(distBuf), "  %5.1f  ",
+               remoteSlots[i].distanceCm);
 
     unsigned long slotAge = millis() - lastRemoteSlotUpdate[i];
-    bool isStale = (slotAge > ESPNOW_STALE_TIMEOUT_MS) || (lastRemoteSlotUpdate[i] == 0);
+    bool isStale =
+        (slotAge > ESPNOW_STALE_TIMEOUT_MS) || (lastRemoteSlotUpdate[i] == 0);
 
-    Serial.printf(" %-3s |  %s  |     -      | %-12s |    -     | %s\n",
-                  (const char *)remoteSlots[i].slotId,
-                  distBuf,
-                  isStale ? "OFFLINE" : (remoteSlots[i].occupied ? "UNAVAILABLE" : "AVAILABLE  "),
-                  isStale ? "GREY" : (remoteSlots[i].occupied ? "RED" : "GREEN"));
+    Serial.printf(
+        " %-3s |  %s  |     -      | %-12s |    -     | %s\n",
+        (const char *)remoteSlots[i].slotId, distBuf,
+        isStale ? "OFFLINE"
+                : (remoteSlots[i].occupied ? "UNAVAILABLE" : "AVAILABLE  "),
+        isStale ? "GREY" : (remoteSlots[i].occupied ? "RED" : "GREEN"));
   }
 
   Serial.printf("Slaves: F1-Right: %s | F2-Left: %s | F2-Right: %s\n",
                 peerF1RightKnown ? "LINKED" : "WAITING",
-                peerF2LeftKnown  ? "LINKED" : "WAITING",
+                peerF2LeftKnown ? "LINKED" : "WAITING",
                 peerF2RightKnown ? "LINKED" : "WAITING");
   Serial.printf("WiFi: %s (%d dBm) | Free Heap: %u bytes\n",
                 WiFi.status() == WL_CONNECTED ? "ONLINE" : "OFFLINE",
@@ -409,7 +441,8 @@ void printTerminalDashboard() {
 
 /* =============================================================================
  * NETWORK & TWO-WAY BATCH TELEMETRY TRANSMISSION
- * ============================================================================= */
+ * =============================================================================
+ */
 void connectWiFi() {
   Serial.printf("[WIFI] Connecting to SSID: %s ", WIFI_SSID);
   WiFi.mode(WIFI_AP_STA);
@@ -425,12 +458,16 @@ void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.printf("[WIFI] Connected! IP: %s\n",
                   WiFi.localIP().toString().c_str());
-    Serial.println("==========================================================");
-    Serial.printf("[INFO] ★ WiFi Channel: %d  <- นำไปใส่ WIFI_CHANNEL ใน Slaves\n",
-                  WiFi.channel());
-    Serial.printf("[INFO] ★ My MAC Address: %s  <- นำไปใส่ masterMac ใน Slaves ทุกตัว\n",
-                  WiFi.macAddress().c_str());
-    Serial.println("==========================================================");
+    Serial.println(
+        "==========================================================");
+    Serial.printf(
+        "[INFO] ★ WiFi Channel: %d  <- นำไปใส่ WIFI_CHANNEL ใน Slaves\n",
+        WiFi.channel());
+    Serial.printf(
+        "[INFO] ★ My MAC Address: %s  <- นำไปใส่ masterMac ใน Slaves ทุกตัว\n",
+        WiFi.macAddress().c_str());
+    Serial.println(
+        "==========================================================");
   } else {
     Serial.println("[WIFI] Connection Failed. Offline mode...");
   }
@@ -445,7 +482,8 @@ void connectWiFi() {
   esp_now_register_recv_cb(onEspNowRecv);
   esp_now_register_send_cb(onEspNowSent);
 
-  Serial.println("[ESP-NOW] Central Gateway Ready. Auto-pairing enabled for all Slaves.");
+  Serial.println(
+      "[ESP-NOW] Central Gateway Ready. Auto-pairing enabled for all Slaves.");
 }
 
 bool transmitBatchTelemetry(const char *reason) {
@@ -488,8 +526,7 @@ bool transmitBatchTelemetry(const char *reason) {
     slotObj["slot_id"] = (const char *)remoteSlots[i].slotId;
     slotObj["distance_cm"] = remoteSlots[i].distanceCm;
     slotObj["occupied"] = (bool)remoteSlots[i].occupied;
-    slotObj["status"] =
-        remoteSlots[i].occupied ? "unavailable" : "available";
+    slotObj["status"] = remoteSlots[i].occupied ? "unavailable" : "available";
 
     unsigned long age = nowMs - lastRemoteSlotUpdate[i];
     if (age > ESPNOW_STALE_TIMEOUT_MS || lastRemoteSlotUpdate[i] == 0) {
@@ -518,13 +555,14 @@ bool transmitBatchTelemetry(const char *reason) {
       JsonArray thresholds = inDoc["thresholds"].as<JsonArray>();
 
       BarrierCommandPayload cmdF1Right = {0};
-      BarrierCommandPayload cmdF2Left  = {0};
+      BarrierCommandPayload cmdF2Left = {0};
       BarrierCommandPayload cmdF2Right = {0};
 
       for (JsonObject b : barriers) {
         const char *slotId = b["slot_id"];
         bool gateOpen = b["gate_open"] | false;
-        if (slotId == nullptr) continue;
+        if (slotId == nullptr)
+          continue;
 
         // ค้นหาเกณฑ์ระยะเซ็นเซอร์สำหรับช่องจอดนี้
         float enterVal = 9.0f;
@@ -550,10 +588,12 @@ bool transmitBatchTelemetry(const char *reason) {
             break;
           }
         }
-        if (isLocal) continue;
+        if (isLocal)
+          continue;
 
         // Route to F1-Right: A4, A5, A6
-        if (strncmp(slotId, "A4", 2) == 0 || strncmp(slotId, "A5", 2) == 0 || strncmp(slotId, "A6", 2) == 0) {
+        if (strncmp(slotId, "A4", 2) == 0 || strncmp(slotId, "A5", 2) == 0 ||
+            strncmp(slotId, "A6", 2) == 0) {
           if (cmdF1Right.numCommands < 3) {
             int idx = cmdF1Right.numCommands++;
             strncpy(cmdF1Right.commands[idx].slotId, slotId, 3);
@@ -564,7 +604,9 @@ bool transmitBatchTelemetry(const char *reason) {
           }
         }
         // Route to F2-Left: B1, B2, B3
-        else if (strncmp(slotId, "B1", 2) == 0 || strncmp(slotId, "B2", 2) == 0 || strncmp(slotId, "B3", 2) == 0) {
+        else if (strncmp(slotId, "B1", 2) == 0 ||
+                 strncmp(slotId, "B2", 2) == 0 ||
+                 strncmp(slotId, "B3", 2) == 0) {
           if (cmdF2Left.numCommands < 3) {
             int idx = cmdF2Left.numCommands++;
             strncpy(cmdF2Left.commands[idx].slotId, slotId, 3);
@@ -575,7 +617,9 @@ bool transmitBatchTelemetry(const char *reason) {
           }
         }
         // Route to F2-Right: B4, B5, B6
-        else if (strncmp(slotId, "B4", 2) == 0 || strncmp(slotId, "B5", 2) == 0 || strncmp(slotId, "B6", 2) == 0) {
+        else if (strncmp(slotId, "B4", 2) == 0 ||
+                 strncmp(slotId, "B5", 2) == 0 ||
+                 strncmp(slotId, "B6", 2) == 0) {
           if (cmdF2Right.numCommands < 3) {
             int idx = cmdF2Right.numCommands++;
             strncpy(cmdF2Right.commands[idx].slotId, slotId, 3);
