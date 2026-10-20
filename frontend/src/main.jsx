@@ -410,71 +410,101 @@ function Header({ user, onLogout, lastUpdated, data, setView, notify, reload }) 
   const activeAlerts = (data?.system_alerts || []).filter(a => a.status === 'active');
   const criticalCount = activeAlerts.filter(a => a.priority === 'CRITICAL').length;
 
-  return <header className="topbar">
-    <div className="brand">
-      <img src="/logo.png" alt="Parking Logo" style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 15px rgba(32, 135, 255, 0.35)', border: '1px solid rgba(255, 255, 255, 0.15)' }} />
-      <div><strong>ระบบจัดการที่จอดรถ</strong><span>SMART PARKING · SUPABASE · ESP32</span></div>
-    </div>
-    <div className="user-menu">
-      <span className="connection-pill live-pill"><span className="live-dot" />LIVE · {timeStr}</span>
-      {user.role === 'admin' && activeAlerts.length > 0 && (
+  return (
+    <header className="topbar">
+      <div className="topbar-row-main">
+        <div className="brand">
+          <img
+            src="/logo.png"
+            alt="Parking Logo"
+            className="brand-logo"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              objectFit: 'cover',
+              flexShrink: 0,
+              boxShadow: '0 0 15px rgba(32, 135, 255, 0.35)',
+              border: '1px solid rgba(255, 255, 255, 0.15)'
+            }}
+          />
+          <div className="brand-titles">
+            <strong>ระบบจัดการที่จอดรถ</strong>
+            <span>SMART PARKING · SUPABASE · ESP32</span>
+          </div>
+        </div>
         <button
           type="button"
-          className="button compact"
-          style={{
-            background: criticalCount > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.25)',
-            border: `1px solid ${criticalCount > 0 ? '#ef4444' : '#f59e0b'}`,
-            color: criticalCount > 0 ? '#fca5a5' : '#fcd34d',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-          onClick={() => setView('alerts')}
-          title="คลิกเพื่อดูรายการแจ้งเตือนทั้งหมด"
+          className="button compact logout-btn-mobile"
+          onClick={onLogout}
+          title="ออกจากระบบ"
         >
-          <span>{criticalCount > 0 ? '🔴' : '🟡'}</span>
-          <span>{activeAlerts.length} แจ้งเตือน</span>
+          ออกจากระบบ
         </button>
+      </div>
+
+      <div className="user-menu">
+        <span className="connection-pill live-pill">
+          <span className="live-dot" />LIVE · {timeStr}
+        </span>
+
+        {user.role === 'admin' && activeAlerts.length > 0 && (
+          <button
+            type="button"
+            className={`button compact alert-topbar-pill ${criticalCount > 0 ? 'critical' : 'warning'}`}
+            style={{
+              background: criticalCount > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.25)',
+              border: `1px solid ${criticalCount > 0 ? '#ef4444' : '#f59e0b'}`,
+              color: criticalCount > 0 ? '#fca5a5' : '#fcd34d',
+              cursor: 'pointer'
+            }}
+            onClick={() => setView('alerts')}
+            title="คลิกเพื่อดูรายการแจ้งเตือนทั้งหมด"
+          >
+            <span>{criticalCount > 0 ? '🔴' : '🟡'}</span>
+            <span>{activeAlerts.length} แจ้งเตือน</span>
+          </button>
+        )}
+
+        {user.role !== 'admin' && (
+          <span className={`badge credit-pill ${Number(user.credit || 0) > 0 ? 'available' : 'unavailable'}`}>
+            เครดิต ฿{formatMoney(user.credit)}
+          </span>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setShowLineModal(true)}
+          className={`badge line-pill ${user.line_user_id ? 'available' : 'unavailable'}`}
+          style={{
+            cursor: 'pointer',
+            border: user.line_user_id ? '1.5px solid rgba(16, 185, 129, 0.6)' : '1.5px solid rgba(239, 68, 68, 0.6)',
+            background: user.line_user_id ? 'rgba(19, 51, 36, 0.85)' : 'rgba(56, 22, 25, 0.85)',
+            color: user.line_user_id ? '#34d399' : '#f87171',
+            fontFamily: 'inherit',
+            transition: 'all 0.2s ease',
+          }}
+          title="คลิกเพื่อจัดการการเชื่อมต่อ LINE หรือดูรหัสผูกบัญชี"
+        >
+          <span style={{ fontSize: 11 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
+          <span>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
+        </button>
+
+        <span className={`role ${user.role}`}>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้'}</span>
+        <span className="avatar">{user.name?.slice(0, 1)}</span>
+        <button className="button compact logout-btn-desktop" onClick={onLogout}>ออกจากระบบ</button>
+      </div>
+
+      {showLineModal && (
+        <LineConnectModal
+          user={user}
+          onClose={() => setShowLineModal(false)}
+          notify={notify}
+          reload={reload}
+        />
       )}
-      {user.role !== 'admin' && <span className={`badge credit-pill ${Number(user.credit || 0) > 0 ? 'available' : 'unavailable'}`}>เครดิต ฿{formatMoney(user.credit)}</span>}
-      <button
-        type="button"
-        onClick={() => setShowLineModal(true)}
-        className={`badge line-pill ${user.line_user_id ? 'available' : 'unavailable'}`}
-        style={{
-          cursor: 'pointer',
-          border: user.line_user_id ? '1.5px solid rgba(16, 185, 129, 0.6)' : '1.5px solid rgba(239, 68, 68, 0.6)',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '5px 10px',
-          borderRadius: 7,
-          background: user.line_user_id ? 'rgba(19, 51, 36, 0.85)' : 'rgba(56, 22, 25, 0.85)',
-          color: user.line_user_id ? '#34d399' : '#f87171',
-          fontWeight: 600,
-          fontFamily: 'inherit',
-          transition: 'all 0.2s ease',
-        }}
-        title="คลิกเพื่อจัดการการเชื่อมต่อ LINE หรือดูรหัสผูกบัญชี"
-      >
-        <span style={{ fontSize: 11 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
-        <span>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
-      </button>
-      <span className={`role ${user.role}`}>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้'}</span>
-      <span className="avatar">{user.name?.slice(0, 1)}</span>
-      <button className="button compact" onClick={onLogout}>ออกจากระบบ</button>
-    </div>
-    {showLineModal && (
-      <LineConnectModal
-        user={user}
-        onClose={() => setShowLineModal(false)}
-        notify={notify}
-        reload={reload}
-      />
-    )}
-  </header>;
+    </header>
+  );
 }
 
 function Sidebar({ user, view, setView, activeAlertCount = 0 }) {

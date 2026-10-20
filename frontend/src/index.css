@@ -70,14 +70,49 @@ select:focus-visible {
   justify-content: space-between;
   position: sticky;
   top: 0;
-  z-index: 20
+  z-index: 50;
+  gap: 16px;
+}
+
+.topbar-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logout-btn-mobile {
+  display: none;
+}
+
+.logout-btn-desktop {
+  display: inline-flex;
+}
+
+.alert-topbar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 7px;
+  white-space: nowrap;
+}
+
+.line-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .brand,
 .user-menu {
   display: flex;
   align-items: center;
-  gap: 12px
+  gap: 12px;
 }
 
 .brand strong {
@@ -1217,77 +1252,138 @@ td {
     padding-bottom: env(safe-area-inset-bottom, 0)
   }
 
+  :root {
+    --topbar-mobile-height: 94px;
+  }
+
   .topbar {
     height: auto;
-    min-height: 60px;
-    padding: 10px 14px;
+    min-height: var(--topbar-mobile-height, 94px);
+    padding: 10px 14px 8px;
     position: sticky;
     top: 0;
-    z-index: 40;
-    gap: 8px
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 8px;
+  }
+
+  .topbar-row-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
   }
 
   .brand {
     min-width: 0;
     gap: 8px;
-    flex: 1
+    flex: 1;
+    display: flex;
+    align-items: center;
   }
 
-  .brand-mark.small {
-    width: 36px;
-    height: 36px;
-    font-size: 20px;
-    border-radius: 8px;
-    flex: none
+  .brand-logo {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
   }
 
   .brand strong {
-    font-size: 18px;
+    font-size: 16px;
     white-space: nowrap;
-    line-height: 1.1
+    line-height: 1.1;
   }
 
   .brand span {
-    display: none
+    display: none;
+  }
+
+  .logout-btn-mobile {
+    display: inline-flex;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    min-height: 30px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .logout-btn-desktop {
+    display: none;
   }
 
   .user-menu {
-    gap: 6px;
-    flex-shrink: 0
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 2px 0 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    flex-shrink: 0;
+  }
+
+  .user-menu::-webkit-scrollbar {
+    display: none;
   }
 
   .user-menu .avatar,
-  .user-menu .role,
-  .connection-pill {
-    display: none
+  .user-menu .role {
+    display: none;
   }
 
-  .user-menu .credit-pill {
+  .user-menu .connection-pill.live-pill {
+    display: inline-flex;
+    font-size: 10px;
+    padding: 4px 7px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    border-radius: 999px;
+  }
+
+  .alert-topbar-pill {
+    display: inline-flex;
     font-size: 11px;
-    padding: 4px 8px;
-    font-weight: 700
+    padding: 5px 9px;
+    border-radius: 7px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 30px;
   }
 
   .user-menu .line-pill {
     display: inline-flex;
-    font-size: 10px;
-    padding: 4px 7px
+    font-size: 11px;
+    padding: 5px 9px;
+    border-radius: 7px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 30px;
   }
 
-  .user-menu .button.compact {
-    padding: 6px 10px;
-    font-size: 12px;
-    min-height: 34px
+  .user-menu .credit-pill {
+    display: inline-flex;
+    font-size: 11px;
+    padding: 4px 8px;
+    font-weight: 700;
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-height: 30px;
   }
 
   .body-shell {
     display: flex;
-    flex-direction: column
+    flex-direction: column;
   }
 
   .sidebar {
     position: sticky;
-    top: 60px;
+    top: var(--topbar-mobile-height, 94px);
     z-index: 30;
     width: 100%;
     height: auto;
@@ -1710,39 +1806,50 @@ td {
 
 /* Compact Mobile (max-width: 420px) */
 @media(max-width:420px) {
-  .topbar {
-    min-height: 56px;
-    padding: 8px 10px
+  :root {
+    --topbar-mobile-height: 90px;
   }
 
-  .brand-mark.small {
-    width: 32px;
-    height: 32px;
-    font-size: 17px
+  .topbar {
+    min-height: var(--topbar-mobile-height, 90px);
+    padding: 8px 10px 6px;
+    gap: 6px;
   }
 
   .brand strong {
-    font-size: 16px
+    font-size: 15px;
+  }
+
+  .logout-btn-mobile {
+    padding: 4px 8px;
+    font-size: 11px;
+    min-height: 28px;
+  }
+
+  .user-menu {
+    gap: 6px;
+    padding: 1px 0;
   }
 
   .user-menu .line-pill {
-    display: none
+    display: inline-flex;
+    font-size: 10.5px;
+    padding: 4px 8px;
+  }
+
+  .alert-topbar-pill {
+    font-size: 10.5px;
+    padding: 4px 8px;
   }
 
   .user-menu .credit-pill {
     font-size: 10.5px;
-    padding: 3px 6px
-  }
-
-  .user-menu .button.compact {
-    font-size: 11px;
-    padding: 5px 8px;
-    min-height: 30px
+    padding: 3px 6px;
   }
 
   .sidebar {
-    top: 56px;
-    padding: 4px 8px
+    top: var(--topbar-mobile-height, 90px);
+    padding: 4px 8px;
   }
 
   .nav-item {
