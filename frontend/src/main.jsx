@@ -4470,7 +4470,7 @@ function AdminLayout({ data, reload, notify }) {
                       <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 12 }}>
                         <span style={{ color: 'var(--muted)' }}>สถานะตรวจจับ: </span>
                         <strong style={{ color: sensorDev.presence === 'occupied' ? '#f87171' : '#4ade80' }}>
-                          {sensorDev.presence === 'occupied' ? '🚗 มีรถจอด' : '✨ ว่าง'}
+                          {sensorDev.presence === 'occupied' ? '🚗 มีรถจอด' : ' ว่าง'}
                         </strong>
                       </div>
                     </div>

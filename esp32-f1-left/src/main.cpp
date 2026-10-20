@@ -331,15 +331,16 @@ void scanSensorsSequential() {
 }
 
 /* =============================================================================
- * ACTUATOR & INDICATOR CONTROLS (COMMON ANODE: ACTIVE-LOW)
+ * ACTUATOR & INDICATOR CONTROLS (Common-Cathode RGB: Active-HIGH)
+ * ขาร่วมต่อ GND: HIGH = ติด, LOW = ดับ
  * ============================================================================= */
 void updateSlotIndicators(int index) {
   if (slots[index].confirmedOccupied) {
-    digitalWrite(slots[index].pinLedRed, LOW);    // แดงติด
-    digitalWrite(slots[index].pinLedGreen, HIGH); // เขียวดับ
+    digitalWrite(slots[index].pinLedRed, HIGH); // แดงติด (เมื่อมีรถจอด)
+    digitalWrite(slots[index].pinLedGreen, LOW); // เขียวดับ
   } else {
-    digitalWrite(slots[index].pinLedRed, HIGH);   // แดงดับ
-    digitalWrite(slots[index].pinLedGreen, LOW);  // เขียวติด
+    digitalWrite(slots[index].pinLedRed, LOW);   // แดงดับ
+    digitalWrite(slots[index].pinLedGreen, HIGH); // เขียวติด (เมื่อช่องว่าง)
   }
 }
 
