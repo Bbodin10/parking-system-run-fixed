@@ -27,9 +27,9 @@ const int WIFI_CHANNEL = 1;
 
 /* ======================= HARDWARE (FLOOR 2 RIGHT) ======================= */
 SlotHardware slots[NUM_SLOTS] = {
-    {"B4", 23, 34, 19, 26, 25, Servo(), -1.0f, false, false, 0, false},
-    {"B5", 22, 35, 18, 33, 32, Servo(), -1.0f, false, false, 0, false},
-    {"B6", 21, 27, 4, 14, 13, Servo(), -1.0f, false, false, 0, false}};
+    {"B4", 23, 34, 19, 26, 25, Servo(), -1.0f, false, false, 0, false, 9.0f, 11.0f},
+    {"B5", 22, 35, 18, 33, 32, Servo(), -1.0f, false, false, 0, false, 9.0f, 11.0f},
+    {"B6", 21, 27, 4, 14, 13, Servo(), -1.0f, false, false, 0, false, 9.0f, 11.0f}};
 
 /* ------------------- INTER-TASK DATA ------------------- */
 SharedSlotData sharedSlots[NUM_SLOTS];
@@ -67,6 +67,12 @@ void onEspNowRecv(const uint8_t *mac, const uint8_t *data, int len) {
       for (int i = 0; i < NUM_SLOTS; i++) {
         if (strcmp(slots[i].slotId, cmd.commands[c].slotId) == 0) {
           updateBarrierGate(i, cmd.commands[c].gateOpen);
+          if (cmd.commands[c].enterCm > 0.0f) {
+            slots[i].enterCm = cmd.commands[c].enterCm;
+          }
+          if (cmd.commands[c].exitCm > 0.0f) {
+            slots[i].exitCm = cmd.commands[c].exitCm;
+          }
           break;
         }
       }
@@ -275,9 +281,12 @@ void scanSensorsSequential() {
     float rawDist = measureUltrasonicSingle(slots[i].pinTrig, slots[i].pinEcho);
     slots[i].distanceCm = rawDist;
 
-    if (rawDist > 0.0f && rawDist < HYSTERESIS_ENTER_CM) {
+    float enterThresh = slots[i].enterCm > 0.0f ? slots[i].enterCm : HYSTERESIS_ENTER_CM;
+    float exitThresh = slots[i].exitCm > 0.0f ? slots[i].exitCm : HYSTERESIS_EXIT_CM;
+
+    if (rawDist > 0.0f && rawDist < enterThresh) {
       slots[i].candidateOccupied = true;
-    } else if (rawDist > HYSTERESIS_EXIT_CM || rawDist < 0.0f) {
+    } else if (rawDist > exitThresh || rawDist < 0.0f) {
       slots[i].candidateOccupied = false;
     }
 
@@ -315,16 +324,17 @@ void scanSensorsSequential() {
 }
 
 /* =============================================================================
- * ACTUATOR & INDICATOR CONTROLS (Common-Anode: Active-LOW)
+ * ACTUATOR & INDICATOR CONTROLS (Common-Cathode RGB: Active-HIGH)
+ * ขาร่วมต่อ GND: HIGH = ติด, LOW = ดับ
  * =============================================================================
  */
 void updateSlotIndicators(int index) {
   if (slots[index].confirmedOccupied) {
-    digitalWrite(slots[index].pinLedRed, LOW);    // แดงติด
-    digitalWrite(slots[index].pinLedGreen, HIGH); // เขียวดับ
+    digitalWrite(slots[index].pinLedRed, HIGH); // แดงติด (เมื่อมีรถจอด)
+    digitalWrite(slots[index].pinLedGreen, LOW); // เขียวดับ
   } else {
-    digitalWrite(slots[index].pinLedRed, HIGH);  // แดงดับ
-    digitalWrite(slots[index].pinLedGreen, LOW); // เขียวติด
+    digitalWrite(slots[index].pinLedRed, LOW);   // แดงดับ
+    digitalWrite(slots[index].pinLedGreen, HIGH); // เขียวติด (เมื่อช่องว่าง)
   }
 }
 

@@ -46,6 +46,10 @@ struct SlotHardware {
 
   // Actuator States
   bool isGateOpen;
+
+  // Dynamic Thresholds (from Web Dashboard)
+  float enterCm;
+  float exitCm;
 };
 
 /* ================= ESP-NOW PACKET DEFINITIONS ================= */
@@ -63,6 +67,8 @@ typedef struct __attribute__((packed)) {
 typedef struct __attribute__((packed)) {
   char slotId[4];
   bool gateOpen;
+  float enterCm;
+  float exitCm;
 } BarrierCommandPacket;
 
 typedef struct __attribute__((packed)) {
