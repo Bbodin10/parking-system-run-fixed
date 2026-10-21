@@ -195,10 +195,8 @@ function Login({ onLogin, theme, toggleTheme }) {
             <div className="line-login-divider"><span>หรือเข้าสู่ระบบด้วย</span></div>
 
             <button type="button" className="button line-button full" onClick={() => redirectToLine('login')}>
-              <span className="line-icon-badge" style={{ width: 28, height: 28, borderRadius: 6 }}>
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="#ffffff">
-                  <path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" />
-                </svg>
+              <span className="line-icon-badge" style={{ width: 28, height: 28, borderRadius: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src="/line-icon.png" alt="LINE" style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'cover' }} />
               </span>
               <span>เข้าสู่ระบบด้วย LINE</span>
             </button>
@@ -299,9 +297,12 @@ function LineConnectModal({ user, onClose, notify, reload }) {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 17, color: 'var(--text-strong)' }}>จัดการการเชื่อมต่อ LINE</h3>
-            <span className="muted" style={{ fontSize: 12 }}>รับการแจ้งเตือนแบบเรียลไทม์ผ่านบอท @302ypwvm</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src="/line-icon.png" alt="LINE" style={{ width: 32, height: 32, borderRadius: 7, objectFit: 'cover' }} />
+            <div>
+              <h3 style={{ margin: 0, fontSize: 17, color: 'var(--text-strong)' }}>จัดการการเชื่อมต่อ LINE</h3>
+              <span className="muted" style={{ fontSize: 12 }}>รับการแจ้งเตือนแบบเรียลไทม์ผ่านบอท @302ypwvm</span>
+            </div>
           </div>
           <button type="button" className="modal-close" onClick={onClose} style={{ fontSize: 22, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--muted)' }}>✕</button>
         </div>
@@ -374,7 +375,7 @@ function LineConnectModal({ user, onClose, notify, reload }) {
                 onClick={() => redirectToLine('link')}
                 style={{ background: '#06c755', color: '#ffffff', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px 16px', borderRadius: 8, fontSize: 14, cursor: 'pointer', border: 'none' }}
               >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
+                <img src="/line-icon.png" alt="LINE" style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'cover' }} />
                 <span>กดเชื่อมต่อด้วย LINE Login</span>
               </button>
             </div>
@@ -882,9 +883,11 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
           className={`badge line-pill ${user.line_user_id ? 'available' : 'unavailable'}`}
           title="คลิกเพื่อจัดการการเชื่อมต่อ LINE หรือดูรหัสผูกบัญชี"
         >
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style={{ flexShrink: 0 }}>
-            <path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" />
-          </svg>
+          <img
+            src="/line-icon.png"
+            alt="LINE"
+            style={{ width: 16, height: 16, borderRadius: 3, objectFit: 'cover', flexShrink: 0 }}
+          />
           <span style={{ fontSize: 10 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
           <span>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
         </button>
@@ -2200,7 +2203,7 @@ function UserHistory({ data, user, notify }) {
         <div className="line-panel-info">
           <div className="line-avatar-wrap" style={{ position: 'relative', display: 'inline-block' }}>
             <div className={`line-status-avatar ${user.line_user_id ? 'online' : 'offline'}`} title="LINE Notification">
-              <svg viewBox="0 0 24 24" width="30" height="30" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
+              <img src="/line-icon.png" alt="LINE" style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover' }} />
             </div>
             <span
               style={{
@@ -2263,7 +2266,7 @@ function UserHistory({ data, user, notify }) {
             <>
               <button type="button" className="button line-button large" onClick={() => redirectToLine('link')}>
                 <span className="line-icon-badge">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
+                  <img src="/line-icon.png" alt="LINE" style={{ width: 22, height: 22, borderRadius: 4, objectFit: 'cover' }} />
                 </span>
                 <span>เชื่อมต่อ LINE ของคุณ</span>
               </button>
@@ -6007,8 +6010,9 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
             marginBottom: 16
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 20 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img src="/line-icon.png" alt="LINE" style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover' }} />
+                <span style={{ fontSize: 16 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
                 <div>
                   <strong style={{ fontSize: 15, color: user.line_user_id ? 'var(--green)' : '#f87171' }}>
                     {user.line_user_id ? 'เชื่อมต่อกับ LINE เรียบร้อยแล้ว' : 'ยังไม่ได้เชื่อมต่อ LINE'}
