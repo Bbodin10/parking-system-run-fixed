@@ -305,8 +305,17 @@ async function lifecycle() {
       const start = thaiDateTime(b.date, b.time), end = new Date(start.getTime() + Number(b.duration) * 3600000);
       const { data: sensor } = await db.from('devices').select('*').eq('type', 'sensor').eq('linked_slot', b.slot_id).limit(1).maybeSingle();
       const { data: barrier } = await db.from('devices').select('*').eq('type', 'barrier').eq('linked_slot', b.slot_id).limit(1).maybeSingle();
+      const slotsMeta = readSlotsMeta();
+      const enterCm = Number(slotsMeta[b.slot_id]?.sensor_enter_cm ?? 9.0);
+      const exitCm = Number(slotsMeta[b.slot_id]?.sensor_exit_cm ?? 11.0);
+      const liveDist = liveDistances[b.slot_id] ?? (typeof sensor?.distance_cm === 'number' && sensor.distance_cm > 0 ? sensor.distance_cm : null);
       const sensorFresh = sensor?.updated_at && now - new Date(sensor.updated_at) < 120000;
-      const isCarOccupied = sensorFresh && sensor?.status === 'online' && (sensor?.presence === 'occupied' || sensor?.car_present === true);
+
+      const isDistOccupied = liveDist !== null && liveDist > 0 && liveDist <= enterCm;
+      const isDistEmpty = liveDist !== null && (liveDist > exitCm || liveDist < 0);
+      const isCarOccupied = isDistOccupied || (sensorFresh && sensor?.status === 'online' && (sensor?.presence === 'occupied' || sensor?.car_present === true));
+      const isCarEmpty = isDistEmpty || (sensorFresh && (sensor?.presence === 'empty' || sensor?.car_present === false));
+
       const entry = b.entry_verified || isCarOccupied;
       const u = await userById(b.user_id);
 
@@ -345,9 +354,27 @@ async function lifecycle() {
         }
         continue;
       }
-      if (b.status === 'pending' && now >= start && entry) {
-        await db.from('bookings').update({ status: 'active', entry_verified: true, entry_time: b.entry_time || now.toISOString() }).eq('id', b.id).eq('status', 'pending');
+
+      // ตรวจพบรถเข้าจอด (อนุญาตให้เข้าจอดได้ตั้งแต่ 15 นาทีก่อนถึงเวลาจอง หรือหลังถึงเวลาจอง)
+      const allowedEntryTime = new Date(start.getTime() - 15 * 60000);
+      if (b.status === 'pending' && now >= allowedEntryTime && isCarOccupied) {
+        await db.from('bookings').update({
+          status: 'active',
+          entry_verified: true,
+          entry_time: b.entry_time || now.toISOString()
+        }).eq('id', b.id).eq('status', 'pending');
+        b.status = 'active';
+        b.entry_verified = true;
+      } else if (b.status === 'pending' && now >= start && entry) {
+        await db.from('bookings').update({
+          status: 'active',
+          entry_verified: true,
+          entry_time: b.entry_time || now.toISOString()
+        }).eq('id', b.id).eq('status', 'pending');
+        b.status = 'active';
+        b.entry_verified = true;
       }
+
       const left = (end - now) / 60000;
       if (left > 0 && left <= Number(b.notify_before_min || 15) && !b.notified) {
         if (u?.line_user_id) {
@@ -379,9 +406,9 @@ async function lifecycle() {
         }
       }
 
-      // เมื่อผู้ใช้ออกจากช่องจอด (status === 'active' และเซ็นเซอร์ตรวจไม่พบรถแล้ว):
-      // ปิดไม้กั้นทุกจุดทันที และบันทึกจบการจอด
-      const carLeft = b.status === 'active' && sensorFresh && (sensor?.presence === 'empty' || sensor?.car_present === false);
+      // เมื่อผู้ใช้ออกจากช่องจอด (เคยเข้าจอดแล้ว ไม่ว่าจะอยู่ในสถานะ active หรือ pending ที่ verify entry แล้ว และเซ็นเซอร์ตรวจไม่พบรถ):
+      // ปิดไม้กั้นทุกจุดทันที และบันทึกจบการจอดอัตโนมัติ
+      const carLeft = (b.status === 'active' || (b.status === 'pending' && b.entry_verified)) && isCarEmpty;
       if (carLeft) {
         // บังคับปิดไม้กั้นในระบบทันที
         await db.from('devices').update({ state: 'closed', updated_at: now.toISOString() }).eq('type', 'barrier').eq('linked_slot', b.slot_id);

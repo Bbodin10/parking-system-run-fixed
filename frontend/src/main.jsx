@@ -1654,6 +1654,8 @@ function UserControl({ data, user, notify, reload }) {
     const minutesUntilStart = (start.getTime() - now.getTime()) / 60000;
     const minutesSinceStart = (now.getTime() - start.getTime()) / 60000;
     const isNoShowExpired = booking.status === 'pending' && minutesSinceStart >= 15;
+    // อนุญาตให้ควบคุมไม้กั้นได้ตั้งแต่ 15 นาทีก่อนถึงเวลาจอง จนกระทั่งจบการจอด
+    const isTooEarlyForBarrier = booking.status === 'pending' && minutesUntilStart > 15;
     const canCancel = booking.status === 'pending';
     const startTimeStr = formatThaiTime(booking.time);
     const endTimeStr = endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
@@ -1690,6 +1692,7 @@ function UserControl({ data, user, notify, reload }) {
       minutesUntilStart,
       minutesSinceStart,
       isNoShowExpired,
+      isTooEarlyForBarrier,
       canCancel,
       startTimeStr,
       endTimeStr,
@@ -1759,6 +1762,7 @@ function UserControl({ data, user, notify, reload }) {
           minutesUntilStart,
           minutesSinceStart,
           isNoShowExpired,
+          isTooEarlyForBarrier,
           canCancel,
           startTimeStr,
           endTimeStr,
@@ -1817,8 +1821,10 @@ function UserControl({ data, user, notify, reload }) {
             {booking.status === 'pending' && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {minutesUntilStart > 0 ? (
-                  <small style={{ color: '#38bdf8', display: 'block', fontWeight: 500 }}>
-                    จะถึงเวลาเริ่มจองในอีก {Math.ceil(minutesUntilStart)} นาที
+                  <small style={{ color: minutesUntilStart <= 15 ? '#34d399' : '#38bdf8', display: 'block', fontWeight: 600 }}>
+                    {minutesUntilStart <= 15
+                      ? `🟢 เข้าสู่ช่วงควบคุมไม้กั้นแล้ว (จะถึงเวลาเริ่มจองในอีก ${Math.ceil(minutesUntilStart)} นาที)`
+                      : `จะถึงเวลาเริ่มจองในอีก ${Math.ceil(minutesUntilStart)} นาที`}
                   </small>
                 ) : minutesSinceStart < 15 ? (
                   <div style={{
@@ -2014,7 +2020,7 @@ function UserControl({ data, user, notify, reload }) {
                   <button className="button full" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                     ตัดการควบคุมแล้ว (No-Show เกิน 15 นาที)
                   </button>
-                ) : canCancel ? (
+                ) : isTooEarlyForBarrier ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <button
                       className="button full"
