@@ -102,10 +102,26 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
-  border-radius: 7px;
+  padding: 5px 12px;
+  border-radius: 8px;
   font-weight: 600;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
   white-space: nowrap;
+  transition: all .2s ease;
+}
+
+.line-pill.available {
+  background: rgba(19, 51, 36, 0.85);
+  border: 1.5px solid rgba(16, 185, 129, 0.6);
+  color: #34d399;
+}
+
+.line-pill.unavailable {
+  background: rgba(56, 22, 25, 0.85);
+  border: 1.5px solid rgba(239, 68, 68, 0.6);
+  color: #f87171;
 }
 
 .brand,
@@ -2216,7 +2232,19 @@ td {
   background: rgba(255, 255, 255, 0.22);
   border-radius: 8px;
   backdrop-filter: blur(4px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12)
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.line-code-badge {
+  color: var(--cyan);
+  background: rgba(54, 220, 201, 0.12);
+  border: 1px solid rgba(54, 220, 201, 0.3);
+  padding: 2px 8px;
+  border-radius: 6px;
+  letter-spacing: 1px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  display: inline-block;
 }
 
 .line-login-divider {
@@ -3905,7 +3933,7 @@ td {
   color: #dc2626 !important;
 }
 
-/* User Profile & LINE Connect Panel */
+/* User Profile & LINE Connect Panel in Light Mode */
 [data-theme="light"] .line-connect-panel.is-unlinked {
   background: #ffffff !important;
   border-color: #cbd5e1 !important;
@@ -3916,6 +3944,75 @@ td {
   border-color: #86efac !important;
   box-shadow: 0 4px 16px rgba(22, 163, 74, 0.06) !important;
 }
+[data-theme="light"] .line-panel-header h2 {
+  color: #0f172a !important;
+}
+[data-theme="light"] .line-panel-desc {
+  color: #475569 !important;
+}
+[data-theme="light"] .line-cta-subtext {
+  color: #64748b !important;
+}
+[data-theme="light"] .line-panel-header .badge.unavailable {
+  background: #fee2e2 !important;
+  border: 1px solid #fca5a5 !important;
+  color: #b91c1c !important;
+}
+[data-theme="light"] .line-panel-header .badge.available {
+  background: #dcfce7 !important;
+  border: 1px solid #86efac !important;
+  color: #15803d !important;
+}
+[data-theme="light"] .line-code-badge {
+  color: #047857 !important;
+  background: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+/* Official LINE Avatar in Light Mode - Always Authentic LINE Green */
+[data-theme="light"] .line-status-avatar,
+[data-theme="light"] .line-status-avatar.offline,
+[data-theme="light"] .line-status-avatar.online {
+  background: linear-gradient(135deg, #06C755 0%, #00B900 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 6px 20px rgba(6, 199, 85, 0.32) !important;
+}
+[data-theme="light"] .line-status-avatar svg,
+[data-theme="light"] .line-status-avatar.offline svg,
+[data-theme="light"] .line-status-avatar.online svg {
+  fill: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* Official LINE Button in Light Mode - Guarantee Brand Green Background & White Text */
+[data-theme="light"] .button.line-button,
+[data-theme="light"] .line-button,
+[data-theme="light"] a.button.line-button {
+  background: linear-gradient(135deg, #06C755 0%, #00B900 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid #00a800 !important;
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 18px rgba(6, 199, 85, 0.35) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+[data-theme="light"] .button.line-button:hover,
+[data-theme="light"] .line-button:hover,
+[data-theme="light"] a.button.line-button:hover {
+  background: linear-gradient(135deg, #05d85c 0%, #00c900 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 24px rgba(6, 199, 85, 0.48) !important;
+  transform: translateY(-2px) !important;
+}
+[data-theme="light"] .line-icon-badge {
+  background: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15) !important;
+}
+[data-theme="light"] .line-icon-badge svg {
+  fill: #ffffff !important;
+}
 [data-theme="light"] .line-linked-buttons a.button {
   background: #ffffff !important;
   border-color: #cbd5e1 !important;
@@ -3924,13 +4021,6 @@ td {
 [data-theme="light"] .line-linked-buttons a.button:hover {
   background: #f1f5f9 !important;
   color: #0f172a !important;
-}
-[data-theme="light"] .line-status-avatar.offline {
-  background: #e2e8f0 !important;
-  border-color: #cbd5e1 !important;
-}
-[data-theme="light"] .line-status-avatar.offline svg {
-  fill: #64748b !important;
 }
 
 /* Vehicles & User Bookings */

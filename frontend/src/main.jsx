@@ -917,17 +917,12 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
           type="button"
           onClick={() => setShowLineModal(true)}
           className={`badge line-pill ${user.line_user_id ? 'available' : 'unavailable'}`}
-          style={{
-            cursor: 'pointer',
-            border: user.line_user_id ? '1.5px solid rgba(16, 185, 129, 0.6)' : '1.5px solid rgba(239, 68, 68, 0.6)',
-            background: user.line_user_id ? 'rgba(19, 51, 36, 0.85)' : 'rgba(56, 22, 25, 0.85)',
-            color: user.line_user_id ? '#34d399' : '#f87171',
-            fontFamily: 'inherit',
-            transition: 'all 0.2s ease',
-          }}
           title="คลิกเพื่อจัดการการเชื่อมต่อ LINE หรือดูรหัสผูกบัญชี"
         >
-          <span style={{ fontSize: 11 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style={{ flexShrink: 0 }}>
+            <path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" />
+          </svg>
+          <span style={{ fontSize: 10 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
           <span>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
         </button>
 
@@ -2228,10 +2223,24 @@ function UserHistory({ data, user, notify }) {
     <section className={`panel line-connect-panel ${user.line_user_id ? 'is-linked' : 'is-unlinked'}`}>
       <div className="line-panel-inner">
         <div className="line-panel-info">
-          <div className="line-avatar-wrap">
-            <div className={`line-status-avatar ${user.line_user_id ? 'online' : 'offline'}`}>
-              <svg viewBox="0 0 24 24" width="28" height="28" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
+          <div className="line-avatar-wrap" style={{ position: 'relative', display: 'inline-block' }}>
+            <div className={`line-status-avatar ${user.line_user_id ? 'online' : 'offline'}`} title="LINE Notification">
+              <svg viewBox="0 0 24 24" width="30" height="30" fill="#ffffff"><path d="M19.365 9.864c0-4.043-4.195-7.324-9.365-7.324s-9.365 3.281-9.365 7.324c0 3.621 3.222 6.657 7.764 7.219.303.066.715.2.818.458.093.235.061.602.03.841l-.133.799c-.04.24-.185.938.822.512 1.007-.426 5.432-3.199 7.411-5.477 1.34-1.442 2.018-2.91 2.018-4.352zm-12.872 1.95h-.898a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382zm2.086 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v2.738a.382.382 0 0 1-.382.382h-.898zm4.512 0a.382.382 0 0 1-.382-.382v-1.637l-1.693 2.019h-.441a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h.898c.211 0 .382.171.382.382v1.637l1.693-2.019h.441a.382.382 0 0 1 .382.382v2.738a.382.382 0 0 1-.382.382h-.898zm2.67 0a.382.382 0 0 1-.382-.382v-2.738c0-.211.171-.382.382-.382h1.996c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.098v.481h.898c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-.898v.481h1.098c.211 0 .382.171.382.382v.457a.382.382 0 0 1-.382.382h-1.996z" /></svg>
             </div>
+            <span
+              style={{
+                position: 'absolute',
+                bottom: -2,
+                right: -2,
+                width: 14,
+                height: 14,
+                borderRadius: '50%',
+                background: user.line_user_id ? '#10b981' : '#f87171',
+                border: '2.5px solid var(--surface, #ffffff)',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.25)'
+              }}
+              title={user.line_user_id ? 'เชื่อมต่อ LINE สำเร็จ' : 'ยังไม่ได้เชื่อมต่อ LINE'}
+            />
           </div>
           <div className="line-panel-texts">
             <div className="line-panel-header">
@@ -2286,8 +2295,8 @@ function UserHistory({ data, user, notify }) {
               <span className="line-cta-subtext">เพิ่มเพื่อนบอท @302ypwvm อัตโนมัติ</span>
               {user.line_link_code && (
                 <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span>หรือแอดไลน์ <strong>@302ypwvm</strong> แล้วส่งรหัส:</span>
-                  <strong style={{ color: 'var(--cyan)', background: 'rgba(54, 220, 201, 0.1)', padding: '2px 8px', borderRadius: 6, letterSpacing: 1 }}>{user.line_link_code}</strong>
+                  <span>หรือแอดไลน์ <strong style={{ color: '#06c755' }}>@302ypwvm</strong> แล้วส่งรหัส:</span>
+                  <strong className="line-code-badge">{user.line_link_code}</strong>
                   <button
                     type="button"
                     className="button compact secondary"
