@@ -854,16 +854,6 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
           </div>
         </div>
         <div className="topbar-right-mobile">
-          {toggleTheme && (
-            <button
-              type="button"
-              className="theme-toggle-btn mobile"
-              onClick={toggleTheme}
-              title={theme === 'dark' ? 'เปลี่ยนเป็นธีมสว่าง (Light Mode)' : 'เปลี่ยนเป็นธีมมืด (Dark Mode)'}
-            >
-              <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
-            </button>
-          )}
           <button
             type="button"
             className="button compact"
@@ -925,18 +915,6 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
           <span style={{ fontSize: 10 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
           <span>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
         </button>
-
-        {toggleTheme && (
-          <button
-            type="button"
-            className="theme-toggle-btn desktop"
-            onClick={toggleTheme}
-            title={theme === 'dark' ? 'เปลี่ยนเป็นธีมสว่าง (Light Mode)' : 'เปลี่ยนเป็นธีมมืด (Dark Mode)'}
-          >
-            <span className="theme-toggle-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
-            <span className="theme-toggle-label">{theme === 'dark' ? 'ธีมสว่าง' : 'ธีมมืด'}</span>
-          </button>
-        )}
 
         <span className={`role ${user.role}`}>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้'}</span>
         <button
