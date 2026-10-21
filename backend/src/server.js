@@ -130,14 +130,14 @@ async function dispatchSystemAlert({ priority = 'NORMAL', sourceType = 'device',
     const config = readAlertConfigs();
     const now = new Date();
     const isEmergency = sourceType === 'user_emergency';
-    
+
     // Check cooldown to prevent duplicate alerts (shorter 1-minute cooldown for user emergency)
     const cooldownMs = isEmergency ? (60 * 1000) : ((config.cooldown_minutes || 15) * 60 * 1000);
     const existing = readSystemAlerts();
-    const isRecentDuplicate = existing.some(a => 
-      a.status === 'active' && 
-      a.title === title && 
-      (deviceId ? a.device_id === deviceId : true) && 
+    const isRecentDuplicate = existing.some(a =>
+      a.status === 'active' &&
+      a.title === title &&
+      (deviceId ? a.device_id === deviceId : true) &&
       (slotId ? a.slot_id === slotId : true) &&
       (now.getTime() - new Date(a.created_at).getTime()) < cooldownMs
     );
@@ -204,7 +204,7 @@ async function dispatchSystemAlert({ priority = 'NORMAL', sourceType = 'device',
         if (sent) {
           try {
             await db.from('system_alerts').update({ notified_line: true }).eq('id', alertId);
-          } catch (e) {}
+          } catch (e) { }
         }
       } catch (lineErr) {
         console.warn('[line admin push error]', lineErr.message);
@@ -217,7 +217,7 @@ async function dispatchSystemAlert({ priority = 'NORMAL', sourceType = 'device',
   }
 }
 
-const app=express();
+const app = express();
 const configuredOrigins = [process.env.CORS_ORIGIN, process.env.CORS_ORIGIN_PROD]
   .filter(Boolean)
   .flatMap(s => s.split(','))
@@ -236,44 +236,44 @@ app.use(cors({
   },
 }));
 app.use(express.json({ verify: (req, _res, buffer) => { req.rawBody = Buffer.from(buffer); } }));
-const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);
-const RATE=Number(process.env.RATE_PER_HOUR||20), GRACE=15;
-const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:8*1024*1024},fileFilter(req,file,cb){cb(null,/^image\/(png|jpeg|webp)$/.test(file.mimetype));}});
-const thaiDateTime=(date,time)=>{
-  const parts=String(time||'').split(':');
-  const h=String(parts[0]||'0').padStart(2,'0');
-  const m=String(parts[1]||'00').slice(0,2).padStart(2,'0');
+const db = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const RATE = Number(process.env.RATE_PER_HOUR || 20), GRACE = 15;
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 }, fileFilter(req, file, cb) { cb(null, /^image\/(png|jpeg|webp)$/.test(file.mimetype)); } });
+const thaiDateTime = (date, time) => {
+  const parts = String(time || '').split(':');
+  const h = String(parts[0] || '0').padStart(2, '0');
+  const m = String(parts[1] || '00').slice(0, 2).padStart(2, '0');
   return new Date(`${date}T${h}:${m}:00+07:00`);
 };
-const sign=u=>jwt.sign({id:u.id,role:u.role},process.env.JWT_SECRET,{expiresIn:'12h'});
-function auth(req,res,next){try{const h=req.headers.authorization||'';req.user=jwt.verify(h.replace(/^Bearer /,''),process.env.JWT_SECRET);next();}catch{return res.status(401).json({error:'unauthorized'});}}
-function admin(req,res,next){if(req.user?.role!=='admin')return res.status(403).json({error:'สำหรับผู้ดูแลระบบเท่านั้น'});next();}
-function id(){return crypto.randomUUID();}
-async function userById(uid){const {data}=await db.from('users').select('*').eq('id',uid).maybeSingle();return data;}
-async function pushLine(to,text){if(!to||!process.env.LINE_CHANNEL_ACCESS_TOKEN)return false;const r=await fetch('https://api.line.me/v2/bot/message/push',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`},body:JSON.stringify({to,messages:[{type:'text',text}]})});if(!r.ok)console.error('LINE push failed',r.status,await r.text());return r.ok;}
-async function credit(uid,type,amount,reason){const u=await userById(uid);const next=Number(u.credit||0)+(type==='add'?amount:-amount);await db.from('users').update({credit:next}).eq('id',uid);await db.from('credit_history').insert({id:id(),user_id:uid,type,amount,reason,source:'system'});}
-async function finishBooking(input,reason='manual'){
-  const {data:b,error:loadError}=await db.from('bookings').select('*').eq('id',input.id).maybeSingle();
-  if(loadError)throw loadError;
-  if(!b)return {ok:false,error:'booking not found'};
-  if(['completed','cancelled','no_show'].includes(b.status))return {ok:true,alreadyFinalized:true,reason};
-  const now=new Date(),start=thaiDateTime(b.date,b.time);
-  const actual=Math.max(0,Math.round((now-start)/60000));
-  const overtime=Math.max(0,actual-Number(b.duration)*60);
-  const slotsMeta=readSlotsMeta();
-  const {data:s}=await db.from('slots').select('price_per_hour').eq('id',b.slot_id).maybeSingle();
-  const slotRate=Number(s?.price_per_hour??slotsMeta[b.slot_id]?.price_per_hour??RATE);
-  const overtimeAmount=Math.ceil(overtime/60)*slotRate;
-  const totalAmount=Number(b.amount)+overtimeAmount;
-  const {data:claimed,error:claimError}=await db.from('bookings').update({status:'completed',exit_time:now.toISOString(),actual_minutes:actual,overtime_minutes:overtime,overtime_amount:overtimeAmount,amount:totalAmount}).eq('id',b.id).in('status',['pending','active']).select('id').maybeSingle();
-  if(claimError)throw claimError;
-  if(!claimed)return {ok:true,alreadyFinalized:true,reason};
-  if(overtimeAmount)await credit(b.user_id,'reduce',overtimeAmount,`ค่าจอดเกินเวลา ${b.slot_id}`);
-  await db.from('slots').update({status:'available',updated_at:now.toISOString()}).eq('id',b.slot_id);
-  await db.from('devices').update({state:'closed',updated_at:now.toISOString()}).eq('type','barrier').eq('linked_slot',b.slot_id);
-  const u=await userById(b.user_id);
-  if(u?.line_user_id){
-    const actualStr = actual >= 60 ? `${Math.floor(actual/60)} ชม. ${actual%60} นาที` : `${actual} นาที`;
+const sign = u => jwt.sign({ id: u.id, role: u.role }, process.env.JWT_SECRET, { expiresIn: '12h' });
+function auth(req, res, next) { try { const h = req.headers.authorization || ''; req.user = jwt.verify(h.replace(/^Bearer /, ''), process.env.JWT_SECRET); next(); } catch { return res.status(401).json({ error: 'unauthorized' }); } }
+function admin(req, res, next) { if (req.user?.role !== 'admin') return res.status(403).json({ error: 'สำหรับผู้ดูแลระบบเท่านั้น' }); next(); }
+function id() { return crypto.randomUUID(); }
+async function userById(uid) { const { data } = await db.from('users').select('*').eq('id', uid).maybeSingle(); return data; }
+async function pushLine(to, text) { if (!to || !process.env.LINE_CHANNEL_ACCESS_TOKEN) return false; const r = await fetch('https://api.line.me/v2/bot/message/push', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` }, body: JSON.stringify({ to, messages: [{ type: 'text', text }] }) }); if (!r.ok) console.error('LINE push failed', r.status, await r.text()); return r.ok; }
+async function credit(uid, type, amount, reason) { const u = await userById(uid); const next = Number(u.credit || 0) + (type === 'add' ? amount : -amount); await db.from('users').update({ credit: next }).eq('id', uid); await db.from('credit_history').insert({ id: id(), user_id: uid, type, amount, reason, source: 'system' }); }
+async function finishBooking(input, reason = 'manual') {
+  const { data: b, error: loadError } = await db.from('bookings').select('*').eq('id', input.id).maybeSingle();
+  if (loadError) throw loadError;
+  if (!b) return { ok: false, error: 'booking not found' };
+  if (['completed', 'cancelled', 'no_show'].includes(b.status)) return { ok: true, alreadyFinalized: true, reason };
+  const now = new Date(), start = thaiDateTime(b.date, b.time);
+  const actual = Math.max(0, Math.round((now - start) / 60000));
+  const overtime = Math.max(0, actual - Number(b.duration) * 60);
+  const slotsMeta = readSlotsMeta();
+  const { data: s } = await db.from('slots').select('price_per_hour').eq('id', b.slot_id).maybeSingle();
+  const slotRate = Number(s?.price_per_hour ?? slotsMeta[b.slot_id]?.price_per_hour ?? RATE);
+  const overtimeAmount = Math.ceil(overtime / 60) * slotRate;
+  const totalAmount = Number(b.amount) + overtimeAmount;
+  const { data: claimed, error: claimError } = await db.from('bookings').update({ status: 'completed', exit_time: now.toISOString(), actual_minutes: actual, overtime_minutes: overtime, overtime_amount: overtimeAmount, amount: totalAmount }).eq('id', b.id).in('status', ['pending', 'active']).select('id').maybeSingle();
+  if (claimError) throw claimError;
+  if (!claimed) return { ok: true, alreadyFinalized: true, reason };
+  if (overtimeAmount) await credit(b.user_id, 'reduce', overtimeAmount, `ค่าจอดเกินเวลา ${b.slot_id}`);
+  await db.from('slots').update({ status: 'available', updated_at: now.toISOString() }).eq('id', b.slot_id);
+  await db.from('devices').update({ state: 'closed', updated_at: now.toISOString() }).eq('type', 'barrier').eq('linked_slot', b.slot_id);
+  const u = await userById(b.user_id);
+  if (u?.line_user_id) {
+    const actualStr = actual >= 60 ? `${Math.floor(actual / 60)} ชม. ${actual % 60} นาที` : `${actual} นาที`;
     const slip = [
       '🧾 [สลิปสรุปการจอดรถ]',
       '━━━━━━━━━━━━━━━━━━━',
@@ -290,22 +290,22 @@ async function finishBooking(input,reason='manual'){
     ].join('\n');
     await pushLine(u.line_user_id, slip);
   }
-  return {ok:true,actual,overtimeAmount,reason};
+  return { ok: true, actual, overtimeAmount, reason };
 }
 
-let lifecycleRunning=false;
-async function lifecycle(){
-  if(lifecycleRunning)return;
-  lifecycleRunning=true;
-  try{
-    const now=new Date();
-    const {data:bs,error}=await db.from('bookings').select('*').in('status',['pending','active']);
-    if(error)throw error;
-    for(const b of bs||[]){
-      const start=thaiDateTime(b.date,b.time),end=new Date(start.getTime()+Number(b.duration)*3600000);
-      const {data:sensor}=await db.from('devices').select('*').eq('type','sensor').eq('linked_slot',b.slot_id).limit(1).maybeSingle();
-      const {data:barrier}=await db.from('devices').select('*').eq('type','barrier').eq('linked_slot',b.slot_id).limit(1).maybeSingle();
-      const sensorFresh=sensor?.updated_at&&now-new Date(sensor.updated_at)<120000;
+let lifecycleRunning = false;
+async function lifecycle() {
+  if (lifecycleRunning) return;
+  lifecycleRunning = true;
+  try {
+    const now = new Date();
+    const { data: bs, error } = await db.from('bookings').select('*').in('status', ['pending', 'active']);
+    if (error) throw error;
+    for (const b of bs || []) {
+      const start = thaiDateTime(b.date, b.time), end = new Date(start.getTime() + Number(b.duration) * 3600000);
+      const { data: sensor } = await db.from('devices').select('*').eq('type', 'sensor').eq('linked_slot', b.slot_id).limit(1).maybeSingle();
+      const { data: barrier } = await db.from('devices').select('*').eq('type', 'barrier').eq('linked_slot', b.slot_id).limit(1).maybeSingle();
+      const sensorFresh = sensor?.updated_at && now - new Date(sensor.updated_at) < 120000;
       const isCarOccupied = sensorFresh && sensor?.status === 'online' && (sensor?.presence === 'occupied' || sensor?.car_present === true);
       const entry = b.entry_verified || isCarOccupied;
       const u = await userById(b.user_id);
@@ -328,7 +328,7 @@ async function lifecycle(){
             slotId: b.slot_id,
             title: `ตัดสิทธิ์การจอง No-Show (ช่อง ${b.slot_id})`,
             message: `ไม่พบการเข้าจอดภายใน 15 นาทีหลังถึงเวลาเริ่มจอง ระบบตัดสิทธิ์ ปิดไม้กั้น และคืนสถานะช่องว่างแล้ว`
-          }).catch(() => {});
+          }).catch(() => { });
         }
 
         if (u?.line_user_id) {
@@ -348,9 +348,9 @@ async function lifecycle(){
       if (b.status === 'pending' && now >= start && entry) {
         await db.from('bookings').update({ status: 'active', entry_verified: true, entry_time: b.entry_time || now.toISOString() }).eq('id', b.id).eq('status', 'pending');
       }
-      const left=(end-now)/60000;
-      if(left>0&&left<=Number(b.notify_before_min||15)&&!b.notified){
-        if(u?.line_user_id){
+      const left = (end - now) / 60000;
+      if (left > 0 && left <= Number(b.notify_before_min || 15) && !b.notified) {
+        if (u?.line_user_id) {
           const remindMsg = [
             '⏰ แจ้งเตือน: ใกล้หมดเวลาจอดรถ!',
             '━━━━━━━━━━━━━━━━━━━',
@@ -361,7 +361,7 @@ async function lifecycle(){
           ].join('\n');
           await pushLine(u.line_user_id, remindMsg);
         }
-        await db.from('bookings').update({notified:true}).eq('id',b.id);
+        await db.from('bookings').update({ notified: true }).eq('id', b.id);
       }
 
       // ตรวจสอบจอดรถเกินเวลา (Overtime Alert)
@@ -375,12 +375,12 @@ async function lifecycle(){
             slotId: b.slot_id,
             title: `จอดรถเกินเวลา ช่อง ${b.slot_id} (${Math.floor(overtimeMinutes)} นาที)`,
             message: `รถจอดเกินเวลาที่จองไว้ ${Math.floor(overtimeMinutes)} นาที กำลังคิดค่าบริการส่วนเกินสะสม`
-          }).catch(() => {});
+          }).catch(() => { });
         }
       }
 
-      const exitDetected=b.status==='active'&&sensorFresh&&sensor?.presence==='empty'&&barrier?.state==='closed';
-      if(exitDetected){await finishBooking(b,'sensor-exit');continue;}
+      const exitDetected = b.status === 'active' && sensorFresh && sensor?.presence === 'empty' && barrier?.state === 'closed';
+      if (exitDetected) { await finishBooking(b, 'sensor-exit'); continue; }
       // หมายเหตุ: ไม่ auto-complete เมื่อหมดเวลา เพื่อให้ผู้ใช้อยู่ต่อได้ (overtime จะถูกคิดเมื่อกดจบการจอดหรือรถออก)
     }
 
@@ -405,7 +405,7 @@ async function lifecycle(){
               slotId: dev.linked_slot,
               title: `อุปกรณ์ ${dev.name || dev.id} ขาดการเชื่อมต่อ (Offline)`,
               message: `ไม่พบสัญญาณ Heartbeat เกิน ${alertCfg.offline_timeout_sec} วินาที กรุณาตรวจสอบการเชื่อมต่อหรือการจ่ายไฟ`
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }
 
@@ -421,18 +421,21 @@ async function lifecycle(){
               slotId: dev.linked_slot,
               title: `ไม้กั้นช่อง ${dev.linked_slot} เปิดค้างผิดปกติ`,
               message: `ไม้กั้นอยู่ในสถานะเปิดค้างนานกว่า ${Math.floor(gateOpenDuration / 60)} นาที ตรวจสอบกลไกหรือสิ่งกีดขวาง`
-            }).catch(() => {});
+            }).catch(() => { });
           }
         }
       }
     } catch (devCheckErr) {
       console.warn('[lifecycle device check error]', devCheckErr.message);
     }
-  }catch(error){console.error('[lifecycle]',error);}
-  finally{lifecycleRunning=false;}
+  } catch (error) { console.error('[lifecycle]', error); }
+  finally { lifecycleRunning = false; }
 }
-app.get('/api/health',(req,res)=>res.json({ok:true,time:new Date().toISOString()}));
-app.post('/api/auth/line',async(req,res)=>{try{const {code,redirectUri}=req.body;if(!code)return res.status(400).json({error:'Code จาก LINE ไม่ถูกต้อง'});const clientId=process.env.LINE_LOGIN_CHANNEL_ID,clientSecret=process.env.LINE_LOGIN_CHANNEL_SECRET;if(!clientId||!clientSecret)return res.status(500).json({error:'ยังไม่ได้ตั้งค่า LINE Login'});const params=new URLSearchParams({grant_type:'authorization_code',code,redirect_uri:redirectUri,client_id:clientId,client_secret:clientSecret});const tokenRes=await fetch('https://api.line.me/oauth2/v2.1/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:params.toString()});const tokenData=await tokenRes.json();if(!tokenRes.ok){console.error('[line token exchange error]',tokenData);throw new Error(tokenData.error_description||'แลกเปลี่ยน Token กับ LINE ไม่สำเร็จ');}const profileRes=await fetch('https://api.line.me/v2/profile',{headers:{Authorization:`Bearer ${tokenData.access_token}`}});const profile=await profileRes.json();if(!profileRes.ok||!profile.userId)throw new Error('ดึงข้อมูลโปรไฟล์จาก LINE ไม่สำเร็จ');const lineUserId=profile.userId,displayName=profile.displayName||'LINE User';let currentUserId=null;const authHeader=req.headers.authorization||'';if(authHeader.startsWith('Bearer ')){try{const decoded=jwt.verify(authHeader.slice(7),process.env.JWT_SECRET);currentUserId=decoded?.id;}catch{}}if(currentUserId){const {data:existing}=await db.from('users').select('id,username,name').eq('line_user_id',lineUserId).maybeSingle();if(existing&&existing.id!==currentUserId){await db.from('users').update({line_user_id:null}).eq('id',existing.id);}await db.from('users').update({line_user_id:lineUserId}).eq('id',currentUserId);const updated=await userById(currentUserId);delete updated.password_hash;delete updated.password;const linkMsg = [
+app.get('/api/health', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+app.post('/api/auth/line', async (req, res) => {
+  try {
+    const { code, redirectUri } = req.body; if (!code) return res.status(400).json({ error: 'Code จาก LINE ไม่ถูกต้อง' }); const clientId = process.env.LINE_LOGIN_CHANNEL_ID, clientSecret = process.env.LINE_LOGIN_CHANNEL_SECRET; if (!clientId || !clientSecret) return res.status(500).json({ error: 'ยังไม่ได้ตั้งค่า LINE Login' }); const params = new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri, client_id: clientId, client_secret: clientSecret }); const tokenRes = await fetch('https://api.line.me/oauth2/v2.1/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() }); const tokenData = await tokenRes.json(); if (!tokenRes.ok) { console.error('[line token exchange error]', tokenData); throw new Error(tokenData.error_description || 'แลกเปลี่ยน Token กับ LINE ไม่สำเร็จ'); } const profileRes = await fetch('https://api.line.me/v2/profile', { headers: { Authorization: `Bearer ${tokenData.access_token}` } }); const profile = await profileRes.json(); if (!profileRes.ok || !profile.userId) throw new Error('ดึงข้อมูลโปรไฟล์จาก LINE ไม่สำเร็จ'); const lineUserId = profile.userId, displayName = profile.displayName || 'LINE User'; let currentUserId = null; const authHeader = req.headers.authorization || ''; if (authHeader.startsWith('Bearer ')) { try { const decoded = jwt.verify(authHeader.slice(7), process.env.JWT_SECRET); currentUserId = decoded?.id; } catch { } } if (currentUserId) {
+      const { data: existing } = await db.from('users').select('id,username,name').eq('line_user_id', lineUserId).maybeSingle(); if (existing && existing.id !== currentUserId) { await db.from('users').update({ line_user_id: null }).eq('id', existing.id); } await db.from('users').update({ line_user_id: lineUserId }).eq('id', currentUserId); const updated = await userById(currentUserId); delete updated.password_hash; delete updated.password; const linkMsg = [
         '🎉 เชื่อมต่อบัญชี LINE สำเร็จ!',
         '━━━━━━━━━━━━━━━━━━━',
         `👤 บัญชีผู้ใช้: ${updated.name}`,
@@ -440,55 +443,66 @@ app.post('/api/auth/line',async(req,res)=>{try{const {code,redirectUri}=req.body
         '━━━━━━━━━━━━━━━━━━━',
         '✅ คุณจะได้รับการแจ้งเตือนสถานะการจอง เตือนหมดเวลา และสลิปค่าบริการผ่านแชทนี้อัตโนมัติ'
       ].join('\n');
-      await pushLine(lineUserId, linkMsg);return res.json({ok:true,mode:'linked',user:updated});}else{let {data:matchingUsers}=await db.from('users').select('*').eq('line_user_id',lineUserId).order('created_at',{ascending:true}); let u=matchingUsers?.[0]||null;if(!u){const randomCode=crypto.randomBytes(3).toString('hex').toLowerCase();const newUser={id:id(),username:`line_${randomCode}`,name:displayName,role:'user',credit:0,status:'active',line_user_id:lineUserId,line_link_code:crypto.randomBytes(3).toString('hex').toUpperCase()};const {data:created,error:createError}=await db.from('users').insert(newUser).select('*').single();if(createError)throw createError;u=created;const welcomeMsg = [
-        '🎉 ยินดีต้อนรับสู่ Smart Parking!',
-        '━━━━━━━━━━━━━━━━━━━',
-        `👤 บัญชี: ${displayName}`,
-        '━━━━━━━━━━━━━━━━━━━',
-        'เข้าสู่ระบบสำเร็จ พร้อมใช้งานระบบจองที่จอดรถและรับการแจ้งเตือนเรียลไทม์'
-      ].join('\n');
-      await pushLine(lineUserId, welcomeMsg);}delete u.password_hash;delete u.password;return res.json({ok:true,mode:'login',user:u,token:sign(u)});} }catch(error){console.error('[line auth]',error);res.status(400).json({error:error.message});}});
-app.post('/api/auth/line/unlink',auth,async(req,res)=>{try{await db.from('users').update({line_user_id:null}).eq('id',req.user.id);const updated=await userById(req.user.id);delete updated.password_hash;delete updated.password;res.json({ok:true,user:updated});}catch(error){res.status(400).json({error:error.message});}});
-app.post('/api/auth/register',async(req,res)=>{try{const {username,email,password,name}=req.body;if(!username||!password||!name)return res.status(400).json({error:'ข้อมูลไม่ครบถ้วน'});const u={id:id(),username,email:email?.toLowerCase(),password_hash:await bcrypt.hash(password,10),name,role:'user',credit:0,status:'active',line_link_code:crypto.randomBytes(4).toString('hex').slice(0,6).toUpperCase()};const {data,error}=await db.from('users').insert(u).select('*').single();if(error)throw error;delete data.password_hash;res.json({user:data,token:sign(data)});}catch(e){res.status(400).json({error:e.message});}});
-app.post('/api/auth/login',async(req,res)=>{try{const username=String(req.body.username||'').trim(),password=String(req.body.password||'');if(!username||!password)return res.status(400).json({error:'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน'});const {data,error}=await db.from('users').select('*').or(`username.eq.${username},email.eq.${username}`).maybeSingle();if(error)throw error;if(!data||data.status!=='active'||!(data.password_hash?await bcrypt.compare(password,data.password_hash):data.password===password))return res.status(401).json({error:'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'});delete data.password_hash;delete data.password;res.json({user:data,token:sign(data)});}catch(error){console.error('[login]',error);res.status(500).json({error:'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Backend และ Supabase'});}});
-app.get('/api/bootstrap',auth,async(req,res)=>{try{await lifecycle();const out={};const required=['slots','bookings','credit_history','devices'];const optional=['credit_requests','maintenance_logs','parking_maps','vehicles'];const userFields='id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at';let usersQuery=db.from('users').select(userFields);if(req.user.role!=='admin')usersQuery=usersQuery.eq('id',req.user.id);const {data:users,error:userError}=await usersQuery;if(userError)throw userError;out.users=users||[];for(const table of required){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['bookings','credit_history'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error)throw error;out[table]=data||[];}
-const slotsMeta=readSlotsMeta();
-out.slots=(out.slots||[]).map(s=>{const meta=slotsMeta[s.id]||{};return{...s,price_per_hour:s.price_per_hour!==undefined&&s.price_per_hour!==null?Number(s.price_per_hour):(meta.price_per_hour??20),pos_x:s.pos_x!==undefined&&s.pos_x!==null?Number(s.pos_x):(meta.pos_x??null),pos_y:s.pos_y!==undefined&&s.pos_y!==null?Number(s.pos_y):(meta.pos_y??null),type:s.type||meta.type||'ลูกค้าทั่วไป',sensor_enter_cm:s.sensor_enter_cm!==undefined&&s.sensor_enter_cm!==null?Number(s.sensor_enter_cm):(meta.sensor_enter_cm??9.0),sensor_exit_cm:s.sensor_exit_cm!==undefined&&s.sensor_exit_cm!==null?Number(s.sensor_exit_cm):(meta.sensor_exit_cm??11.0)};});
-out.devices=(out.devices||[]).map(d=>{if(d.type==='sensor'&&d.linked_slot&&liveDistances[d.linked_slot]!==undefined){return{...d,distance_cm:d.distance_cm??liveDistances[d.linked_slot]};}return d;});
-for(const table of optional){let query=db.from(table).select('*');if(req.user.role!=='admin'&&['credit_requests','vehicles'].includes(table))query=query.eq('user_id',req.user.id);const {data,error}=await query;if(error){console.warn(`[bootstrap] optional table ${table}:`,error.message);if(table==='vehicles'){out[table]=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);}else out[table]=[];}else{out[table]=data||[];if(table==='vehicles'&&out[table].length===0){const fallback=readFallbackVehicles().filter(v=>req.user.role==='admin'||v.user_id===req.user.id);if(fallback.length>0)out[table]=fallback;}}}
-const alertCfg=readAlertConfigs();
-let systemAlerts=[];
-try{
-  const {data:dbAlerts,error:alErr}=await db.from('system_alerts').select('*').order('created_at',{ascending:false}).limit(100);
-  if(!alErr&&Array.isArray(dbAlerts))systemAlerts=dbAlerts;
-  else systemAlerts=readSystemAlerts();
-}catch(e){systemAlerts=readSystemAlerts();}
-out.system_alerts=systemAlerts;
-out.alert_configs=alertCfg;
-res.json(out);}catch(error){console.error('[bootstrap]',error);res.status(500).json({error:`โหลดข้อมูลไม่สำเร็จ: ${error.message}`});}});
-app.post('/api/bookings',auth,async(req,res)=>{
-  try{
-    const {slotId,date,time,duration,vehicleId,vehicle_id,licensePlate,license_plate,vehicleType,vehicle_type,saveVehicle,save_vehicle}=req.body;
-    if(!slotId||!date||!time||!duration)return res.status(400).json({error:'กรุณากรอกข้อมูลการจองให้ครบถ้วน'});
-    const dur=Number(duration);
-    if(!Number.isFinite(dur)||dur<1)return res.status(400).json({error:'จำนวนชั่วโมงต้องไม่ต่ำกว่า 1'});
-    const u=await userById(req.user.id);
-    const slotsMeta=readSlotsMeta();
-    const {data:slot,error:slotError}=await db.from('slots').select('status, price_per_hour').eq('id',slotId).maybeSingle();
-    if(slotError)return res.status(500).json({error:slotError.message});
-    if(!slot||slot.status!=='available')return res.status(400).json({error:'ช่องจอดนี้ไม่ว่างหรือกำลังซ่อมบำรุง'});
+      await pushLine(lineUserId, linkMsg); return res.json({ ok: true, mode: 'linked', user: updated });
+    } else {
+      let { data: matchingUsers } = await db.from('users').select('*').eq('line_user_id', lineUserId).order('created_at', { ascending: true }); let u = matchingUsers?.[0] || null; if (!u) {
+        const randomCode = crypto.randomBytes(3).toString('hex').toLowerCase(); const newUser = { id: id(), username: `line_${randomCode}`, name: displayName, role: 'user', credit: 0, status: 'active', line_user_id: lineUserId, line_link_code: crypto.randomBytes(3).toString('hex').toUpperCase() }; const { data: created, error: createError } = await db.from('users').insert(newUser).select('*').single(); if (createError) throw createError; u = created; const welcomeMsg = [
+          '🎉 ยินดีต้อนรับสู่ Smart Parking!',
+          '━━━━━━━━━━━━━━━━━━━',
+          `👤 บัญชี: ${displayName}`,
+          '━━━━━━━━━━━━━━━━━━━',
+          'เข้าสู่ระบบสำเร็จ พร้อมใช้งานระบบจองที่จอดรถและรับการแจ้งเตือนเรียลไทม์'
+        ].join('\n');
+        await pushLine(lineUserId, welcomeMsg);
+      } delete u.password_hash; delete u.password; return res.json({ ok: true, mode: 'login', user: u, token: sign(u) });
+    }
+  } catch (error) { console.error('[line auth]', error); res.status(400).json({ error: error.message }); }
+});
+app.post('/api/auth/line/unlink', auth, async (req, res) => { try { await db.from('users').update({ line_user_id: null }).eq('id', req.user.id); const updated = await userById(req.user.id); delete updated.password_hash; delete updated.password; res.json({ ok: true, user: updated }); } catch (error) { res.status(400).json({ error: error.message }); } });
+app.post('/api/auth/register', async (req, res) => { try { const { username, email, password, name } = req.body; if (!username || !password || !name) return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' }); const u = { id: id(), username, email: email?.toLowerCase(), password_hash: await bcrypt.hash(password, 10), name, role: 'user', credit: 0, status: 'active', line_link_code: crypto.randomBytes(4).toString('hex').slice(0, 6).toUpperCase() }; const { data, error } = await db.from('users').insert(u).select('*').single(); if (error) throw error; delete data.password_hash; res.json({ user: data, token: sign(data) }); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.post('/api/auth/login', async (req, res) => { try { const username = String(req.body.username || '').trim(), password = String(req.body.password || ''); if (!username || !password) return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน' }); const { data, error } = await db.from('users').select('*').or(`username.eq.${username},email.eq.${username}`).maybeSingle(); if (error) throw error; if (!data || data.status !== 'active' || !(data.password_hash ? await bcrypt.compare(password, data.password_hash) : data.password === password)) return res.status(401).json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }); delete data.password_hash; delete data.password; res.json({ user: data, token: sign(data) }); } catch (error) { console.error('[login]', error); res.status(500).json({ error: 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Backend และ Supabase' }); } });
+app.get('/api/bootstrap', auth, async (req, res) => {
+  try {
+    await lifecycle(); const out = {}; const required = ['slots', 'bookings', 'credit_history', 'devices']; const optional = ['credit_requests', 'maintenance_logs', 'parking_maps', 'vehicles']; const userFields = 'id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at'; let usersQuery = db.from('users').select(userFields); if (req.user.role !== 'admin') usersQuery = usersQuery.eq('id', req.user.id); const { data: users, error: userError } = await usersQuery; if (userError) throw userError; out.users = users || []; for (const table of required) { let query = db.from(table).select('*'); if (req.user.role !== 'admin' && ['bookings', 'credit_history'].includes(table)) query = query.eq('user_id', req.user.id); const { data, error } = await query; if (error) throw error; out[table] = data || []; }
+    const slotsMeta = readSlotsMeta();
+    out.slots = (out.slots || []).map(s => { const meta = slotsMeta[s.id] || {}; return { ...s, price_per_hour: s.price_per_hour !== undefined && s.price_per_hour !== null ? Number(s.price_per_hour) : (meta.price_per_hour ?? 20), pos_x: s.pos_x !== undefined && s.pos_x !== null ? Number(s.pos_x) : (meta.pos_x ?? null), pos_y: s.pos_y !== undefined && s.pos_y !== null ? Number(s.pos_y) : (meta.pos_y ?? null), type: s.type || meta.type || 'ลูกค้าทั่วไป', sensor_enter_cm: s.sensor_enter_cm !== undefined && s.sensor_enter_cm !== null ? Number(s.sensor_enter_cm) : (meta.sensor_enter_cm ?? 9.0), sensor_exit_cm: s.sensor_exit_cm !== undefined && s.sensor_exit_cm !== null ? Number(s.sensor_exit_cm) : (meta.sensor_exit_cm ?? 11.0) }; });
+    out.devices = (out.devices || []).map(d => { if (d.type === 'sensor' && d.linked_slot && liveDistances[d.linked_slot] !== undefined) { return { ...d, distance_cm: d.distance_cm ?? liveDistances[d.linked_slot] }; } return d; });
+    for (const table of optional) { let query = db.from(table).select('*'); if (req.user.role !== 'admin' && ['credit_requests', 'vehicles'].includes(table)) query = query.eq('user_id', req.user.id); const { data, error } = await query; if (error) { console.warn(`[bootstrap] optional table ${table}:`, error.message); if (table === 'vehicles') { out[table] = readFallbackVehicles().filter(v => req.user.role === 'admin' || v.user_id === req.user.id); } else out[table] = []; } else { out[table] = data || []; if (table === 'vehicles' && out[table].length === 0) { const fallback = readFallbackVehicles().filter(v => req.user.role === 'admin' || v.user_id === req.user.id); if (fallback.length > 0) out[table] = fallback; } } }
+    const alertCfg = readAlertConfigs();
+    let systemAlerts = [];
+    try {
+      const { data: dbAlerts, error: alErr } = await db.from('system_alerts').select('*').order('created_at', { ascending: false }).limit(100);
+      if (!alErr && Array.isArray(dbAlerts)) systemAlerts = dbAlerts;
+      else systemAlerts = readSystemAlerts();
+    } catch (e) { systemAlerts = readSystemAlerts(); }
+    out.system_alerts = systemAlerts;
+    out.alert_configs = alertCfg;
+    res.json(out);
+  } catch (error) { console.error('[bootstrap]', error); res.status(500).json({ error: `โหลดข้อมูลไม่สำเร็จ: ${error.message}` }); }
+});
+app.post('/api/bookings', auth, async (req, res) => {
+  try {
+    const { slotId, date, time, duration, vehicleId, vehicle_id, licensePlate, license_plate, vehicleType, vehicle_type, saveVehicle, save_vehicle } = req.body;
+    if (!slotId || !date || !time || !duration) return res.status(400).json({ error: 'กรุณากรอกข้อมูลการจองให้ครบถ้วน' });
+    const dur = Number(duration);
+    if (!Number.isFinite(dur) || dur < 1) return res.status(400).json({ error: 'จำนวนชั่วโมงต้องไม่ต่ำกว่า 1' });
+    const u = await userById(req.user.id);
+    const slotsMeta = readSlotsMeta();
+    const { data: slot, error: slotError } = await db.from('slots').select('status, price_per_hour').eq('id', slotId).maybeSingle();
+    if (slotError) return res.status(500).json({ error: slotError.message });
+    if (!slot || slot.status !== 'available') return res.status(400).json({ error: 'ช่องจอดนี้ไม่ว่างหรือกำลังซ่อมบำรุง' });
 
-    const slotRate=Number(slot?.price_per_hour??slotsMeta[slotId]?.price_per_hour??RATE);
-    const amount=dur*slotRate;
-    const userCredit=Number(u?.credit||0);
-    if(userCredit<amount){
+    const slotRate = Number(slot?.price_per_hour ?? slotsMeta[slotId]?.price_per_hour ?? RATE);
+    const amount = dur * slotRate;
+    const userCredit = Number(u?.credit || 0);
+    if (userCredit < amount) {
       return res.status(400).json({
-        error:`เครดิตของคุณไม่เพียงพอสำหรับการจอง (ต้องใช้ ฿${amount.toLocaleString('th-TH')} แต่คุณมี ฿${userCredit.toLocaleString('th-TH')}) กรุณาส่งคำขอเติมเครดิตในระบบก่อนทำรายการ`
+        error: `เครดิตของคุณไม่เพียงพอสำหรับการจอง (ต้องใช้ ฿${amount.toLocaleString('th-TH')} แต่คุณมี ฿${userCredit.toLocaleString('th-TH')}) กรุณาส่งคำขอเติมเครดิตในระบบก่อนทำรายการ`
       });
     }
-    const start=thaiDateTime(date,time);
-    if(start<=new Date())return res.status(400).json({error:'เวลาเริ่มจองต้องเป็นเวลาในอนาคต'});
-    
+    const start = thaiDateTime(date, time);
+    if (start <= new Date()) return res.status(400).json({ error: 'เวลาเริ่มจองต้องเป็นเวลาในอนาคต' });
+
     const vId = vehicleId || vehicle_id || null;
     const lPlate = String(licensePlate || license_plate || '').trim();
     const vType = String(vehicleType || vehicle_type || 'รถเก๋ง (Sedan)').trim();
@@ -518,32 +532,32 @@ app.post('/api/bookings',auth,async(req,res)=>{
       }
     }
 
-    const status='pending';
-    const b={
-      id:id(),
-      slot_id:slotId,
-      user_id:u.id,
+    const status = 'pending';
+    const b = {
+      id: id(),
+      slot_id: slotId,
+      user_id: u.id,
       date,
       time,
-      duration:dur,
+      duration: dur,
       amount,
       status,
       ...(vId ? { vehicle_id: vId } : {}),
       ...(lPlate ? { license_plate: lPlate } : {}),
       ...(vType ? { vehicle_type: vType } : {})
     };
-    let {data,error}=await db.from('bookings').insert(b).select('*').single();
-    if(error){
+    let { data, error } = await db.from('bookings').insert(b).select('*').single();
+    if (error) {
       // หากยังไม่ได้รัน migration 005 ให้ retry แบบไม่มีคอลัมน์ยานพาหนะ แล้วแนบข้อมูลส่งกลับ
       const strippedB = { id: b.id, slot_id: b.slot_id, user_id: b.user_id, date: b.date, time: b.time, duration: b.duration, amount: b.amount, status: b.status };
       const fallbackResult = await db.from('bookings').insert(strippedB).select('*').single();
-      if(fallbackResult.error) return res.status(400).json({error:fallbackResult.error.message});
+      if (fallbackResult.error) return res.status(400).json({ error: fallbackResult.error.message });
       data = { ...fallbackResult.data, vehicle_id: vId, license_plate: lPlate, vehicle_type: vType };
     }
-    await db.from('slots').update({status:'booked'}).eq('id',slotId);
-    await credit(u.id,'reduce',amount,`ชำระค่าจองช่อง ${slotId}`);
+    await db.from('slots').update({ status: 'booked' }).eq('id', slotId);
+    await credit(u.id, 'reduce', amount, `ชำระค่าจองช่อง ${slotId}`);
     const updatedU = await userById(u.id);
-    if(updatedU?.line_user_id){
+    if (updatedU?.line_user_id) {
       const bookMsg = [
         '🅿️ ยืนยันการจองที่จอดรถสำเร็จ!',
         '━━━━━━━━━━━━━━━━━━━',
@@ -560,9 +574,9 @@ app.post('/api/bookings',auth,async(req,res)=>{
       await pushLine(updatedU.line_user_id, bookMsg);
     }
     res.json(data);
-  }catch(err){
-    console.error('[booking error]',err);
-    res.status(500).json({error:err.message||'จองที่จอดรถไม่สำเร็จ'});
+  } catch (err) {
+    console.error('[booking error]', err);
+    res.status(500).json({ error: err.message || 'จองที่จอดรถไม่สำเร็จ' });
   }
 });
 
@@ -603,13 +617,13 @@ app.post('/api/vehicles', auth, async (req, res) => {
     if (markDefault) {
       try {
         await db.from('vehicles').update({ is_default: false }).eq('user_id', req.user.id);
-      } catch (ignore) {}
+      } catch (ignore) { }
     }
 
     try {
       const { data, error } = await db.from('vehicles').insert(newVehicle).select('*').single();
       if (!error && data) return res.json(data);
-    } catch (ignore) {}
+    } catch (ignore) { }
 
     // Fallback store
     const all = readFallbackVehicles();
@@ -640,14 +654,14 @@ app.patch('/api/vehicles/:id', auth, async (req, res) => {
       if (markDefault) {
         try {
           await db.from('vehicles').update({ is_default: false }).eq('user_id', req.user.id);
-        } catch (ignore) {}
+        } catch (ignore) { }
       }
     }
 
     try {
       const { data, error } = await db.from('vehicles').update(updates).eq('id', vid).eq('user_id', req.user.id).select('*').single();
       if (!error && data) return res.json(data);
-    } catch (ignore) {}
+    } catch (ignore) { }
 
     // Fallback store
     const all = readFallbackVehicles();
@@ -669,7 +683,7 @@ app.delete('/api/vehicles/:id', auth, async (req, res) => {
     const vid = req.params.id;
     try {
       await db.from('vehicles').delete().eq('id', vid).eq('user_id', req.user.id);
-    } catch (ignore) {}
+    } catch (ignore) { }
     const all = readFallbackVehicles().filter(v => !(v.id === vid && (v.user_id === req.user.id || req.user.role === 'admin')));
     writeFallbackVehicles(all);
     res.json({ ok: true });
@@ -678,26 +692,26 @@ app.delete('/api/vehicles/:id', auth, async (req, res) => {
   }
 });
 
-app.post('/api/bookings/:id/cancel',auth,async(req,res)=>{
-  try{
-    const {data:b}=await db.from('bookings').select('*').eq('id',req.params.id).eq('user_id',req.user.id).maybeSingle();
-    if(!b) return res.status(404).json({error:'ไม่พบรายการจอง'});
-    if(b.status!=='pending') return res.status(400).json({error:'ยกเลิกได้เฉพาะรายการที่อยู่ในสถานะรอเข้าจอดเท่านั้น'});
-    
-    const start=thaiDateTime(b.date,b.time);
-    const cutoff=new Date(start.getTime() - 15 * 60 * 1000);
-    const now=new Date();
-    if(now >= cutoff){
+app.post('/api/bookings/:id/cancel', auth, async (req, res) => {
+  try {
+    const { data: b } = await db.from('bookings').select('*').eq('id', req.params.id).eq('user_id', req.user.id).maybeSingle();
+    if (!b) return res.status(404).json({ error: 'ไม่พบรายการจอง' });
+    if (b.status !== 'pending') return res.status(400).json({ error: 'ยกเลิกได้เฉพาะรายการที่อยู่ในสถานะรอเข้าจอดเท่านั้น' });
+
+    const start = thaiDateTime(b.date, b.time);
+    const cutoff = new Date(start.getTime() - 15 * 60 * 1000);
+    const now = new Date();
+    if (now >= cutoff) {
       return res.status(400).json({
-        error:'ไม่สามารถยกเลิกการจองได้แล้ว เนื่องจากต้องยกเลิกก่อนถึงเวลาจองอย่างน้อย 15 นาที'
+        error: 'ไม่สามารถยกเลิกการจองได้แล้ว เนื่องจากต้องยกเลิกก่อนถึงเวลาจองอย่างน้อย 15 นาที'
       });
     }
 
-    await db.from('bookings').update({status:'cancelled'}).eq('id',b.id);
-    await db.from('slots').update({status:'available'}).eq('id',b.slot_id);
-    await credit(req.user.id,'add',b.amount,`คืนเครดิตจากการยกเลิก ${b.slot_id}`);
-    const u=await userById(req.user.id);
-    if(u?.line_user_id){
+    await db.from('bookings').update({ status: 'cancelled' }).eq('id', b.id);
+    await db.from('slots').update({ status: 'available' }).eq('id', b.slot_id);
+    await credit(req.user.id, 'add', b.amount, `คืนเครดิตจากการยกเลิก ${b.slot_id}`);
+    const u = await userById(req.user.id);
+    if (u?.line_user_id) {
       const cancelMsg = [
         '↩️ ยกเลิกการจองสำเร็จ',
         '━━━━━━━━━━━━━━━━━━━',
@@ -711,13 +725,15 @@ app.post('/api/bookings/:id/cancel',auth,async(req,res)=>{
       ].join('\n');
       await pushLine(u.line_user_id, cancelMsg);
     }
-    res.json({ok:true,refundedAmount:b.amount});
-  }catch(e){
-    res.status(400).json({error:e.message});
+    res.json({ ok: true, refundedAmount: b.amount });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
-app.post('/api/bookings/:id/finish',auth,async(req,res)=>{const {data:b}=await db.from('bookings').select('*').eq('id',req.params.id).eq('user_id',req.user.id).maybeSingle();if(!b||!['pending','active'].includes(b.status))return res.status(400).json({error:'รายการจองไม่ได้อยู่ในสถานะที่จบการจอดได้'});res.json(await finishBooking(b));});
-app.post('/api/bookings/:id/test-remind',auth,async(req,res)=>{try{const {data:b,error}=await db.from('bookings').select('*').eq('id',req.params.id).maybeSingle();if(error||!b)return res.status(404).json({error:'ไม่พบรายการจอง'});if(b.user_id!==req.user.id&&req.user.role!=='admin')return res.status(403).json({error:'ไม่มีสิทธิ์'});const u=await userById(b.user_id);if(!u?.line_user_id)return res.status(400).json({error:'คุณยังไม่ได้เชื่อมต่อ LINE'});const msg = [
+app.post('/api/bookings/:id/finish', auth, async (req, res) => { const { data: b } = await db.from('bookings').select('*').eq('id', req.params.id).eq('user_id', req.user.id).maybeSingle(); if (!b || !['pending', 'active'].includes(b.status)) return res.status(400).json({ error: 'รายการจองไม่ได้อยู่ในสถานะที่จบการจอดได้' }); res.json(await finishBooking(b)); });
+app.post('/api/bookings/:id/test-remind', auth, async (req, res) => {
+  try {
+    const { data: b, error } = await db.from('bookings').select('*').eq('id', req.params.id).maybeSingle(); if (error || !b) return res.status(404).json({ error: 'ไม่พบรายการจอง' }); if (b.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'ไม่มีสิทธิ์' }); const u = await userById(b.user_id); if (!u?.line_user_id) return res.status(400).json({ error: 'คุณยังไม่ได้เชื่อมต่อ LINE' }); const msg = [
       '⏰ [จำลองแจ้งเตือน] ใกล้หมดเวลาจอดรถ!',
       '━━━━━━━━━━━━━━━━━━━',
       `🅿️ ช่องจอด: ${b.slot_id}`,
@@ -725,8 +741,12 @@ app.post('/api/bookings/:id/test-remind',auth,async(req,res)=>{try{const {data:b
       '━━━━━━━━━━━━━━━━━━━',
       '⚠️ กรุณาเตรียมนำรถออก หรือกดจบการจอดเมื่อออกจากช่อง เพื่อป้องกันค่าบริการเกินเวลา (฿20/ชม.)'
     ].join('\n');
-    const ok=await pushLine(u.line_user_id, msg);res.json({ok,lineSent:ok});}catch(e){res.status(400).json({error:e.message});}});
-app.post('/api/auth/line/test-message',auth,async(req,res)=>{try{const u=await userById(req.user.id);if(!u?.line_user_id)return res.status(400).json({error:'คุณยังไม่ได้เชื่อมต่อ LINE'});const msg = [
+    const ok = await pushLine(u.line_user_id, msg); res.json({ ok, lineSent: ok });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.post('/api/auth/line/test-message', auth, async (req, res) => {
+  try {
+    const u = await userById(req.user.id); if (!u?.line_user_id) return res.status(400).json({ error: 'คุณยังไม่ได้เชื่อมต่อ LINE' }); const msg = [
       '🔔 ทดสอบระบบแจ้งเตือน Smart Parking',
       '━━━━━━━━━━━━━━━━━━━',
       `👤 บัญชี: ${u.name}`,
@@ -735,47 +755,49 @@ app.post('/api/auth/line/test-message',auth,async(req,res)=>{try{const u=await u
       '━━━━━━━━━━━━━━━━━━━',
       '✅ ระบบเชื่อมต่อสมบูรณ์และพร้อมส่งการแจ้งเตือนแบบเรียลไทม์'
     ].join('\n');
-    const ok=await pushLine(u.line_user_id, msg);res.json({ok,lineSent:ok});}catch(e){res.status(400).json({error:e.message});}});
-app.post('/api/devices/:id/toggle',auth,async(req,res)=>{
-  const {data:d}=await db.from('devices').select('*').eq('id',req.params.id).maybeSingle();
-  if(!d||d.type!=='barrier')return res.status(404).json({error:'ไม่พบอุปกรณ์ควบคุมช่องจอด'});
-  if(req.user.role!=='admin'){
-    const {data:bookings}=await db.from('bookings').select('*').eq('user_id',req.user.id).in('status',['pending','active']);
-    const b=(bookings||[]).find(x=>x.slot_id===d.linked_slot);
-    if(!b)return res.status(403).json({error:'ควบคุมได้เฉพาะช่องที่คุณจองไว้เท่านั้น (ต้องอยู่ในสถานะ pending หรือ active)'});
-    
+    const ok = await pushLine(u.line_user_id, msg); res.json({ ok, lineSent: ok });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.post('/api/devices/:id/toggle', auth, async (req, res) => {
+  const { data: d } = await db.from('devices').select('*').eq('id', req.params.id).maybeSingle();
+  if (!d || d.type !== 'barrier') return res.status(404).json({ error: 'ไม่พบอุปกรณ์ควบคุมช่องจอด' });
+  if (req.user.role !== 'admin') {
+    const { data: bookings } = await db.from('bookings').select('*').eq('user_id', req.user.id).in('status', ['pending', 'active']);
+    const b = (bookings || []).find(x => x.slot_id === d.linked_slot);
+    if (!b) return res.status(403).json({ error: 'ควบคุมได้เฉพาะช่องที่คุณจองไว้เท่านั้น (ต้องอยู่ในสถานะ pending หรือ active)' });
+
     // ตรวจสอบเงื่อนไขการควบคุมไม้กั้น
-    if(b.status==='pending'){
-      const now=new Date();
-      const start=thaiDateTime(b.date,b.time);
-      const cutoff=new Date(start.getTime() - 15 * 60 * 1000);
-      if(now < cutoff){
-        const cutoffStr=cutoff.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Bangkok'});
-        return res.status(403).json({error:`ยังไม่สามารถควบคุมไม้กั้นได้ในขณะที่ยังอยู่ในช่วงเวลายกเลิกการจอง (สามารถควบคุมได้ตั้งแต่ 15 นาทีก่อนถึงเวลาจอง คือเวลา ${cutoffStr} น. เป็นต้นไป)`});
+    if (b.status === 'pending') {
+      const now = new Date();
+      const start = thaiDateTime(b.date, b.time);
+      const cutoff = new Date(start.getTime() - 15 * 60 * 1000);
+      if (now < cutoff) {
+        const cutoffStr = cutoff.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
+        return res.status(403).json({ error: `ยังไม่สามารถควบคุมไม้กั้นได้ในขณะที่ยังอยู่ในช่วงเวลายกเลิกการจอง (สามารถควบคุมได้ตั้งแต่ 15 นาทีก่อนถึงเวลาจอง คือเวลา ${cutoffStr} น. เป็นต้นไป)` });
       }
-      const noShowCutoff=new Date(start.getTime()+GRACE*60000);
-      if(now>=noShowCutoff&&!b.entry_verified){
-        await db.from('bookings').update({status:'no_show',no_show_checked:true}).eq('id',b.id);
-        await db.from('devices').update({state:'closed',updated_at:now.toISOString()}).eq('id',d.id);
-        await db.from('slots').update({status:'available',updated_at:now.toISOString()}).eq('id',d.linked_slot);
-        return res.status(403).json({error:'เกินเวลาเริ่มจอง 15 นาทีแล้ว (No-Show) ระบบตัดการควบคุม ปิดไม้กั้น และคืนสถานะช่องจอดเป็นว่างแล้ว'});
+      const noShowCutoff = new Date(start.getTime() + GRACE * 60000);
+      if (now >= noShowCutoff && !b.entry_verified) {
+        await db.from('bookings').update({ status: 'no_show', no_show_checked: true }).eq('id', b.id);
+        await db.from('devices').update({ state: 'closed', updated_at: now.toISOString() }).eq('id', d.id);
+        await db.from('slots').update({ status: 'available', updated_at: now.toISOString() }).eq('id', d.linked_slot);
+        return res.status(403).json({ error: 'เกินเวลาเริ่มจอง 15 นาทีแล้ว (No-Show) ระบบตัดการควบคุม ปิดไม้กั้น และคืนสถานะช่องจอดเป็นว่างแล้ว' });
       }
     }
   }
-  const state=d.state==='open'?'closed':'open';
-  const {data,error}=await db.from('devices').update({state,updated_at:new Date().toISOString()}).eq('id',d.id).select('*').single();
-  if(error)return res.status(400).json({error:error.message});
+  const state = d.state === 'open' ? 'closed' : 'open';
+  const { data, error } = await db.from('devices').update({ state, updated_at: new Date().toISOString() }).eq('id', d.id).select('*').single();
+  if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
-app.patch('/api/admin/users/:id',auth,admin,async(req,res)=>{try{const patch={};if(['admin','user'].includes(req.body.role))patch.role=req.body.role;if(['active','inactive'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(!Object.keys(patch).length)return res.status(400).json({error:'ไม่มีข้อมูลที่ต้องแก้ไข'});const {data,error}=await db.from('users').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
-app.patch('/api/admin/devices/:id',auth,admin,async(req,res)=>{try{const patch={};if(typeof req.body.name==='string'&&req.body.name.trim())patch.name=req.body.name.trim();if(typeof req.body.linked_slot==='string'||req.body.linked_slot===null)patch.linked_slot=req.body.linked_slot;if(['online','offline','error'].includes(req.body.status))patch.status=req.body.status;patch.updated_at=new Date().toISOString();const {data,error}=await db.from('devices').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
-app.patch('/api/admin/slots/:id',auth,admin,async(req,res)=>{try{const patch={};const metaPatch={};if(typeof req.body.code==='string'&&req.body.code.trim())patch.code=req.body.code.trim();if(['available','booked','unavailable'].includes(req.body.status))patch.status=req.body.status;if(typeof req.body.type==='string'&&req.body.type.trim()){patch.type=req.body.type.trim();metaPatch.type=patch.type;}if(req.body.price_per_hour!==undefined&&req.body.price_per_hour!==null&&!isNaN(Number(req.body.price_per_hour))){patch.price_per_hour=Math.max(0,Number(req.body.price_per_hour));metaPatch.price_per_hour=patch.price_per_hour;}if(req.body.pos_x!==undefined){patch.pos_x=req.body.pos_x===null?null:Number(req.body.pos_x);metaPatch.pos_x=patch.pos_x;}if(req.body.pos_y!==undefined){patch.pos_y=req.body.pos_y===null?null:Number(req.body.pos_y);metaPatch.pos_y=patch.pos_y;}if(req.body.sensor_enter_cm!==undefined&&req.body.sensor_enter_cm!==null&&!isNaN(Number(req.body.sensor_enter_cm))){const val=Math.max(1,Math.min(200,Number(req.body.sensor_enter_cm)));patch.sensor_enter_cm=val;metaPatch.sensor_enter_cm=val;}if(req.body.sensor_exit_cm!==undefined&&req.body.sensor_exit_cm!==null&&!isNaN(Number(req.body.sensor_exit_cm))){const val=Math.max(1,Math.min(200,Number(req.body.sensor_exit_cm)));patch.sensor_exit_cm=val;metaPatch.sensor_exit_cm=val;}const allMeta=readSlotsMeta();allMeta[req.params.id]={...(allMeta[req.params.id]||{}),...metaPatch};writeSlotsMeta(allMeta);patch.updated_at=new Date().toISOString();let updatedData=null;try{const {data,error}=await db.from('slots').update(patch).eq('id',req.params.id).select('*').single();if(error)throw error;updatedData=data;}catch(dbErr){console.warn('[slots update fallback]',dbErr.message);const safePatch={};if(patch.code)safePatch.code=patch.code;if(patch.status)safePatch.status=patch.status;if(patch.type)safePatch.type=patch.type;safePatch.updated_at=patch.updated_at;const {data:fbData,error:fbErr}=await db.from('slots').update(safePatch).eq('id',req.params.id).select('*').single();if(fbErr)throw fbErr;updatedData=fbData;}const merged={...updatedData,price_per_hour:updatedData.price_per_hour??allMeta[req.params.id]?.price_per_hour??20,pos_x:updatedData.pos_x??allMeta[req.params.id]?.pos_x??null,pos_y:updatedData.pos_y??allMeta[req.params.id]?.pos_y??null,type:updatedData.type||allMeta[req.params.id]?.type||'ลูกค้าทั่วไป',sensor_enter_cm:updatedData.sensor_enter_cm??allMeta[req.params.id]?.sensor_enter_cm??9.0,sensor_exit_cm:updatedData.sensor_exit_cm??allMeta[req.params.id]?.sensor_exit_cm??11.0};res.json(merged);}catch(e){res.status(400).json({error:e.message});}});
-app.post('/api/admin/slots/swap',auth,admin,async(req,res)=>{try{const {firstId,secondId}=req.body;const {data:slots,error}=await db.from('slots').select('id,floor,slot_order').in('id',[firstId,secondId]);if(error)throw error;if(!slots||slots.length!==2)return res.status(404).json({error:'ไม่พบช่องจอด'});const a=slots.find(x=>x.id===firstId),b=slots.find(x=>x.id===secondId);await db.from('slots').update({floor:b.floor,slot_order:b.slot_order,updated_at:new Date().toISOString()}).eq('id',a.id);await db.from('slots').update({floor:a.floor,slot_order:a.slot_order,updated_at:new Date().toISOString()}).eq('id',b.id);res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
-app.post('/api/admin/maintenance',auth,admin,async(req,res)=>{try{const {slotId,problemDetail}=req.body;if(!slotId||!String(problemDetail||'').trim())return res.status(400).json({error:'กรุณาระบุช่องจอดและรายละเอียด'});const {data,error}=await db.from('maintenance_logs').insert({id:id(),slot_id:slotId,problem_detail:String(problemDetail).trim(),status:'open'}).select('*').single();if(error)throw error;await db.from('slots').update({status:'unavailable',updated_at:new Date().toISOString()}).eq('id',slotId);res.json(data);}catch(e){res.status(400).json({error:e.message});}});
-app.post('/api/admin/maintenance/:id/resolve',auth,admin,async(req,res)=>{try{const {data:m,error}=await db.from('maintenance_logs').select('*').eq('id',req.params.id).maybeSingle();if(error)throw error;if(!m)return res.status(404).json({error:'ไม่พบรายการซ่อม'});await db.from('maintenance_logs').update({status:'resolved',resolved_at:new Date().toISOString()}).eq('id',m.id);await db.from('slots').update({status:'available',updated_at:new Date().toISOString()}).eq('id',m.slot_id);res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
-app.post('/api/admin/maps',auth,admin,upload.single('image'),async(req,res)=>{try{if(!req.file)return res.status(400).json({error:'กรุณาเลือกไฟล์ PNG, JPG หรือ WebP'});const floor=Number(req.body.floor||1);const ext=req.file.mimetype==='image/png'?'png':req.file.mimetype==='image/webp'?'webp':'jpg';const path=`floor-${floor}/${Date.now()}-${crypto.randomUUID()}.${ext}`;const {error:uploadError}=await db.storage.from('parking-maps').upload(path,req.file.buffer,{contentType:req.file.mimetype,upsert:false});if(uploadError)throw uploadError;const {data:urlData}=db.storage.from('parking-maps').getPublicUrl(path);const {data,error}=await db.from('parking_maps').insert({id:id(),name:String(req.body.name||`ผังชั้น ${floor}`),floor,image_url:urlData.publicUrl,created_by:req.user.id}).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
-app.patch('/api/admin/maps/:id',auth,admin,upload.single('image'),async(req,res)=>{try{const {data:map,error:fetchError}=await db.from('parking_maps').select('*').eq('id',req.params.id).maybeSingle();if(fetchError)throw fetchError;if(!map)return res.status(404).json({error:'ไม่พบผังลานจอด'});const updates={};if(req.body.name&&String(req.body.name).trim()){updates.name=String(req.body.name).trim();}if(req.body.floor){updates.floor=Number(req.body.floor);}if(req.file){const floor=updates.floor||map.floor||1;const ext=req.file.mimetype==='image/png'?'png':req.file.mimetype==='image/webp'?'webp':'jpg';const path=`floor-${floor}/${Date.now()}-${crypto.randomUUID()}.${ext}`;const {error:uploadError}=await db.storage.from('parking-maps').upload(path,req.file.buffer,{contentType:req.file.mimetype,upsert:false});if(uploadError)throw uploadError;const {data:urlData}=db.storage.from('parking-maps').getPublicUrl(path);updates.image_url=urlData.publicUrl;try{const url=new URL(map.image_url);const pathParts=url.pathname.split('/object/public/parking-maps/');if(pathParts.length>1){const storagePath=decodeURIComponent(pathParts[1]);await db.storage.from('parking-maps').remove([storagePath]);}}catch(storageErr){console.warn('[map update] old storage remove warning:',storageErr.message);}}if(Object.keys(updates).length===0){return res.status(400).json({error:'ไม่มีข้อมูลที่ต้องอัปเดต'});}const {data,error}=await db.from('parking_maps').update(updates).eq('id',map.id).select('*').single();if(error)throw error;res.json(data);}catch(e){res.status(400).json({error:e.message});}});
-app.delete('/api/admin/maps/:id',auth,admin,async(req,res)=>{try{const {data:map,error:fetchError}=await db.from('parking_maps').select('*').eq('id',req.params.id).maybeSingle();if(fetchError)throw fetchError;if(!map)return res.status(404).json({error:'ไม่พบผังลานจอด'});try{const url=new URL(map.image_url);const pathParts=url.pathname.split('/object/public/parking-maps/');if(pathParts.length>1){const storagePath=decodeURIComponent(pathParts[1]);await db.storage.from('parking-maps').remove([storagePath]);}}catch(storageErr){console.warn('[map delete] storage remove warning:',storageErr.message);}const {error:dbError}=await db.from('parking_maps').delete().eq('id',map.id);if(dbError)throw dbError;res.json({ok:true});}catch(e){res.status(400).json({error:e.message});}});
+app.patch('/api/admin/users/:id', auth, admin, async (req, res) => { try { const patch = {}; if (['admin', 'user'].includes(req.body.role)) patch.role = req.body.role; if (['active', 'inactive'].includes(req.body.status)) patch.status = req.body.status; if (typeof req.body.name === 'string' && req.body.name.trim()) patch.name = req.body.name.trim(); if (!Object.keys(patch).length) return res.status(400).json({ error: 'ไม่มีข้อมูลที่ต้องแก้ไข' }); const { data, error } = await db.from('users').update(patch).eq('id', req.params.id).select('*').single(); if (error) throw error; res.json(data); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.patch('/api/admin/devices/:id', auth, admin, async (req, res) => { try { const patch = {}; if (typeof req.body.name === 'string' && req.body.name.trim()) patch.name = req.body.name.trim(); if (typeof req.body.linked_slot === 'string' || req.body.linked_slot === null) patch.linked_slot = req.body.linked_slot; if (['online', 'offline', 'error'].includes(req.body.status)) patch.status = req.body.status; patch.updated_at = new Date().toISOString(); const { data, error } = await db.from('devices').update(patch).eq('id', req.params.id).select('*').single(); if (error) throw error; res.json(data); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.patch('/api/admin/slots/:id', auth, admin, async (req, res) => { try { const patch = {}; const metaPatch = {}; if (typeof req.body.code === 'string' && req.body.code.trim()) patch.code = req.body.code.trim(); if (['available', 'booked', 'unavailable'].includes(req.body.status)) patch.status = req.body.status; if (typeof req.body.type === 'string' && req.body.type.trim()) { patch.type = req.body.type.trim(); metaPatch.type = patch.type; } if (req.body.price_per_hour !== undefined && req.body.price_per_hour !== null && !isNaN(Number(req.body.price_per_hour))) { patch.price_per_hour = Math.max(0, Number(req.body.price_per_hour)); metaPatch.price_per_hour = patch.price_per_hour; } if (req.body.pos_x !== undefined) { patch.pos_x = req.body.pos_x === null ? null : Number(req.body.pos_x); metaPatch.pos_x = patch.pos_x; } if (req.body.pos_y !== undefined) { patch.pos_y = req.body.pos_y === null ? null : Number(req.body.pos_y); metaPatch.pos_y = patch.pos_y; } if (req.body.sensor_enter_cm !== undefined && req.body.sensor_enter_cm !== null && !isNaN(Number(req.body.sensor_enter_cm))) { const val = Math.max(1, Math.min(200, Number(req.body.sensor_enter_cm))); patch.sensor_enter_cm = val; metaPatch.sensor_enter_cm = val; } if (req.body.sensor_exit_cm !== undefined && req.body.sensor_exit_cm !== null && !isNaN(Number(req.body.sensor_exit_cm))) { const val = Math.max(1, Math.min(200, Number(req.body.sensor_exit_cm))); patch.sensor_exit_cm = val; metaPatch.sensor_exit_cm = val; } const allMeta = readSlotsMeta(); allMeta[req.params.id] = { ...(allMeta[req.params.id] || {}), ...metaPatch }; writeSlotsMeta(allMeta); patch.updated_at = new Date().toISOString(); let updatedData = null; try { const { data, error } = await db.from('slots').update(patch).eq('id', req.params.id).select('*').single(); if (error) throw error; updatedData = data; } catch (dbErr) { console.warn('[slots update fallback]', dbErr.message); const safePatch = {}; if (patch.code) safePatch.code = patch.code; if (patch.status) safePatch.status = patch.status; if (patch.type) safePatch.type = patch.type; safePatch.updated_at = patch.updated_at; const { data: fbData, error: fbErr } = await db.from('slots').update(safePatch).eq('id', req.params.id).select('*').single(); if (fbErr) throw fbErr; updatedData = fbData; } const merged = { ...updatedData, price_per_hour: updatedData.price_per_hour ?? allMeta[req.params.id]?.price_per_hour ?? 20, pos_x: updatedData.pos_x ?? allMeta[req.params.id]?.pos_x ?? null, pos_y: updatedData.pos_y ?? allMeta[req.params.id]?.pos_y ?? null, type: updatedData.type || allMeta[req.params.id]?.type || 'ลูกค้าทั่วไป', sensor_enter_cm: updatedData.sensor_enter_cm ?? allMeta[req.params.id]?.sensor_enter_cm ?? 9.0, sensor_exit_cm: updatedData.sensor_exit_cm ?? allMeta[req.params.id]?.sensor_exit_cm ?? 11.0 }; res.json(merged); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.post('/api/admin/slots/swap', auth, admin, async (req, res) => { try { const { firstId, secondId } = req.body; const { data: slots, error } = await db.from('slots').select('id,floor,slot_order').in('id', [firstId, secondId]); if (error) throw error; if (!slots || slots.length !== 2) return res.status(404).json({ error: 'ไม่พบช่องจอด' }); const a = slots.find(x => x.id === firstId), b = slots.find(x => x.id === secondId); await db.from('slots').update({ floor: b.floor, slot_order: b.slot_order, updated_at: new Date().toISOString() }).eq('id', a.id); await db.from('slots').update({ floor: a.floor, slot_order: a.slot_order, updated_at: new Date().toISOString() }).eq('id', b.id); res.json({ ok: true }); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.post('/api/admin/maintenance', auth, admin, async (req, res) => { try { const { slotId, problemDetail } = req.body; if (!slotId || !String(problemDetail || '').trim()) return res.status(400).json({ error: 'กรุณาระบุช่องจอดและรายละเอียด' }); const { data, error } = await db.from('maintenance_logs').insert({ id: id(), slot_id: slotId, problem_detail: String(problemDetail).trim(), status: 'open' }).select('*').single(); if (error) throw error; await db.from('slots').update({ status: 'unavailable', updated_at: new Date().toISOString() }).eq('id', slotId); res.json(data); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.post('/api/admin/maintenance/:id/resolve', auth, admin, async (req, res) => { try { const { data: m, error } = await db.from('maintenance_logs').select('*').eq('id', req.params.id).maybeSingle(); if (error) throw error; if (!m) return res.status(404).json({ error: 'ไม่พบรายการซ่อม' }); await db.from('maintenance_logs').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', m.id); await db.from('slots').update({ status: 'available', updated_at: new Date().toISOString() }).eq('id', m.slot_id); res.json({ ok: true }); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.post('/api/admin/maps', auth, admin, upload.single('image'), async (req, res) => { try { if (!req.file) return res.status(400).json({ error: 'กรุณาเลือกไฟล์ PNG, JPG หรือ WebP' }); const floor = Number(req.body.floor || 1); const ext = req.file.mimetype === 'image/png' ? 'png' : req.file.mimetype === 'image/webp' ? 'webp' : 'jpg'; const path = `floor-${floor}/${Date.now()}-${crypto.randomUUID()}.${ext}`; const { error: uploadError } = await db.storage.from('parking-maps').upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: false }); if (uploadError) throw uploadError; const { data: urlData } = db.storage.from('parking-maps').getPublicUrl(path); const { data, error } = await db.from('parking_maps').insert({ id: id(), name: String(req.body.name || `ผังชั้น ${floor}`), floor, image_url: urlData.publicUrl, created_by: req.user.id }).select('*').single(); if (error) throw error; res.json(data); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.patch('/api/admin/maps/:id', auth, admin, upload.single('image'), async (req, res) => { try { const { data: map, error: fetchError } = await db.from('parking_maps').select('*').eq('id', req.params.id).maybeSingle(); if (fetchError) throw fetchError; if (!map) return res.status(404).json({ error: 'ไม่พบผังลานจอด' }); const updates = {}; if (req.body.name && String(req.body.name).trim()) { updates.name = String(req.body.name).trim(); } if (req.body.floor) { updates.floor = Number(req.body.floor); } if (req.file) { const floor = updates.floor || map.floor || 1; const ext = req.file.mimetype === 'image/png' ? 'png' : req.file.mimetype === 'image/webp' ? 'webp' : 'jpg'; const path = `floor-${floor}/${Date.now()}-${crypto.randomUUID()}.${ext}`; const { error: uploadError } = await db.storage.from('parking-maps').upload(path, req.file.buffer, { contentType: req.file.mimetype, upsert: false }); if (uploadError) throw uploadError; const { data: urlData } = db.storage.from('parking-maps').getPublicUrl(path); updates.image_url = urlData.publicUrl; try { const url = new URL(map.image_url); const pathParts = url.pathname.split('/object/public/parking-maps/'); if (pathParts.length > 1) { const storagePath = decodeURIComponent(pathParts[1]); await db.storage.from('parking-maps').remove([storagePath]); } } catch (storageErr) { console.warn('[map update] old storage remove warning:', storageErr.message); } } if (Object.keys(updates).length === 0) { return res.status(400).json({ error: 'ไม่มีข้อมูลที่ต้องอัปเดต' }); } const { data, error } = await db.from('parking_maps').update(updates).eq('id', map.id).select('*').single(); if (error) throw error; res.json(data); } catch (e) { res.status(400).json({ error: e.message }); } });
+app.delete('/api/admin/maps/:id', auth, admin, async (req, res) => { try { const { data: map, error: fetchError } = await db.from('parking_maps').select('*').eq('id', req.params.id).maybeSingle(); if (fetchError) throw fetchError; if (!map) return res.status(404).json({ error: 'ไม่พบผังลานจอด' }); try { const url = new URL(map.image_url); const pathParts = url.pathname.split('/object/public/parking-maps/'); if (pathParts.length > 1) { const storagePath = decodeURIComponent(pathParts[1]); await db.storage.from('parking-maps').remove([storagePath]); } } catch (storageErr) { console.warn('[map delete] storage remove warning:', storageErr.message); } const { error: dbError } = await db.from('parking_maps').delete().eq('id', map.id); if (dbError) throw dbError; res.json({ ok: true }); } catch (e) { res.status(400).json({ error: e.message }); } });
 
 // ─── Admin: Alert Configuration & System Alerts ───
 app.get('/api/admin/alert-configs', auth, admin, (req, res) => {
@@ -789,7 +811,7 @@ app.patch('/api/admin/alert-configs', auth, admin, async (req, res) => {
     writeAlertConfigs(updated);
     try {
       await db.from('alert_configs').upsert(updated);
-    } catch (ignore) {}
+    } catch (ignore) { }
     res.json(updated);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -811,7 +833,7 @@ app.post('/api/admin/system-alerts/:id/acknowledge', auth, admin, async (req, re
     const alertId = req.params.id;
     try {
       await db.from('system_alerts').update({ status: 'acknowledged' }).eq('id', alertId);
-    } catch (ignore) {}
+    } catch (ignore) { }
     const all = readSystemAlerts();
     const idx = all.findIndex(a => a.id === alertId);
     if (idx !== -1) {
@@ -830,7 +852,7 @@ app.post('/api/admin/system-alerts/:id/resolve', auth, admin, async (req, res) =
     const now = new Date().toISOString();
     try {
       await db.from('system_alerts').update({ status: 'resolved', resolved_at: now }).eq('id', alertId);
-    } catch (ignore) {}
+    } catch (ignore) { }
     const all = readSystemAlerts();
     const idx = all.findIndex(a => a.id === alertId);
     if (idx !== -1) {
@@ -848,7 +870,7 @@ app.post('/api/admin/system-alerts/clear-resolved', auth, admin, async (req, res
   try {
     try {
       await db.from('system_alerts').delete().eq('status', 'resolved');
-    } catch (ignore) {}
+    } catch (ignore) { }
     const all = readSystemAlerts().filter(a => a.status !== 'resolved');
     writeSystemAlerts(all);
     res.json({ ok: true });
@@ -883,7 +905,7 @@ app.post('/api/user/emergency-report', auth, async (req, res) => {
     const desc = String(description || '').trim();
     const plate = String(licensePlate || '').trim();
 
-    const title = `🚨 แจ้งปัญหาฉุกเฉิน: ช่อง ${slotId} (${probType})`;
+    const title = ` แจ้งปัญหาฉุกเฉิน: ช่อง ${slotId} (${probType})`;
     const detailParts = [
       `ผู้ใช้: ${u?.name || 'User'} (${u?.username || '-'})`,
       plate ? `ทะเบียน: ${plate}` : null,
@@ -997,7 +1019,7 @@ async function processBatchTelemetry(deviceId, slotReadings) {
 
   // สร้างรายการเกณฑ์ระยะเซ็นเซอร์ (thresholds) ของแต่ละช่องจอดส่งกลับไปให้ ESP32
   const slotsMeta = readSlotsMeta();
-  const allSlotIds = ['A1','A2','A3','A4','A5','A6','B1','B2','B3','B4','B5','B6'];
+  const allSlotIds = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6'];
   const thresholds = allSlotIds.map(sId => ({
     slot_id: sId,
     enter_cm: Number(slotsMeta[sId]?.sensor_enter_cm ?? 9.0),
@@ -1056,7 +1078,7 @@ app.post('/api/iot/sensors/presence', async (req, res) => {
       .maybeSingle();
 
     if (error) return res.status(400).json({ error: error.message });
-    lifecycle().catch(() => {});
+    lifecycle().catch(() => { });
     res.json(data || { ok: true });
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -1100,32 +1122,32 @@ app.post('/api/iot/barriers/status', async (req, res) => {
     res.status(400).json({ error: e.message });
   }
 });
-app.post('/api/credit-requests',auth,async(req,res)=>{
-  try{
-    const amount=Number(req.body.amount);
-    const reason=String(req.body.reason||'').trim() || 'ขอเติมเครดิต';
-    if(!Number.isFinite(amount)||amount<10)return res.status(400).json({error:'กรุณาระบุจำนวนเงินอย่างน้อย 10 บาท'});
-    if(amount>5000)return res.status(400).json({error:'เติมเครดิตได้ไม่เกินครั้งละ 5,000 บาท'});
-    if(amount%10!==0)return res.status(400).json({error:'จำนวนเงินต้องเพิ่มทีละ 10 บาท'});
-    const {data,error}=await db.from('credit_requests').insert({id:id(),user_id:req.user.id,type:'add',amount,reason,status:'pending'}).select('*').single();
-    if(error)throw error;
+app.post('/api/credit-requests', auth, async (req, res) => {
+  try {
+    const amount = Number(req.body.amount);
+    const reason = String(req.body.reason || '').trim() || 'ขอเติมเครดิต';
+    if (!Number.isFinite(amount) || amount < 10) return res.status(400).json({ error: 'กรุณาระบุจำนวนเงินอย่างน้อย 10 บาท' });
+    if (amount > 5000) return res.status(400).json({ error: 'เติมเครดิตได้ไม่เกินครั้งละ 5,000 บาท' });
+    if (amount % 10 !== 0) return res.status(400).json({ error: 'จำนวนเงินต้องเพิ่มทีละ 10 บาท' });
+    const { data, error } = await db.from('credit_requests').insert({ id: id(), user_id: req.user.id, type: 'add', amount, reason, status: 'pending' }).select('*').single();
+    if (error) throw error;
     res.json(data);
-  }catch(e){
-    res.status(400).json({error:e.message});
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
-app.post('/api/admin/users/:id/credit',auth,admin,async(req,res)=>{
-  try{
-    const type=req.body.type==='reduce'?'reduce':'add';
-    const amount=Number(req.body.amount);
-    const reason=String(req.body.reason||'ปรับเครดิตโดยผู้ดูแล').trim();
-    if(!Number.isFinite(amount)||amount<=0)return res.status(400).json({error:'จำนวนเงินไม่ถูกต้อง'});
-    const u=await userById(req.params.id);
-    if(!u)return res.status(404).json({error:'ไม่พบผู้ใช้'});
-    if(type==='reduce'&&Number(u.credit)<amount)return res.status(400).json({error:'เครดิตผู้ใช้ไม่เพียงพอ'});
-    await credit(u.id,type,amount,reason);
-    const updated=await userById(u.id);
-    if(updated?.line_user_id){
+app.post('/api/admin/users/:id/credit', auth, admin, async (req, res) => {
+  try {
+    const type = req.body.type === 'reduce' ? 'reduce' : 'add';
+    const amount = Number(req.body.amount);
+    const reason = String(req.body.reason || 'ปรับเครดิตโดยผู้ดูแล').trim();
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'จำนวนเงินไม่ถูกต้อง' });
+    const u = await userById(req.params.id);
+    if (!u) return res.status(404).json({ error: 'ไม่พบผู้ใช้' });
+    if (type === 'reduce' && Number(u.credit) < amount) return res.status(400).json({ error: 'เครดิตผู้ใช้ไม่เพียงพอ' });
+    await credit(u.id, type, amount, reason);
+    const updated = await userById(u.id);
+    if (updated?.line_user_id) {
       const adjustMsg = [
         type === 'add' ? '➕ เพิ่มเครดิตโดยผู้ดูแลระบบ' : '➖ หักเครดิตโดยผู้ดูแลระบบ',
         '━━━━━━━━━━━━━━━━━━━',
@@ -1135,47 +1157,47 @@ app.post('/api/admin/users/:id/credit',auth,admin,async(req,res)=>{
       ].join('\n');
       await pushLine(updated.line_user_id, adjustMsg);
     }
-    res.json({ok:true,user:updated});
-  }catch(e){
-    res.status(400).json({error:e.message});
+    res.json({ ok: true, user: updated });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
-app.post('/api/admin/credit-requests/:id/:action',auth,admin,async(req,res)=>{
-  try{
-    const action=req.params.action;
-    if(!['approve','reject'].includes(action))return res.status(400).json({error:'action ไม่ถูกต้อง'});
-    const {data:r,error}=await db.from('credit_requests').select('*').eq('id',req.params.id).maybeSingle();
-    if(error)throw error;
-    if(!r||r.status!=='pending')return res.status(400).json({error:'คำขอนี้ถูกดำเนินการไปแล้ว'});
-    if(action==='approve'){
-      await credit(r.user_id,r.type,Number(r.amount),`อนุมัติคำขอเติมเครดิต: ${r.reason}`);
+app.post('/api/admin/credit-requests/:id/:action', auth, admin, async (req, res) => {
+  try {
+    const action = req.params.action;
+    if (!['approve', 'reject'].includes(action)) return res.status(400).json({ error: 'action ไม่ถูกต้อง' });
+    const { data: r, error } = await db.from('credit_requests').select('*').eq('id', req.params.id).maybeSingle();
+    if (error) throw error;
+    if (!r || r.status !== 'pending') return res.status(400).json({ error: 'คำขอนี้ถูกดำเนินการไปแล้ว' });
+    if (action === 'approve') {
+      await credit(r.user_id, r.type, Number(r.amount), `อนุมัติคำขอเติมเครดิต: ${r.reason}`);
     }
-    await db.from('credit_requests').update({status:action==='approve'?'approved':'rejected',reviewed_by:req.user.id,reviewed_at:new Date().toISOString()}).eq('id',r.id);
-    const u=await userById(r.user_id);
-    if(u?.line_user_id){
+    await db.from('credit_requests').update({ status: action === 'approve' ? 'approved' : 'rejected', reviewed_by: req.user.id, reviewed_at: new Date().toISOString() }).eq('id', r.id);
+    const u = await userById(r.user_id);
+    if (u?.line_user_id) {
       const reviewMsg = action === 'approve'
         ? [
-            '✅ คำขอเติมเครดิตได้รับการอนุมัติแล้ว!',
-            '━━━━━━━━━━━━━━━━━━━',
-            `💵 ยอดเงินที่เติม: +฿${Number(r.amount).toLocaleString('th-TH')}`,
-            `💬 รายละเอียด: ${r.reason || 'เติมเครดิต'}`,
-            `💳 เครดิตคงเหลือปัจจุบัน: ฿${Number(u.credit || 0).toLocaleString('th-TH')}`,
-            '━━━━━━━━━━━━━━━━━━━',
-            '🎉 สามารถนำเครดิตไปใช้จองที่จอดรถได้ทันที'
-          ].join('\n')
+          '✅ คำขอเติมเครดิตได้รับการอนุมัติแล้ว!',
+          '━━━━━━━━━━━━━━━━━━━',
+          `💵 ยอดเงินที่เติม: +฿${Number(r.amount).toLocaleString('th-TH')}`,
+          `💬 รายละเอียด: ${r.reason || 'เติมเครดิต'}`,
+          `💳 เครดิตคงเหลือปัจจุบัน: ฿${Number(u.credit || 0).toLocaleString('th-TH')}`,
+          '━━━━━━━━━━━━━━━━━━━',
+          '🎉 สามารถนำเครดิตไปใช้จองที่จอดรถได้ทันที'
+        ].join('\n')
         : [
-            '❌ คำขอเติมเครดิตไม่ผ่านการอนุมัติ',
-            '━━━━━━━━━━━━━━━━━━━',
-            `💵 ยอดเงิน: ฿${Number(r.amount).toLocaleString('th-TH')}`,
-            `💬 รายละเอียด: ${r.reason || '-'}`,
-            '━━━━━━━━━━━━━━━━━━━',
-            'ℹ️ กรุณาตรวจสอบหลักฐานการโอน หรือติดต่อผู้ดูแลระบบ'
-          ].join('\n');
+          '❌ คำขอเติมเครดิตไม่ผ่านการอนุมัติ',
+          '━━━━━━━━━━━━━━━━━━━',
+          `💵 ยอดเงิน: ฿${Number(r.amount).toLocaleString('th-TH')}`,
+          `💬 รายละเอียด: ${r.reason || '-'}`,
+          '━━━━━━━━━━━━━━━━━━━',
+          'ℹ️ กรุณาตรวจสอบหลักฐานการโอน หรือติดต่อผู้ดูแลระบบ'
+        ].join('\n');
       await pushLine(u.line_user_id, reviewMsg);
     }
-    res.json({ok:true});
-  }catch(e){
-    res.status(400).json({error:e.message});
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 
@@ -1187,67 +1209,67 @@ app.post('/api/admin/credit-requests/:id/:action',auth,admin,async(req,res)=>{
 // Mirrors notify-expiring-bookings Edge Function — triggered by node-cron
 // or manually (e.g., pg_cron via pg_net). Checks pending/active bookings
 // and sends LINE reminders / auto-completes expired ones.
-app.post('/api/internal/notify-expiring',async(req,res)=>{
+app.post('/api/internal/notify-expiring', async (req, res) => {
   // optional internal key guard
   const internalKey = process.env.INTERNAL_KEY;
-  if(internalKey && req.headers['x-internal-key'] !== internalKey)
-    return res.status(401).json({error:'unauthorized'});
+  if (internalKey && req.headers['x-internal-key'] !== internalKey)
+    return res.status(401).json({ error: 'unauthorized' });
   try {
     const now = new Date();
-    const {data:bookings,error} = await db.from('bookings')
+    const { data: bookings, error } = await db.from('bookings')
       .select('id,slot_id,user_id,date,time,duration,amount,notify_before_min,notified,status')
-      .in('status',['pending','active']);
-    if(error) throw error;
-    let checked=0, reminded=0, completed=0;
-    for(const b of bookings||[]) {
+      .in('status', ['pending', 'active']);
+    if (error) throw error;
+    let checked = 0, reminded = 0, completed = 0;
+    for (const b of bookings || []) {
       checked++;
       const start = thaiDateTime(b.date, b.time);
-      const end = new Date(start.getTime() + Number(b.duration)*3600000);
+      const end = new Date(start.getTime() + Number(b.duration) * 3600000);
       const minutesLeft = (end - now) / 60000;
-      const {data:u} = await db.from('users').select('line_user_id,name').eq('id',b.user_id).maybeSingle();
-      if(minutesLeft <= 0) {
+      const { data: u } = await db.from('users').select('line_user_id,name').eq('id', b.user_id).maybeSingle();
+      if (minutesLeft <= 0) {
         // booking expired -> auto-complete
         const result = await finishBooking(b, 'auto-expire');
-        if(!result.alreadyFinalized) completed++;
+        if (!result.alreadyFinalized) completed++;
         continue;
       }
-      if(minutesLeft <= Number(b.notify_before_min||15) && !b.notified) {
-        if(b.status==='pending') await db.from('bookings').update({status:'active'}).eq('id',b.id);
-        if(u?.line_user_id) {
+      if (minutesLeft <= Number(b.notify_before_min || 15) && !b.notified) {
+        if (b.status === 'pending') await db.from('bookings').update({ status: 'active' }).eq('id', b.id);
+        if (u?.line_user_id) {
           const ok = await pushLine(u.line_user_id,
             `⚠️ แจ้งเตือน: การจองช่องจอด ${b.slot_id} จะสิ้นสุดใน ${Math.ceil(minutesLeft)} นาที กรุณาเตรียมออกจากที่จอดรถ`
           );
-          if(ok) reminded++;
+          if (ok) reminded++;
         }
-        await db.from('bookings').update({notified:true}).eq('id',b.id);
-      } else if(b.status==='pending' && start <= now) {
-        await db.from('bookings').update({status:'active'}).eq('id',b.id);
+        await db.from('bookings').update({ notified: true }).eq('id', b.id);
+      } else if (b.status === 'pending' && start <= now) {
+        await db.from('bookings').update({ status: 'active' }).eq('id', b.id);
       }
     }
-    res.json({checked, reminded, completed});
-  } catch(e) { res.status(500).json({error:e.message}); }
+    res.json({ checked, reminded, completed });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // POST /api/bookings/:id/send-summary
 // Mirrors send-booking-summary Edge Function — called by frontend right
 // after user taps "สิ้นสุดการจอดรถ" to send a LINE summary immediately.
-app.post('/api/bookings/:id/send-summary',auth,async(req,res)=>{
+app.post('/api/bookings/:id/send-summary', auth, async (req, res) => {
   try {
-    const {data:b,error} = await db.from('bookings')
+    const { data: b, error } = await db.from('bookings')
       .select('id,slot_id,user_id,date,time,duration,amount,status,license_plate,vehicle_type')
-      .eq('id',req.params.id)
+      .eq('id', req.params.id)
       .maybeSingle();
-    if(error||!b) return res.status(404).json({error:'ไม่พบการจอง'});
-    if(b.user_id !== req.user.id && req.user.role !== 'admin')
-      return res.status(403).json({error:'ไม่มีสิทธิ์'});
+    if (error || !b) return res.status(404).json({ error: 'ไม่พบการจอง' });
+    if (b.user_id !== req.user.id && req.user.role !== 'admin')
+      return res.status(403).json({ error: 'ไม่มีสิทธิ์' });
     const start = thaiDateTime(b.date, b.time);
     const actualMinutes = Math.max(0, Math.round((Date.now() - start) / 60000));
     const label = actualMinutes >= 60
-      ? `${Math.floor(actualMinutes/60)} ชม. ${actualMinutes%60} นาที`
+      ? `${Math.floor(actualMinutes / 60)} ชม. ${actualMinutes % 60} นาที`
       : `${actualMinutes} นาที`;
     const u = await userById(b.user_id);
     let lineSent = false;
-    if(u?.line_user_id) {
+    if (u?.line_user_id) {
       const sumMsg = [
         '🧾 [สลิปสรุปการจอดรถ]',
         '━━━━━━━━━━━━━━━━━━━',
@@ -1260,17 +1282,25 @@ app.post('/api/bookings/:id/send-summary',auth,async(req,res)=>{
       ].join('\n');
       lineSent = await pushLine(u.line_user_id, sumMsg);
     }
-    res.json({ok:true, lineSent, actualMinutes});
-  } catch(e) { res.status(400).json({error:e.message}); }
+    res.json({ ok: true, lineSent, actualMinutes });
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
-app.post('/api/line/webhook',async(req,res)=>{res.sendStatus(200);const sig=req.headers['x-line-signature']||'';const raw=req.rawBody||Buffer.from(JSON.stringify(req.body));if(process.env.LINE_CHANNEL_SECRET){const h=crypto.createHmac('sha256',process.env.LINE_CHANNEL_SECRET).update(raw).digest('base64');if(h!==sig)return;}for(const e of req.body.events||[]){if(e.type==='message'&&e.message?.type==='text'){const code=e.message.text.trim().toUpperCase();const {data:u}=await db.from('users').select('id,name').eq('line_link_code',code).maybeSingle();if(u){await db.from('users').update({line_user_id:null}).eq('line_user_id',e.source.userId);await db.from('users').update({line_user_id:e.source.userId}).eq('id',u.id);const webMsg = [
-        '🎉 เชื่อมต่อบัญชีสำเร็จ!',
-        '━━━━━━━━━━━━━━━━━━━',
-        `👤 บัญชีผู้ใช้: ${u.name}`,
-        '✅ คุณจะได้รับการแจ้งเตือนผ่านบอทนี้เรียบร้อยแล้ว'
-      ].join('\n');
-      await pushLine(e.source.userId, webMsg);}}}});
-app.use((error,_req,res,_next)=>{console.error('[express]',error);res.status(500).json({error:'เกิดข้อผิดพลาดภายใน Backend'});});
-cron.schedule('* * * * *',()=>lifecycle());
-app.listen(Number(process.env.PORT||3000),()=>console.log(`Backend listening on ${process.env.PORT||3000}`));
+app.post('/api/line/webhook', async (req, res) => {
+  res.sendStatus(200); const sig = req.headers['x-line-signature'] || ''; const raw = req.rawBody || Buffer.from(JSON.stringify(req.body)); if (process.env.LINE_CHANNEL_SECRET) { const h = crypto.createHmac('sha256', process.env.LINE_CHANNEL_SECRET).update(raw).digest('base64'); if (h !== sig) return; } for (const e of req.body.events || []) {
+    if (e.type === 'message' && e.message?.type === 'text') {
+      const code = e.message.text.trim().toUpperCase(); const { data: u } = await db.from('users').select('id,name').eq('line_link_code', code).maybeSingle(); if (u) {
+        await db.from('users').update({ line_user_id: null }).eq('line_user_id', e.source.userId); await db.from('users').update({ line_user_id: e.source.userId }).eq('id', u.id); const webMsg = [
+          '🎉 เชื่อมต่อบัญชีสำเร็จ!',
+          '━━━━━━━━━━━━━━━━━━━',
+          `👤 บัญชีผู้ใช้: ${u.name}`,
+          '✅ คุณจะได้รับการแจ้งเตือนผ่านบอทนี้เรียบร้อยแล้ว'
+        ].join('\n');
+        await pushLine(e.source.userId, webMsg);
+      }
+    }
+  }
+});
+app.use((error, _req, res, _next) => { console.error('[express]', error); res.status(500).json({ error: 'เกิดข้อผิดพลาดภายใน Backend' }); });
+cron.schedule('* * * * *', () => lifecycle());
+app.listen(Number(process.env.PORT || 3000), () => console.log(`Backend listening on ${process.env.PORT || 3000}`));
 

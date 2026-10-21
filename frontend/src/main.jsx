@@ -1630,7 +1630,7 @@ function UserControl({ data, user, notify, reload }) {
             <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <small style={{ color: device ? (device.status === 'online' ? 'var(--cyan)' : 'var(--muted)') : 'var(--muted)' }}>
-                  {device ? `⌁ ${device.name} · ${device.status === 'online' ? 'ออนไลน์' : 'ออฟไลน์'}` : 'ยังไม่ได้ผูกอุปกรณ์ควบคุมกับช่องนี้'}
+                  {device ? ` ${device.name} · ${device.status === 'online' ? 'ออนไลน์' : 'ออฟไลน์'}` : 'ยังไม่ได้ผูกอุปกรณ์ควบคุมกับช่องนี้'}
                 </small>
               </div>
 
@@ -3454,7 +3454,7 @@ function playAlertChime(priority) {
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
     if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch(() => { });
     }
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
