@@ -440,6 +440,15 @@ td.highlight {
 
 .tabs button,
 .floor-tabs button,
+.button,
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.tabs button,
+.floor-tabs button,
 .button {
   min-height: 42px;
   border: 1px solid var(--border);
@@ -448,14 +457,23 @@ td.highlight {
   color: #eaf0f7;
   padding: 9px 16px;
   font-weight: 700;
-  transition: .18s ease
+  transition: transform 0.08s ease, filter 0.08s ease, background 0.18s ease, border-color 0.18s ease;
 }
 
 .tabs button:hover,
 .floor-tabs button:hover,
 .button:hover {
   border-color: #506176;
-  transform: translateY(-1px)
+  transform: translateY(-1px);
+}
+
+.tabs button:active:not(:disabled),
+.floor-tabs button:active:not(:disabled),
+.button:active:not(:disabled),
+button:active:not(:disabled),
+.slot-card:active:not(:disabled) {
+  transform: scale(0.972);
+  filter: brightness(0.92);
 }
 
 .tabs button.active,
@@ -464,23 +482,37 @@ td.highlight {
   color: #071b19;
   background: var(--cyan);
   border-color: var(--cyan);
-  box-shadow: 0 8px 24px #36dcc922
+  box-shadow: 0 8px 24px #36dcc922;
 }
 
 .button.compact {
   min-height: 34px;
   padding: 6px 10px;
-  font-size: 12px
+  font-size: 12px;
 }
 
 .button.danger {
   color: #ff8582;
   background: #3a2226;
-  border-color: #783f43
+  border-color: #783f43;
 }
 
 .button.full {
-  width: 100%
+  width: 100%;
+}
+
+.button:disabled,
+button:disabled,
+button[disabled] {
+  cursor: not-allowed !important;
+}
+
+.button.is-busy,
+button.is-busy {
+  cursor: wait !important;
+  opacity: 0.78 !important;
+  pointer-events: none !important;
+  filter: brightness(0.92);
 }
 
 .parking-panel {

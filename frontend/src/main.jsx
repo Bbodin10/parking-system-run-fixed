@@ -1627,8 +1627,8 @@ function UserBooking({ data, user, notify, setView }) {
                   </button>
                 </div>
               ) : (
-                <button className="button primary full" disabled={submitting}>
-                  {submitting ? 'กำลังบันทึกการจอง...' : 'ยืนยันการจอง'}
+                <button className={`button primary full ${submitting ? 'is-busy' : ''}`} disabled={submitting}>
+                  {submitting ? '⏳ กำลังบันทึกการจอง...' : 'ยืนยันการจอง'}
                 </button>
               )}
             </div>
@@ -1641,6 +1641,9 @@ function UserBooking({ data, user, notify, setView }) {
 
 function UserControl({ data, user, notify, reload }) {
   const [emergencyTarget, setEmergencyTarget] = useState(null);
+  const [busyDevices, setBusyDevices] = useState({});
+  const [cancellingBookings, setCancellingBookings] = useState({});
+  const [finishingBookings, setFinishingBookings] = useState({});
   const RATE_PER_HOUR = 20;
   const bookings = data.bookings.filter((item) => item.user_id === user.id && ['pending', 'active'].includes(item.status));
   const cards = bookings.map((booking) => {
@@ -1706,41 +1709,53 @@ function UserControl({ data, user, notify, reload }) {
   });
 
   async function toggle(device) {
+    if (busyDevices[device.id]) return;
+    setBusyDevices(prev => ({ ...prev, [device.id]: true }));
     try {
       await api(`/devices/${device.id}/toggle`, { method: 'POST' });
       notify(`สั่ง${device.state === 'open' ? 'ปิด' : 'เปิด'}ไม้กั้นช่องจอดแล้ว`);
     } catch (err) {
       notify(err.message, true);
+    } finally {
+      setBusyDevices(prev => ({ ...prev, [device.id]: false }));
     }
   }
 
   async function cancelBooking(booking, isCarPresent) {
+    if (cancellingBookings[booking.id]) return;
     if (isCarPresent) {
       notify(`ไม่สามารถยกเลิกการจองได้ เนื่องจากมีรถจอดอยู่ในช่อง ${booking.slot_id} แล้ว`, true);
       return;
     }
     const confirmMsg = `ยืนยันการยกเลิกการจองช่อง ${booking.slot_id} หรือไม่?\n\nระบบจะคืนเครดิต ฿${formatMoney(booking.amount)} เข้าบัญชีของคุณทันที`;
     if (!window.confirm(confirmMsg)) return;
+    setCancellingBookings(prev => ({ ...prev, [booking.id]: true }));
     try {
       await api(`/bookings/${booking.id}/cancel`, { method: 'POST' });
       notify(`ยกเลิกการจองช่อง ${booking.slot_id} สำเร็จ! คืนเครดิต ฿${formatMoney(booking.amount)} เรียบร้อยแล้ว`);
     } catch (err) {
       notify(err.message, true);
+    } finally {
+      setCancellingBookings(prev => ({ ...prev, [booking.id]: false }));
     }
   }
 
   async function finishBooking(booking, isCarPresent) {
+    if (finishingBookings[booking.id]) return;
     if (isCarPresent) {
       notify(`ไม่สามารถจบการจอดได้ เนื่องจากยังมีรถจอดอยู่ในช่อง ${booking.slot_id} กรุณานำรถออกจากช่องจอดก่อน`, true);
       return;
     }
     const confirmMsg = `ยืนยันการจบการจอดช่อง ${booking.slot_id} หรือไม่?\n\nระบบจะตัดการจอดทันที สรุปยอดค่าบริการ และส่งสลิปไปยัง LINE ของคุณ`;
     if (!window.confirm(confirmMsg)) return;
+    setFinishingBookings(prev => ({ ...prev, [booking.id]: true }));
     try {
       await api(`/bookings/${booking.id}/finish`, { method: 'POST' });
       notify(`จบการจอดช่อง ${booking.slot_id} สำเร็จ! ระบบตัดการจอดและส่งสลิปเรียบร้อยแล้ว`);
     } catch (err) {
       notify(err.message, true);
+    } finally {
+      setFinishingBookings(prev => ({ ...prev, [booking.id]: false }));
     }
   }
 
@@ -1875,12 +1890,17 @@ function UserControl({ data, user, notify, reload }) {
                     </div>
                     <button
                       type="button"
-                      className={`button ${isCarPresent ? 'secondary' : 'danger'} compact full`}
+                      className={`button ${isCarPresent ? 'secondary' : 'danger'} compact full ${cancellingBookings[booking.id] ? 'is-busy' : ''}`}
                       style={{ marginTop: 8, ...(isCarPresent ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}
+                      disabled={isCarPresent || Boolean(cancellingBookings[booking.id])}
                       onClick={() => cancelBooking(booking, isCarPresent)}
                       title={isCarPresent ? 'มีรถเข้าจอดในช่องแล้ว ไม่สามารถยกเลิกได้' : 'กดยกเลิกการจองและรับคืนเครดิต'}
                     >
-                      {isCarPresent ? '🚫 ไม่สามารถยกเลิกได้ (มีรถในช่อง)' : `ยกเลิกการจอง (คืนเครดิต ฿${formatMoney(booking.amount)})`}
+                      {cancellingBookings[booking.id]
+                        ? '⏳ กำลังยกเลิกการจอง...'
+                        : isCarPresent
+                          ? '🚫 ไม่สามารถยกเลิกได้ (มีรถในช่อง)'
+                          : `ยกเลิกการจอง (คืนเครดิต ฿${formatMoney(booking.amount)})`}
                     </button>
                   </div>
                 )}
@@ -1941,6 +1961,7 @@ function UserControl({ data, user, notify, reload }) {
                 <button
                   type="button"
                   className="button compact full"
+                  disabled
                   style={{
                     background: 'rgba(239, 68, 68, 0.08)',
                     border: '1.5px dashed rgba(239, 68, 68, 0.45)',
@@ -1953,7 +1974,6 @@ function UserControl({ data, user, notify, reload }) {
                     justifyContent: 'center',
                     gap: 6
                   }}
-                  onClick={() => finishBooking(booking, isCarPresent)}
                   title="ไม่สามารถจบการจอดได้ เนื่องจากยังมีรถจอดอยู่ในช่อง"
                 >
                   <span>🚫 ไม่สามารถจบการจอดได้ (มีรถจอดอยู่ในช่อง)</span>
@@ -1961,7 +1981,8 @@ function UserControl({ data, user, notify, reload }) {
               ) : (
                 <button
                   type="button"
-                  className="button primary compact full"
+                  className={`button primary compact full ${finishingBookings[booking.id] ? 'is-busy' : ''}`}
+                  disabled={Boolean(finishingBookings[booking.id])}
                   style={{
                     padding: '9px 12px',
                     fontWeight: 700,
@@ -1975,7 +1996,11 @@ function UserControl({ data, user, notify, reload }) {
                   }}
                   onClick={() => finishBooking(booking, isCarPresent)}
                 >
-                  <span>🏁 จบการจอด (รถออกจากช่องแล้ว · รับสลิป)</span>
+                  <span>
+                    {finishingBookings[booking.id]
+                      ? '⏳ กำลังประมวลผลจบการจอดและส่งสลิป...'
+                      : '🏁 จบการจอด (รถออกจากช่องแล้ว · รับสลิป)'}
+                  </span>
                 </button>
               )}
             </div>
@@ -2049,10 +2074,14 @@ function UserControl({ data, user, notify, reload }) {
                   </div>
                 ) : (
                   <button
-                    className={`button full ${device.state === 'open' ? 'danger' : 'primary'}`}
+                    type="button"
+                    disabled={Boolean(busyDevices[device.id])}
+                    className={`button full ${device.state === 'open' ? 'danger' : 'primary'} ${busyDevices[device.id] ? 'is-busy' : ''}`}
                     onClick={() => toggle(device)}
                   >
-                    {device.state === 'open' ? 'สั่งปิดไม้กั้น' : 'สั่งเปิดไม้กั้น'}
+                    {busyDevices[device.id]
+                      ? (device.state === 'open' ? '⏳ กำลังสั่งปิดไม้กั้น...' : '⏳ กำลังสั่งเปิดไม้กั้น...')
+                      : (device.state === 'open' ? 'สั่งปิดไม้กั้น' : 'สั่งเปิดไม้กั้น')}
                   </button>
                 )
               )}
@@ -2108,6 +2137,7 @@ function UserHistory({ data, user, notify }) {
   const [vehicleForm, setVehicleForm] = useState({ license_plate: '', vehicle_type: 'รถเก๋ง (Sedan)', brand: '', model: '', color: '', is_default: false });
   const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
   const [vehicleError, setVehicleError] = useState('');
+  const [actingKey, setActingKey] = useState(null);
 
   const myVehicles = useMemo(() => (data.vehicles || []).filter((v) => v.user_id === user.id), [data.vehicles, user.id]);
   const mine = data.bookings.filter((booking) => booking.user_id === user.id).sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -2191,6 +2221,7 @@ function UserHistory({ data, user, notify }) {
   }
 
   async function action(id, type, hasCar = false, slotId = '') {
+    if (actingKey) return;
     if (type === 'finish' && hasCar) {
       notify(`ไม่สามารถจบการจอดได้ เนื่องจากยังมีรถจอดอยู่ในช่อง ${slotId} กรุณานำรถออกจากช่องจอดก่อน`, true);
       return;
@@ -2201,11 +2232,14 @@ function UserHistory({ data, user, notify }) {
     }
     if (type === 'cancel' && !window.confirm('คุณต้องการยกเลิกการจองและรับคืนเครดิตเข้าบัญชีใช่หรือไม่?')) return;
     if (type === 'finish' && !window.confirm('ยืนยันจบการจอดและสรุปค่าบริการใช่หรือไม่? ระบบจะตัดการจอดและส่งสลิปให้ทันที')) return;
+    setActingKey(`${id}-${type}`);
     try {
       await api(`/bookings/${id}/${type}`, { method: 'POST' });
       notify(type === 'cancel' ? 'ยกเลิกการจองและคืนเครดิตแล้ว' : 'จบการจอดและส่งสลิปเรียบร้อยแล้ว');
     } catch (err) {
       notify(err.message, true);
+    } finally {
+      setActingKey(null);
     }
   }
   async function submitCredit(event) {
@@ -2529,7 +2563,7 @@ function UserHistory({ data, user, notify }) {
       const enterCm = Number(slot?.sensor_enter_cm ?? 9.0);
       const dist = typeof sensor?.distance_cm === 'number' && sensor.distance_cm > 0 ? Math.round(sensor.distance_cm * 10) / 10 : null;
       const hasCar = Boolean((dist !== null && dist <= enterCm) || sensor?.presence === 'occupied' || sensor?.car_present === true);
-      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className={`button ${hasCar ? 'secondary' : 'primary'} compact`} style={hasCar ? { color: '#f87171', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)' } : { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#10b981' }} onClick={() => action(booking.id, 'finish', hasCar, booking.slot_id)} title={hasCar ? 'ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้' : 'กดเพื่อจบการจอดและรับสลิป'}>{hasCar ? '🚫 มีรถในช่อง' : '🏁 จบการจอด'}</button>{booking.status === 'pending' && (canCancel && !hasCar ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel', hasCar, booking.slot_id)}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title={hasCar ? 'มีรถเข้าจอดในช่องแล้ว ไม่สามารถยกเลิกได้' : 'ไม่สามารถยกเลิกได้'}>{hasCar ? 'มีรถในช่อง' : 'ยกเลิกไม่ได้'}</button>)}</div>}</td></tr>;
+      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className={`button ${hasCar ? 'secondary' : 'primary'} compact ${actingKey === `${booking.id}-finish` ? 'is-busy' : ''}`} style={hasCar ? { color: '#f87171', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)' } : { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#10b981' }} disabled={hasCar || actingKey === `${booking.id}-finish`} onClick={() => action(booking.id, 'finish', hasCar, booking.slot_id)} title={hasCar ? 'ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้' : 'กดเพื่อจบการจอดและรับสลิป'}>{actingKey === `${booking.id}-finish` ? '⏳ กำลังจบการจอด...' : (hasCar ? '🚫 มีรถในช่อง' : '🏁 จบการจอด')}</button>{booking.status === 'pending' && (canCancel && !hasCar ? <button type="button" className={`button danger compact ${actingKey === `${booking.id}-cancel` ? 'is-busy' : ''}`} disabled={actingKey === `${booking.id}-cancel`} onClick={() => action(booking.id, 'cancel', hasCar, booking.slot_id)}>{actingKey === `${booking.id}-cancel` ? '⏳ กำลังยกเลิก...' : 'ยกเลิก (คืนเครดิต)'}</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title={hasCar ? 'มีรถเข้าจอดในช่องแล้ว ไม่สามารถยกเลิกได้' : 'ไม่สามารถยกเลิกได้'}>{hasCar ? 'มีรถในช่อง' : 'ยกเลิกไม่ได้'}</button>)}</div>}</td></tr>;
     })}</tbody></table></div></section>
 
     {vehicleModal && (
@@ -3789,7 +3823,20 @@ function AdminUsers({ data, notify }) {
 
 function AdminDevices({ data, reload, notify }) {
   const [filterType, setFilterType] = useState('all');
-  async function toggle(device) { try { await api(`/devices/${device.id}/toggle`, { method: 'POST' }); await reload(); notify('อัปเดตสถานะอุปกรณ์แล้ว'); } catch (err) { notify(err.message, true); } }
+  const [togglingId, setTogglingId] = useState(null);
+  async function toggle(device) {
+    if (togglingId) return;
+    setTogglingId(device.id);
+    try {
+      await api(`/devices/${device.id}/toggle`, { method: 'POST' });
+      await reload();
+      notify('อัปเดตสถานะอุปกรณ์แล้ว');
+    } catch (err) {
+      notify(err.message, true);
+    } finally {
+      setTogglingId(null);
+    }
+  }
   async function rename(device) { const name = window.prompt('ชื่ออุปกรณ์ใหม่', device.name); if (!name) return; try { await api(`/admin/devices/${device.id}`, { method: 'PATCH', body: JSON.stringify({ name }) }); notify('เปลี่ยนชื่ออุปกรณ์แล้ว'); } catch (err) { notify(err.message, true); } }
   async function link(device) { const linked_slot = window.prompt('รหัสช่องจอดที่ต้องการผูก เช่น A1 (เว้นว่างเพื่อล้าง)', device.linked_slot || ''); try { await api(`/admin/devices/${device.id}`, { method: 'PATCH', body: JSON.stringify({ linked_slot: linked_slot || null }) }); notify('อัปเดตช่องที่เชื่อมโยงแล้ว'); } catch (err) { notify(err.message, true); } }
 
@@ -3860,7 +3907,7 @@ function AdminDevices({ data, reload, notify }) {
                   ) : '-'}
                 </td>
                 <td>
-                  <button className="button compact" onClick={() => rename(device)}>เปลี่ยนชื่อ</button> <button className="button compact" onClick={() => link(device)}>ผูกช่อง</button> {device.type === 'barrier' && <button className="button primary compact" onClick={() => toggle(device)}>เปิด/ปิด</button>}
+                  <button className="button compact" onClick={() => rename(device)}>เปลี่ยนชื่อ</button> <button className="button compact" onClick={() => link(device)}>ผูกช่อง</button> {device.type === 'barrier' && <button className={`button primary compact ${togglingId === device.id ? 'is-busy' : ''}`} disabled={togglingId === device.id} onClick={() => toggle(device)}>{togglingId === device.id ? '⏳...' : 'เปิด/ปิด'}</button>}
                 </td>
               </tr>
             );
@@ -5367,6 +5414,55 @@ function AdminLayout({ data, reload, notify }) {
   );
 }
 
+function areDataShallowEqual(prev, next) {
+  if (!prev || !next) return false;
+  const pSlots = prev.slots || [];
+  const nSlots = next.slots || [];
+  if (pSlots.length !== nSlots.length) return false;
+  for (let i = 0; i < nSlots.length; i++) {
+    const ps = pSlots[i], ns = nSlots[i];
+    if (ps.id !== ns.id || ps.status !== ns.status || ps.is_occupied !== ns.is_occupied || ps.barrier_status !== ns.barrier_status) return false;
+  }
+
+  const pDevs = prev.devices || [];
+  const nDevs = next.devices || [];
+  if (pDevs.length !== nDevs.length) return false;
+  for (let i = 0; i < nDevs.length; i++) {
+    const pd = pDevs[i], nd = nDevs[i];
+    if (pd.id !== nd.id || pd.status !== nd.status || pd.barrier_status !== nd.barrier_status || pd.is_online !== nd.is_online || pd.distance_cm !== nd.distance_cm) return false;
+  }
+
+  const pBooks = prev.bookings || [];
+  const nBooks = next.bookings || [];
+  if (pBooks.length !== nBooks.length) return false;
+  for (let i = 0; i < nBooks.length; i++) {
+    const pb = pBooks[i], nb = nBooks[i];
+    if (pb.id !== nb.id || pb.status !== nb.status || pb.payment_status !== nb.payment_status) return false;
+  }
+
+  const pUsers = prev.users || [];
+  const nUsers = next.users || [];
+  if (pUsers.length !== nUsers.length) return false;
+  for (let i = 0; i < nUsers.length; i++) {
+    const pu = pUsers[i], nu = nUsers[i];
+    if (pu.id !== nu.id || pu.credit !== nu.credit || pu.status !== nu.status) return false;
+  }
+
+  const pAlerts = prev.system_alerts || [];
+  const nAlerts = next.system_alerts || [];
+  if (pAlerts.length !== nAlerts.length) return false;
+  for (let i = 0; i < nAlerts.length; i++) {
+    const pa = pAlerts[i], na = nAlerts[i];
+    if (pa.id !== na.id || pa.status !== na.status) return false;
+  }
+
+  const pReqs = prev.credit_requests || [];
+  const nReqs = next.credit_requests || [];
+  if (pReqs.length !== nReqs.length) return false;
+
+  return true;
+}
+
 function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(localStorage.user || 'null'); } catch { localStorage.clear(); return null; } });
   const [data, setData] = useState(null);
@@ -5377,9 +5473,12 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const inFlightRef = useRef(false);
   const knownAlertIdsRef = useRef(null);
+  const lastActionTimeRef = useRef(0);
 
-  async function load(isInitial = false) {
+  async function load(isInitial = false, isPolling = false) {
     if (!localStorage.token) { localStorage.clear(); setUser(null); return; }
+    // ข้าม background polling หากผู้ใช้เพิ่งมีการกดสั่งการภายใน 2.5 วินาที เพื่อไม่ให้ DOM ถูก re-render ขณะคลิก
+    if (isPolling && Date.now() - lastActionTimeRef.current < 2500) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
@@ -5391,8 +5490,13 @@ function App() {
 
     try {
       const next = await api('/bootstrap');
-      setData(next);
-      setLastUpdated(new Date());
+      setData((prev) => {
+        if (areDataShallowEqual(prev, next)) {
+          return prev;
+        }
+        setLastUpdated(new Date());
+        return next;
+      });
       setLoadError('');
 
       // ตรวจสอบการแจ้งเตือนฉุกเฉินใหม่สำหรับฝั่งผู้ดูแล (Audio Chime on CRITICAL alert)
@@ -5456,8 +5560,8 @@ function App() {
     knownAlertIdsRef.current = null;
     if (!user) return;
     load(true);
-    // Polling ทุก 3 วินาที (จากเดิม 1 วินาที) เพื่อลดภาระและป้องกันหน้าจอกระตุก
-    const interval = setInterval(() => load(false), 3000);
+    // Polling ทุก 3 วินาที โดยส่ง isPolling = true เพื่อให้ระบบหยุดพักชั่วคราวหากผู้ใช้เพิ่งกดปุ่ม
+    const interval = setInterval(() => load(false, true), 3000);
     return () => clearInterval(interval);
   }, [user?.id]);
 
@@ -5507,7 +5611,11 @@ function App() {
     setTheme(curr => (curr === 'light' ? 'dark' : 'light'));
   };
 
-  const notify = (text, error = false) => { setNotice({ text, error }); load(); };
+  const notify = (text, error = false) => {
+    lastActionTimeRef.current = Date.now();
+    setNotice({ text, error });
+    load(false, false);
+  };
   const logout = () => {
     localStorage.clear();
     setUser(null);
