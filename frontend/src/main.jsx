@@ -856,15 +856,6 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
         <div className="topbar-right-mobile">
           <button
             type="button"
-            className="button compact"
-            style={{ padding: '6px 10px', fontSize: 13 }}
-            onClick={() => setView('settings')}
-            title="การตั้งค่า"
-          >
-            ⚙️
-          </button>
-          <button
-            type="button"
             className="button compact logout-btn-mobile"
             onClick={onLogout}
             title="ออกจากระบบ"
@@ -878,24 +869,6 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
         <span className="connection-pill live-pill">
           <span className="live-dot" />LIVE · {timeStr}
         </span>
-
-        {user.role === 'admin' && activeAlerts.length > 0 && (
-          <button
-            type="button"
-            className={`button compact alert-topbar-pill ${criticalCount > 0 ? 'critical' : 'warning'}`}
-            style={{
-              background: criticalCount > 0 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.25)',
-              border: `1px solid ${criticalCount > 0 ? '#ef4444' : '#f59e0b'}`,
-              color: criticalCount > 0 ? '#fca5a5' : '#fcd34d',
-              cursor: 'pointer'
-            }}
-            onClick={() => setView('alerts')}
-            title="คลิกเพื่อดูรายการแจ้งเตือนทั้งหมด"
-          >
-            <span>{criticalCount > 0 ? '🔴' : '🟡'}</span>
-            <span>{activeAlerts.length} แจ้งเตือน</span>
-          </button>
-        )}
 
         {user.role !== 'admin' && (
           <span className={`badge credit-pill ${Number(user.credit || 0) > 0 ? 'available' : 'unavailable'}`}>
@@ -917,24 +890,6 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
         </button>
 
         <span className={`role ${user.role}`}>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้'}</span>
-        <button
-          type="button"
-          className="button compact"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            padding: '5px 10px',
-            fontSize: 12,
-            background: 'rgba(255, 255, 255, 0.05)',
-            borderColor: 'var(--border)'
-          }}
-          onClick={() => setView('settings')}
-          title="การตั้งค่าระบบและบัญชี"
-        >
-          <span>⚙️</span>
-          <span>ตั้งค่า</span>
-        </button>
         <span className="avatar" style={{ cursor: 'pointer' }} onClick={() => setView('settings')} title="เปิดการตั้งค่าบัญชี">{user.name?.slice(0, 1)}</span>
         <button className="button compact logout-btn-desktop" onClick={onLogout}>ออกจากระบบ</button>
       </div>
@@ -967,13 +922,13 @@ function Sidebar({ user, view, setView, activeAlertCount = 0 }) {
       ['devices', '⌁', 'อุปกรณ์ / ไม้กั้น'],
       ['alerts', activeAlertCount > 0 ? '🔴' : '●', `แจ้งเตือน & ข้อผิดพลาด${activeAlertCount > 0 ? ` (${activeAlertCount})` : ''}`],
       ['layout', '⊞', 'จัดการผังลานจอด'],
-      ['settings', '⚙️', 'การตั้งค่า']
+      ['settings', '⚙', 'การตั้งค่า']
     ]
     : [
       ['booking', 'P', 'จองที่จอดรถ'],
       ['control', '⌁', 'ควบคุมช่องจอด'],
       ['history', '▤', 'ประวัติของฉัน'],
-      ['settings', '⚙️', 'การตั้งค่า']
+      ['settings', '⚙', 'การตั้งค่า']
     ];
   return <aside className="sidebar">{items.map(([id, icon, label]) =>
     <button key={id} className={`nav-item ${view === id ? 'active' : ''}`} onClick={() => setView(id)}><span>{icon}</span>{label}</button>
