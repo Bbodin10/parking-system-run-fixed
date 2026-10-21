@@ -85,7 +85,7 @@ function redirectToLine(state = 'login') {
   window.location.href = url;
 }
 
-function Login({ onLogin }) {
+function Login({ onLogin, theme, toggleTheme }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({});
   const [error, setError] = useState('');
@@ -109,6 +109,23 @@ function Login({ onLogin }) {
 
   return (
     <main className="login-page">
+      {toggleTheme && (
+        <button
+          type="button"
+          className="theme-toggle-btn login-theme-toggle"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'เปลี่ยนเป็นธีมสว่าง (Light Mode)' : 'เปลี่ยนเป็นธีมมืด (Dark Mode)'}
+          style={{
+            position: 'absolute',
+            top: 20,
+            right: 20,
+            zIndex: 10
+          }}
+        >
+          <span className="theme-toggle-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
+          <span className="theme-toggle-label">{theme === 'dark' ? 'ธีมสว่าง' : 'ธีมมืด'}</span>
+        </button>
+      )}
       <div className="login-container">
         <div className="login-brand">
           <div style={{ marginBottom: 16, display: 'inline-block' }}>
@@ -402,7 +419,217 @@ function LineConnectModal({ user, onClose, notify, reload }) {
   );
 }
 
-function Header({ user, onLogout, lastUpdated, data, setView, notify, reload }) {
+function EmergencyReportModal({ target, user, onClose, notify, reload }) {
+  const { booking, slot, device } = target;
+  const [problemType, setProblemType] = useState('ไม้กั้นไม่เปิด / ติดขัด');
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const problemOptions = [
+    'ไม้กั้นไม่เปิด / ติดขัด',
+    'ไม้กั้นไม่ยอมปิดอัตโนมัติ',
+    'มีรถคันอื่นจอดขวาง / ทับช่องจอด',
+    'เซ็นเซอร์แสดงสถานะผิดพลาด',
+    'เกิดอุบัติเหตุ / เหตุฉุกเฉินในช่องจอด',
+    'อื่นๆ (ระบุในรายละเอียด)'
+  ];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await api('/user/emergency-report', {
+        method: 'POST',
+        body: JSON.stringify({
+          bookingId: booking?.id,
+          slotId: slot?.code || booking?.slot_id,
+          deviceId: device?.id || null,
+          problemType,
+          description,
+          licensePlate: booking?.license_plate || ''
+        })
+      });
+      notify?.(res.message || 'ส่งรายงานฉุกเฉินถึงผู้ดูแลและแจ้งเตือนเข้า LINE เรียบร้อยแล้ว', false);
+      reload?.();
+      onClose();
+    } catch (err) {
+      notify?.(err.message || 'ส่งรายงานไม่สำเร็จ', true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return createPortal(
+    <div
+      className="modal-backdrop"
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        background: 'rgba(6, 10, 18, 0.85)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        overflowY: 'auto'
+      }}
+    >
+      <div
+        className="booking-modal emergency-modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: 480,
+          width: '100%',
+          margin: 'auto',
+          borderRadius: 14,
+          padding: 24,
+          boxShadow: '0 25px 70px rgba(0, 0, 0, 0.85)',
+          position: 'relative'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+          <div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#f87171', fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
+              <span>🚨</span>
+              <span>EMERGENCY REPORT</span>
+            </div>
+            <h3 style={{ margin: 0, fontSize: 19 }}>แจ้งปัญหาฉุกเฉิน · ช่อง {slot?.code || booking?.slot_id}</h3>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose} style={{ fontSize: 22, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--muted)' }}>✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* ข้อมูลช่องจอดและรถยนต์ */}
+          <div style={{
+            background: 'var(--surface2)',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '10px 14px',
+            fontSize: 12.5,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span className="muted">ช่องจอด:</span>
+              <strong>{slot?.code || booking?.slot_id} (ชั้น {slot?.floor || 1})</strong>
+            </div>
+            {booking?.license_plate && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span className="muted">ทะเบียนรถที่จอง:</span>
+                <span style={{ color: 'var(--cyan)', fontWeight: 600 }}>{booking.license_plate}</span>
+              </div>
+            )}
+            {device && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span className="muted">สถานะไม้กั้นปัจจุบัน:</span>
+                <span style={{ color: device.state === 'open' ? 'var(--green)' : '#f87171', fontWeight: 600 }}>
+                  {device.state === 'open' ? '🟢 เปิดอยู่' : '🔴 ปิดอยู่'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* ปัญหาที่พบ (ตัวเลือกด่วน) */}
+          <div>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>
+              เลือกประเภทปัญหาที่พบ <span style={{ color: '#f87171' }}>*</span>
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 6 }}>
+              {problemOptions.map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setProblemType(p)}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    fontSize: 12,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    fontWeight: problemType === p ? 700 : 500,
+                    background: problemType === p ? 'rgba(239, 68, 68, 0.18)' : 'var(--surface2)',
+                    border: `1.5px solid ${problemType === p ? '#ef4444' : 'var(--border)'}`,
+                    color: problemType === p ? '#fca5a5' : 'var(--text)',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  {problemType === p ? '🔘 ' : '⚪ '}
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* รายละเอียดเพิ่มเติม */}
+          <div>
+            <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13 }}>
+              รายละเอียดเพิ่มเติม (ถ้ามี)
+            </label>
+            <textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="ระบุอาการ เช่น ไม้กั้นค้างไม่ยอมยก หรือมีรถคันอื่นขวาง เพื่อให้ผู้ดูแลช่วยเหลือได้เร็วขึ้น..."
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 8,
+                fontSize: 13,
+                fontFamily: 'inherit',
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          {/* กล่องเตือน */}
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 8,
+            padding: '10px 12px',
+            fontSize: 12,
+            color: '#fca5a5',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8
+          }}>
+            <span style={{ fontSize: 16 }}>⚠️</span>
+            <span>เมื่อกดส่ง ระบบจะส่งสัญญาณฉุกเฉินระดับ CRITICAL ไปยังหน้าจอ และส่ง LINE Push แจ้งเตือนผู้ดูแลระบบทันที</span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button
+              type="button"
+              className="button secondary"
+              style={{ flex: 1 }}
+              onClick={onClose}
+              disabled={submitting}
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              className="button danger"
+              style={{ flex: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 700 }}
+              disabled={submitting}
+            >
+              <span>🚨</span>
+              <span>{submitting ? 'กำลังส่งแจ้งเตือน...' : 'ส่งรายงานฉุกเฉินทันที'}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView, notify, reload }) {
   const [showLineModal, setShowLineModal] = useState(false);
   const timeStr = lastUpdated
     ? lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' })
@@ -433,14 +660,26 @@ function Header({ user, onLogout, lastUpdated, data, setView, notify, reload }) 
             <span>SMART PARKING · SUPABASE · ESP32</span>
           </div>
         </div>
-        <button
-          type="button"
-          className="button compact logout-btn-mobile"
-          onClick={onLogout}
-          title="ออกจากระบบ"
-        >
-          ออกจากระบบ
-        </button>
+        <div className="topbar-right-mobile">
+          {toggleTheme && (
+            <button
+              type="button"
+              className="theme-toggle-btn mobile"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'เปลี่ยนเป็นธีมสว่าง (Light Mode)' : 'เปลี่ยนเป็นธีมมืด (Dark Mode)'}
+            >
+              <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="button compact logout-btn-mobile"
+            onClick={onLogout}
+            title="ออกจากระบบ"
+          >
+            ออกจากระบบ
+          </button>
+        </div>
       </div>
 
       <div className="user-menu">
@@ -489,6 +728,18 @@ function Header({ user, onLogout, lastUpdated, data, setView, notify, reload }) 
           <span style={{ fontSize: 11 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
           <span>LINE {user.line_user_id ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ'}</span>
         </button>
+
+        {toggleTheme && (
+          <button
+            type="button"
+            className="theme-toggle-btn desktop"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'เปลี่ยนเป็นธีมสว่าง (Light Mode)' : 'เปลี่ยนเป็นธีมมืด (Dark Mode)'}
+          >
+            <span className="theme-toggle-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
+            <span className="theme-toggle-label">{theme === 'dark' ? 'ธีมสว่าง' : 'ธีมมืด'}</span>
+          </button>
+        )}
 
         <span className={`role ${user.role}`}>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้'}</span>
         <span className="avatar">{user.name?.slice(0, 1)}</span>
@@ -1132,7 +1383,8 @@ function UserBooking({ data, user, notify, setView }) {
   );
 }
 
-function UserControl({ data, user, notify }) {
+function UserControl({ data, user, notify, reload }) {
+  const [emergencyTarget, setEmergencyTarget] = useState(null);
   const RATE_PER_HOUR = 20;
   const bookings = data.bookings.filter((item) => item.user_id === user.id && ['pending', 'active'].includes(item.status));
   const cards = bookings.map((booking) => {
@@ -1465,6 +1717,29 @@ function UserControl({ data, user, notify }) {
                   </button>
                 )
               )}
+
+              {/* ปุ่มรายงานปัญหาฉุกเฉิน / ไม้กั้นขัดข้อง */}
+              <button
+                type="button"
+                className="button compact full emergency-report-btn"
+                style={{
+                  marginTop: 10,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1.5px solid rgba(239, 68, 68, 0.38)',
+                  color: '#f87171',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                onClick={() => setEmergencyTarget({ booking, slot, device })}
+                title="รายงานปัญหาฉุกเฉินหรือไม้กั้นขัดข้องไปยังผู้ดูแลระบบและ LINE"
+              >
+                <span>🚨</span>
+                <span>รายงานปัญหาฉุกเฉิน / ไม้กั้นมีปัญหา</span>
+              </button>
             </div>
           </div>
         )) : (
@@ -1473,6 +1748,16 @@ function UserControl({ data, user, notify }) {
           </section>
         )}
       </div>
+
+      {emergencyTarget && (
+        <EmergencyReportModal
+          target={emergencyTarget}
+          user={user}
+          onClose={() => setEmergencyTarget(null)}
+          notify={notify}
+          reload={reload}
+        />
+      )}
     </>
   );
 }
@@ -4746,10 +5031,40 @@ function App() {
     }
   }, []);
 
-  const notify = (text, error = false) => { setNotice({ text, error }); load(); };
-  const logout = () => { localStorage.clear(); setUser(null); setData(null); setLoadError(''); };
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('parking_theme');
+      if (saved === 'light' || saved === 'dark') return saved;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
 
-  if (!user) return <Login onLogin={(next) => { setUser(next); setData(null); setView(next.role === 'admin' ? 'dashboard' : 'booking'); }} />;
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('parking_theme', theme);
+    } catch {
+      // ignore
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(curr => (curr === 'light' ? 'dark' : 'light'));
+  };
+
+  const notify = (text, error = false) => { setNotice({ text, error }); load(); };
+  const logout = () => {
+    const savedTheme = localStorage.getItem('parking_theme');
+    localStorage.clear();
+    if (savedTheme) localStorage.setItem('parking_theme', savedTheme);
+    setUser(null);
+    setData(null);
+    setLoadError('');
+  };
+
+  if (!user) return <Login onLogin={(next) => { setUser(next); setData(null); setView(next.role === 'admin' ? 'dashboard' : 'booking'); }} theme={theme} toggleTheme={toggleTheme} />;
   if (loading && !data) return <div className="loading"><div><div className="loading-spinner" /><p>กำลังโหลดข้อมูลระบบ...</p></div></div>;
   if (loadError && !data) return <div className="loading"><div className="load-error"><h2>เชื่อมต่อระบบไม่สำเร็จ</h2><p>{loadError}</p><div><button className="button primary" onClick={load}>ลองใหม่</button><button className="button" onClick={logout}>กลับไปเข้าสู่ระบบ</button></div><small>ทดสอบ Backend ที่ http://localhost:3000/api/health</small></div></div>;
   if (!data) return <div className="loading"><button className="button primary" onClick={load}>โหลดข้อมูลระบบ</button></div>;
@@ -4758,8 +5073,8 @@ function App() {
   const activeAlertCount = (data?.system_alerts || []).filter(a => a.status === 'active').length;
   const content = liveUser.role === 'admin'
     ? { dashboard: <AdminDashboard data={data} setView={setView} />, analytics: <AdminAnalytics data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, alerts: <AdminAlerts data={data} user={liveUser} reload={load} notify={notify} />, layout: <AdminLayout data={data} reload={load} notify={notify} /> }[view]
-    : { booking: <UserBooking data={data} user={liveUser} notify={notify} setView={setView} />, control: <UserControl data={data} user={liveUser} notify={notify} />, history: <UserHistory data={data} user={liveUser} notify={notify} /> }[view];
-  return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} data={data} setView={setView} notify={notify} reload={load} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} activeAlertCount={activeAlertCount} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
+    : { booking: <UserBooking data={data} user={liveUser} notify={notify} setView={setView} />, control: <UserControl data={data} user={liveUser} notify={notify} reload={load} />, history: <UserHistory data={data} user={liveUser} notify={notify} /> }[view];
+  return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} data={data} setView={setView} notify={notify} reload={load} theme={theme} toggleTheme={toggleTheme} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} activeAlertCount={activeAlertCount} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

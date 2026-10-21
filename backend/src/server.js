@@ -129,9 +129,10 @@ async function dispatchSystemAlert({ priority = 'NORMAL', sourceType = 'device',
   try {
     const config = readAlertConfigs();
     const now = new Date();
+    const isEmergency = sourceType === 'user_emergency';
     
-    // Check cooldown to prevent duplicate alerts
-    const cooldownMs = (config.cooldown_minutes || 15) * 60 * 1000;
+    // Check cooldown to prevent duplicate alerts (shorter 1-minute cooldown for user emergency)
+    const cooldownMs = isEmergency ? (60 * 1000) : ((config.cooldown_minutes || 15) * 60 * 1000);
     const existing = readSystemAlerts();
     const isRecentDuplicate = existing.some(a => 
       a.status === 'active' && 
@@ -173,16 +174,16 @@ async function dispatchSystemAlert({ priority = 'NORMAL', sourceType = 'device',
       writeSystemAlerts(existing.slice(0, 200));
     }
 
-    // LINE Admin push notification according to priority setting
+    // LINE Admin push notification according to priority setting (or always if emergency)
     const minRank = PRIORITY_RANK[config.line_admin_min_priority || 'HIGH'] || 3;
     const currentRank = PRIORITY_RANK[priority] || 2;
-    if (config.enable_line_admin_notify && currentRank >= minRank) {
+    if ((config.enable_line_admin_notify && currentRank >= minRank) || isEmergency) {
       try {
         const { data: admins } = await db.from('users').select('id, name, line_user_id').eq('role', 'admin');
         const iconMap = { CRITICAL: '🔴 [CRITICAL ALERT] วิกฤต!', HIGH: '🟠 [HIGH ALERT] สำคัญ!', NORMAL: '🟡 [ALERT] ทั่วไป', INFO: '🔵 [INFO] แจ้งเตือน' };
         const thaiTime = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' });
         const lineMsg = [
-          iconMap[priority] || '⚠️ แจ้งเตือนระบบ',
+          isEmergency ? '🚨 [EMERGENCY REPORT] ผู้ใช้รายงานเหตุฉุกเฉิน!' : (iconMap[priority] || '⚠️ แจ้งเตือนระบบ'),
           '━━━━━━━━━━━━━━━━━━━',
           `📢 หัวข้อ: ${title}`,
           `💬 รายละเอียด: ${message}`,
@@ -190,7 +191,7 @@ async function dispatchSystemAlert({ priority = 'NORMAL', sourceType = 'device',
           ...(deviceId ? [`⌁ อุปกรณ์: ${deviceId}`] : []),
           `⏱️ เวลา: ${thaiTime} น.`,
           '━━━━━━━━━━━━━━━━━━━',
-          priority === 'CRITICAL' ? '🚨 กรุณาเข้าตรวจสอบระบบทันที' : 'ℹ️ ระบบ Smart Parking อัตโนมัติ'
+          '🚨 กรุณาตรวจสอบและดำเนินการช่วยเหลือทันที'
         ].join('\n');
 
         let sent = false;
@@ -868,6 +869,47 @@ app.post('/api/admin/system-alerts/test', auth, admin, async (req, res) => {
     res.json({ ok: true, alert: result });
   } catch (e) {
     res.status(400).json({ error: e.message });
+  }
+});
+
+// ─── USER EMERGENCY REPORT (รายงานปัญหาฉุกเฉิน / ไม้กั้นติดขัด) ───
+app.post('/api/user/emergency-report', auth, async (req, res) => {
+  try {
+    const { slotId, deviceId, problemType, description, licensePlate } = req.body;
+    if (!slotId) return res.status(400).json({ error: 'กรุณาระบุช่องจอดที่พบปัญหา' });
+
+    const u = await userById(req.user.id);
+    const probType = String(problemType || 'ไม้กั้นมีปัญหา / ฉุกเฉิน').trim();
+    const desc = String(description || '').trim();
+    const plate = String(licensePlate || '').trim();
+
+    const title = `🚨 แจ้งปัญหาฉุกเฉิน: ช่อง ${slotId} (${probType})`;
+    const detailParts = [
+      `ผู้ใช้: ${u?.name || 'User'} (${u?.username || '-'})`,
+      plate ? `ทะเบียน: ${plate}` : null,
+      `ปัญหา: ${probType}`,
+      desc ? `รายละเอียด: ${desc}` : null,
+    ].filter(Boolean);
+
+    const message = detailParts.join(' · ');
+
+    const alert = await dispatchSystemAlert({
+      priority: 'CRITICAL',
+      sourceType: 'user_emergency',
+      deviceId: deviceId || null,
+      slotId: slotId,
+      title,
+      message,
+    });
+
+    res.json({
+      ok: true,
+      alert,
+      message: 'ส่งรายงานฉุกเฉินถึงผู้ดูแลระบบและแจ้งเตือนเข้า LINE เรียบร้อยแล้ว'
+    });
+  } catch (e) {
+    console.error('[emergency-report error]', e);
+    res.status(500).json({ error: `ส่งรายงานไม่สำเร็จ: ${e.message}` });
   }
 });
 
