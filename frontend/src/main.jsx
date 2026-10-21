@@ -415,6 +415,213 @@ function LineConnectModal({ user, onClose, notify, reload }) {
   );
 }
 
+function ChangePasswordModal({ user, onClose, notify }) {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!currentPassword) {
+      setError('กรุณากรอกรหัสผ่านปัจจุบัน');
+      return;
+    }
+    if (!newPassword) {
+      setError('กรุณากรอกรหัสผ่านใหม่');
+      return;
+    }
+    if (newPassword.length < 4) {
+      setError('รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 ตัวอักษร');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน');
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setError('รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await api('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      notify?.(res.message || 'เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว', false);
+      onClose();
+    } catch (err) {
+      setError(err.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return createPortal(
+    <div className="modal-backdrop" onMouseDown={onClose} style={{ zIndex: 9999 }}>
+      <div
+        className="booking-modal"
+        style={{ maxWidth: 440, width: '92%' }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head" style={{ marginBottom: 14 }}>
+          <div>
+            <p className="eyebrow" style={{ color: 'var(--cyan)' }}>ACCOUNT SECURITY</p>
+            <h2 style={{ fontSize: 18, margin: '2px 0 0' }}>🔐 เปลี่ยนรหัสผ่านการใช้งาน</h2>
+          </div>
+          <button type="button" className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>
+          ตั้งรหัสผ่านใหม่สำหรับบัญชี <strong>{user?.name || user?.username}</strong> เพื่อความปลอดภัย
+        </p>
+
+        {error && (
+          <div className="alert error" style={{ margin: '0 0 14px', fontSize: 12.5, padding: '8px 12px' }}>
+            <span>⚠️ {error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5 }}>
+              รหัสผ่านปัจจุบัน <span style={{ color: '#f87171' }}>*</span>
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showCurrent ? 'text' : 'password'}
+                required
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="ระบุรหัสผ่านเดิมของคุณ"
+                style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrent(!showCurrent)}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  color: 'var(--muted)',
+                  padding: 4
+                }}
+                title={showCurrent ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+              >
+                {showCurrent ? '👁️' : '🔒'}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5 }}>
+              รหัสผ่านใหม่ (อย่างน้อย 4 ตัวอักษร) <span style={{ color: '#f87171' }}>*</span>
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showNew ? 'text' : 'password'}
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="กำหนดรหัสผ่านใหม่"
+                style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowNew(!showNew)}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  color: 'var(--muted)',
+                  padding: 4
+                }}
+                title={showNew ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+              >
+                {showNew ? '👁️' : '🔒'}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, marginBottom: 5 }}>
+              ยืนยันรหัสผ่านใหม่ <span style={{ color: '#f87171' }}>*</span>
+            </label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showConfirm ? 'text' : 'password'}
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm(!showConfirm)}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  color: 'var(--muted)',
+                  padding: 4
+                }}
+                title={showConfirm ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+              >
+                {showConfirm ? '👁️' : '🔒'}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button
+              type="button"
+              className="button secondary"
+              style={{ flex: 1 }}
+              onClick={onClose}
+              disabled={submitting}
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              className="button primary"
+              style={{ flex: 1.5, fontWeight: 700 }}
+              disabled={submitting}
+            >
+              {submitting ? 'กำลังบันทึก...' : '💾 บันทึกรหัสผ่านใหม่'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function EmergencyReportModal({ target, user, onClose, notify, reload }) {
   const { booking, slot, device } = target;
   const [problemType, setProblemType] = useState('ไม้กั้นไม่เปิด / ติดขัด');
@@ -616,6 +823,7 @@ function EmergencyReportModal({ target, user, onClose, notify, reload }) {
 
 function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView, notify, reload }) {
   const [showLineModal, setShowLineModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const timeStr = lastUpdated
     ? lastUpdated.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Asia/Bangkok' })
     : '--:--:--';
@@ -656,6 +864,15 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
               <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
             </button>
           )}
+          <button
+            type="button"
+            className="button compact"
+            style={{ padding: '6px 10px', fontSize: 13 }}
+            onClick={() => setShowPasswordModal(true)}
+            title="เปลี่ยนรหัสผ่านการใช้งาน"
+          >
+            🔑
+          </button>
           <button
             type="button"
             className="button compact logout-btn-mobile"
@@ -727,6 +944,24 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
         )}
 
         <span className={`role ${user.role}`}>{user.role === 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้'}</span>
+        <button
+          type="button"
+          className="button compact"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 5,
+            padding: '5px 10px',
+            fontSize: 12,
+            background: 'rgba(255, 255, 255, 0.05)',
+            borderColor: 'var(--border)'
+          }}
+          onClick={() => setShowPasswordModal(true)}
+          title="เปลี่ยนรหัสผ่านการใช้งาน"
+        >
+          <span>🔑</span>
+          <span>เปลี่ยนรหัสผ่าน</span>
+        </button>
         <span className="avatar">{user.name?.slice(0, 1)}</span>
         <button className="button compact logout-btn-desktop" onClick={onLogout}>ออกจากระบบ</button>
       </div>
@@ -737,6 +972,13 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
           onClose={() => setShowLineModal(false)}
           notify={notify}
           reload={reload}
+        />
+      )}
+      {showPasswordModal && (
+        <ChangePasswordModal
+          user={user}
+          onClose={() => setShowPasswordModal(false)}
+          notify={notify}
         />
       )}
     </header>
@@ -1417,7 +1659,7 @@ function UserControl({ data, user, notify, reload }) {
     const minutesUntilStart = (start.getTime() - now.getTime()) / 60000;
     const minutesSinceStart = (now.getTime() - start.getTime()) / 60000;
     const isNoShowExpired = booking.status === 'pending' && minutesSinceStart >= 15;
-    const canCancel = booking.status === 'pending' && minutesUntilStart >= 15;
+    const canCancel = booking.status === 'pending';
     const startTimeStr = formatThaiTime(booking.time);
     const endTimeStr = endTime.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
     const cutoffTimeStr = cancelCutoff.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
@@ -1615,7 +1857,7 @@ function UserControl({ data, user, notify, reload }) {
                   </div>
                 )}
 
-                {canCancel ? (
+                {canCancel && !isNoShowExpired && (
                   <div style={{
                     background: 'rgba(52, 211, 153, 0.08)',
                     border: '1px solid rgba(52, 211, 153, 0.28)',
@@ -1624,37 +1866,23 @@ function UserControl({ data, user, notify, reload }) {
                     fontSize: 12
                   }}>
                     <div style={{ color: '#34d399', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>✓ ยกเลิกได้ทุกเมื่อ</span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)' }}>ถึง {cutoffTimeStr} น.</span>
+                      <span>✓ ยกเลิกการจองได้ทุกเมื่อ</span>
+                      <span style={{ fontSize: 11, color: '#34d399', fontWeight: 700 }}>คืนเครดิต 100%</span>
                     </div>
                     <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
-                      ยกเลิกก่อนเวลาจอง 15 นาที ระบบจะคืนเครดิตเต็มจำนวน ฿{formatMoney(booking.amount)}
+                      สามารถกดยกเลิกการจองได้ตลอดเวลาก่อนนำรถเข้าจอด ระบบจะคืนเครดิตเต็มจำนวน ฿{formatMoney(booking.amount)}
                     </div>
                     <button
                       type="button"
-                      className="button danger compact full"
-                      style={{ marginTop: 8 }}
+                      className={`button ${isCarPresent ? 'secondary' : 'danger'} compact full`}
+                      style={{ marginTop: 8, ...(isCarPresent ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }}
                       onClick={() => cancelBooking(booking, isCarPresent)}
+                      title={isCarPresent ? 'มีรถเข้าจอดในช่องแล้ว ไม่สามารถยกเลิกได้' : 'กดยกเลิกการจองและรับคืนเครดิต'}
                     >
-                      ยกเลิกการจอง (คืนเครดิต ฿{formatMoney(booking.amount)})
+                      {isCarPresent ? '🚫 ไม่สามารถยกเลิกได้ (มีรถในช่อง)' : `ยกเลิกการจอง (คืนเครดิต ฿${formatMoney(booking.amount)})`}
                     </button>
                   </div>
-                ) : !isNoShowExpired ? (
-                  <div style={{
-                    background: 'rgba(239, 68, 68, 0.08)',
-                    border: '1px solid rgba(239, 68, 68, 0.28)',
-                    borderRadius: 8,
-                    padding: '8px 10px',
-                    fontSize: 12
-                  }}>
-                    <div style={{ color: '#f87171', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>หมดเวลายกเลิกการจอง</span>
-                    </div>
-                    <div style={{ color: 'var(--muted)', marginTop: 3, fontSize: 11 }}>
-                      เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ({startTimeStr} น.) จึงไม่สามารถยกเลิกได้
-                    </div>
-                  </div>
-                ) : null}
+                )}
               </div>
             )}
 
@@ -1874,6 +2102,7 @@ function UserControl({ data, user, notify, reload }) {
 
 function UserHistory({ data, user, notify }) {
   const [request, setRequest] = useState({ amount: '', reason: '' });
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [vehicleModal, setVehicleModal] = useState(null); // 'add' | 'edit' | null
   const [vehicleForm, setVehicleForm] = useState({ license_plate: '', vehicle_type: 'รถเก๋ง (Sedan)', brand: '', model: '', color: '', is_default: false });
   const [vehicleSubmitting, setVehicleSubmitting] = useState(false);
@@ -2078,6 +2307,38 @@ function UserHistory({ data, user, notify }) {
         </div>
       </div>
     </section>
+    <section className="panel security-panel" style={{ marginTop: 14 }}>
+      <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 style={{ margin: 0 }}>🔐 ความปลอดภัยและรหัสผ่าน</h2>
+          <span className="muted" style={{ fontSize: 13 }}>จัดการรหัสผ่านบัญชีผู้ใช้ของคุณ</span>
+        </div>
+        <button
+          type="button"
+          className="button primary compact"
+          onClick={() => setShowPasswordModal(true)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <span>🔑</span>
+          <span>เปลี่ยนรหัสผ่าน</span>
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', marginTop: 10, background: 'var(--surface2)', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)' }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ fontSize: 13, color: 'var(--text-strong)', fontWeight: 600 }}>👤 บัญชี: {user.name} ({user.username})</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+            {user.email ? `อีเมล: ${user.email} · ` : ''}แนะนำให้เปลี่ยนรหัสผ่านเป็นประจำเพื่อความปลอดภัย
+          </div>
+        </div>
+        <button
+          type="button"
+          className="button secondary compact"
+          onClick={() => setShowPasswordModal(true)}
+        >
+          แก้ไขรหัสผ่าน
+        </button>
+      </div>
+    </section>
     <section className="panel">
       <div className="panel-title">
         <div>
@@ -2247,13 +2508,13 @@ function UserHistory({ data, user, notify }) {
     </section>
     <section className="panel"><div className="panel-title"><h2>รายการจองล่าสุด</h2><span className="muted">{mine.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ยานพาหนะ</th><th>วันเวลา</th><th>ระยะเวลา</th><th>ยอดเงิน</th><th>สถานะ</th><th /></tr></thead><tbody>{mine.map((booking) => {
       const start = parseThaiDateTime(booking.date, booking.time);
-      const canCancel = booking.status === 'pending' && (start.getTime() - Date.now()) >= 15 * 60 * 1000;
+      const canCancel = booking.status === 'pending';
       const sensor = data.devices?.find(d => d.type === 'sensor' && d.linked_slot === booking.slot_id);
       const slot = data.slots?.find(s => s.id === booking.slot_id);
       const enterCm = Number(slot?.sensor_enter_cm ?? 9.0);
       const dist = typeof sensor?.distance_cm === 'number' && sensor.distance_cm > 0 ? Math.round(sensor.distance_cm * 10) / 10 : null;
       const hasCar = Boolean((dist !== null && dist <= enterCm) || sensor?.presence === 'occupied' || sensor?.car_present === true);
-      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className={`button ${hasCar ? 'secondary' : 'primary'} compact`} style={hasCar ? { color: '#f87171', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)' } : { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#10b981' }} onClick={() => action(booking.id, 'finish', hasCar, booking.slot_id)} title={hasCar ? 'ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้' : 'กดเพื่อจบการจอดและรับสลิป'}>{hasCar ? '🚫 มีรถในช่อง' : '🏁 จบการจอด'}</button>{booking.status === 'pending' && (canCancel && !hasCar ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel', hasCar, booking.slot_id)}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title={hasCar ? 'มีรถเข้าจอดแล้ว ไม่สามารถยกเลิกได้' : 'เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว'}>{hasCar ? 'มีรถในช่อง' : 'หมดเวลายกเลิก'}</button>)}</div>}</td></tr>;
+      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className={`button ${hasCar ? 'secondary' : 'primary'} compact`} style={hasCar ? { color: '#f87171', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)' } : { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#10b981' }} onClick={() => action(booking.id, 'finish', hasCar, booking.slot_id)} title={hasCar ? 'ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้' : 'กดเพื่อจบการจอดและรับสลิป'}>{hasCar ? '🚫 มีรถในช่อง' : '🏁 จบการจอด'}</button>{booking.status === 'pending' && (canCancel && !hasCar ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel', hasCar, booking.slot_id)}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title={hasCar ? 'มีรถเข้าจอดในช่องแล้ว ไม่สามารถยกเลิกได้' : 'ไม่สามารถยกเลิกได้'}>{hasCar ? 'มีรถในช่อง' : 'ยกเลิกไม่ได้'}</button>)}</div>}</td></tr>;
     })}</tbody></table></div></section>
 
     {vehicleModal && (
@@ -2348,7 +2609,16 @@ function UserHistory({ data, user, notify }) {
           </div>
         </form>
       </div>
-    )}</>;
+    )}
+
+    {showPasswordModal && (
+      <ChangePasswordModal
+        user={user}
+        onClose={() => setShowPasswordModal(false)}
+        notify={notify}
+      />
+    )}
+  </>;
 }
 
 function AdminDashboard({ data, setView }) {

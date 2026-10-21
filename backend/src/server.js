@@ -379,8 +379,15 @@ async function lifecycle() {
         }
       }
 
-      const exitDetected = b.status === 'active' && sensorFresh && sensor?.presence === 'empty' && barrier?.state === 'closed';
-      if (exitDetected) { await finishBooking(b, 'sensor-exit'); continue; }
+      // เมื่อผู้ใช้ออกจากช่องจอด (status === 'active' และเซ็นเซอร์ตรวจไม่พบรถแล้ว):
+      // ปิดไม้กั้นทุกจุดทันที และบันทึกจบการจอด
+      const carLeft = b.status === 'active' && sensorFresh && (sensor?.presence === 'empty' || sensor?.car_present === false);
+      if (carLeft) {
+        // บังคับปิดไม้กั้นในระบบทันที
+        await db.from('devices').update({ state: 'closed', updated_at: now.toISOString() }).eq('type', 'barrier').eq('linked_slot', b.slot_id);
+        await finishBooking(b, 'sensor-exit');
+        continue;
+      }
       // หมายเหตุ: ไม่ auto-complete เมื่อหมดเวลา เพื่อให้ผู้ใช้อยู่ต่อได้ (overtime จะถูกคิดเมื่อกดจบการจอดหรือรถออก)
     }
 
@@ -461,6 +468,57 @@ app.post('/api/auth/line', async (req, res) => {
 app.post('/api/auth/line/unlink', auth, async (req, res) => { try { await db.from('users').update({ line_user_id: null }).eq('id', req.user.id); const updated = await userById(req.user.id); delete updated.password_hash; delete updated.password; res.json({ ok: true, user: updated }); } catch (error) { res.status(400).json({ error: error.message }); } });
 app.post('/api/auth/register', async (req, res) => { try { const { username, email, password, name } = req.body; if (!username || !password || !name) return res.status(400).json({ error: 'ข้อมูลไม่ครบถ้วน' }); const u = { id: id(), username, email: email?.toLowerCase(), password_hash: await bcrypt.hash(password, 10), name, role: 'user', credit: 0, status: 'active', line_link_code: crypto.randomBytes(4).toString('hex').slice(0, 6).toUpperCase() }; const { data, error } = await db.from('users').insert(u).select('*').single(); if (error) throw error; delete data.password_hash; res.json({ user: data, token: sign(data) }); } catch (e) { res.status(400).json({ error: e.message }); } });
 app.post('/api/auth/login', async (req, res) => { try { const username = String(req.body.username || '').trim(), password = String(req.body.password || ''); if (!username || !password) return res.status(400).json({ error: 'กรุณากรอกชื่อผู้ใช้และรหัสผ่าน' }); const { data, error } = await db.from('users').select('*').or(`username.eq.${username},email.eq.${username}`).maybeSingle(); if (error) throw error; if (!data || data.status !== 'active' || !(data.password_hash ? await bcrypt.compare(password, data.password_hash) : data.password === password)) return res.status(401).json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' }); delete data.password_hash; delete data.password; res.json({ user: data, token: sign(data) }); } catch (error) { console.error('[login]', error); res.status(500).json({ error: 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบ Backend และ Supabase' }); } });
+app.post('/api/auth/change-password', auth, async (req, res) => {
+  try {
+    const currentPassword = String(req.body.currentPassword || '');
+    const newPassword = String(req.body.newPassword || '');
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'กรุณากรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่' });
+    }
+    if (newPassword.length < 4) {
+      return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 ตัวอักษร' });
+    }
+    const { data: u, error: fetchErr } = await db.from('users').select('*').eq('id', req.user.id).maybeSingle();
+    if (fetchErr || !u) return res.status(404).json({ error: 'ไม่พบบัญชีผู้ใช้' });
+
+    const isMatch = u.password_hash
+      ? await bcrypt.compare(currentPassword, u.password_hash)
+      : (u.password === currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' });
+    }
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    const { error: updateErr } = await db.from('users').update({
+      password_hash: newHash,
+      password: null,
+      updated_at: new Date().toISOString()
+    }).eq('id', req.user.id);
+    if (updateErr) throw updateErr;
+
+    if (u.line_user_id) {
+      const nowThai = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+      const secMsg = [
+        '🔐 [แจ้งเตือนความปลอดภัย Smart Parking]',
+        '━━━━━━━━━━━━━━━━━━━',
+        `👤 บัญชีผู้ใช้: ${u.name}`,
+        '✅ คุณได้ทำการเปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว',
+        `⏰ วันเวลา: ${nowThai} น.`,
+        '━━━━━━━━━━━━━━━━━━━',
+        '⚠️ หากคุณไม่ได้เป็นผู้ทำรายการนี้ กรุณาติดต่อผู้ดูแลระบบทันที'
+      ].join('\n');
+      pushLine(u.line_user_id, secMsg).catch(() => {});
+    }
+
+    res.json({ ok: true, message: 'เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว' });
+  } catch (e) {
+    console.error('[change-password error]', e);
+    res.status(500).json({ error: e.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ' });
+  }
+});
 app.get('/api/bootstrap', auth, async (req, res) => {
   try {
     await lifecycle(); const out = {}; const required = ['slots', 'bookings', 'credit_history', 'devices']; const optional = ['credit_requests', 'maintenance_logs', 'parking_maps', 'vehicles']; const userFields = 'id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at'; let usersQuery = db.from('users').select(userFields); if (req.user.role !== 'admin') usersQuery = usersQuery.eq('id', req.user.id); const { data: users, error: userError } = await usersQuery; if (userError) throw userError; out.users = users || []; for (const table of required) { let query = db.from(table).select('*'); if (req.user.role !== 'admin' && ['bookings', 'credit_history'].includes(table)) query = query.eq('user_id', req.user.id); const { data, error } = await query; if (error) throw error; out[table] = data || []; }
@@ -569,7 +627,7 @@ app.post('/api/bookings', auth, async (req, res) => {
         `💳 เครดิตคงเหลือ: ฿${Number(updatedU.credit || 0).toLocaleString('th-TH')}`,
         '━━━━━━━━━━━━━━━━━━━',
         'ℹ️ กรุณาเข้าจอดภายใน 15 นาทีหลังถึงเวลาเริ่มจอง',
-        'ℹ️ สามารถกดยกเลิกการจองได้ทุกเมื่อจนถึงก่อนเวลาเริ่มจอง 15 นาที'
+        'ℹ️ สามารถกดยกเลิกการจองได้ทุกเมื่อก่อนนำรถเข้าจอด (คืนเครดิตเต็มจำนวน)'
       ].join('\n');
       await pushLine(updatedU.line_user_id, bookMsg);
     }
@@ -698,15 +756,6 @@ app.post('/api/bookings/:id/cancel', auth, async (req, res) => {
     if (!b) return res.status(404).json({ error: 'ไม่พบรายการจอง' });
     if (b.status !== 'pending') return res.status(400).json({ error: 'ยกเลิกได้เฉพาะรายการที่อยู่ในสถานะรอเข้าจอดเท่านั้น' });
 
-    const start = thaiDateTime(b.date, b.time);
-    const cutoff = new Date(start.getTime() - 15 * 60 * 1000);
-    const now = new Date();
-    if (now >= cutoff) {
-      return res.status(400).json({
-        error: 'ไม่สามารถยกเลิกการจองได้แล้ว เนื่องจากต้องยกเลิกก่อนถึงเวลาจองอย่างน้อย 15 นาที'
-      });
-    }
-
     // ตรวจสอบเซ็นเซอร์ว่ามีรถเข้าจอดแล้วหรือไม่ หากมีรถจอดอยู่ห้ามยกเลิก
     const { data: cancelSensor } = await db.from('devices').select('*').eq('type', 'sensor').eq('linked_slot', b.slot_id).limit(1).maybeSingle();
     const cancelSlotsMeta = readSlotsMeta();
@@ -716,12 +765,15 @@ app.post('/api/bookings/:id/cancel', auth, async (req, res) => {
     const cancelHasCar = (cancelLiveDist !== null && cancelLiveDist > 0 && cancelLiveDist <= cancelEnterCm) || (cancelSensor?.presence === 'occupied' || cancelSensor?.car_present === true);
     if (cancelHasCar) {
       return res.status(400).json({
-        error: `ไม่สามารถยกเลิกการจองได้ เนื่องจากมีรถจอดอยู่ในช่อง ${b.slot_id} แล้ว`
+        error: `ไม่สามารถยกเลิกการจองได้ เนื่องจากมีรถจอดอยู่ในช่อง ${b.slot_id} แล้ว (กรุณานำรถออกก่อน)`
       });
     }
 
-    await db.from('bookings').update({ status: 'cancelled' }).eq('id', b.id);
-    await db.from('slots').update({ status: 'available' }).eq('id', b.slot_id);
+    const cancelNow = new Date().toISOString();
+    await db.from('bookings').update({ status: 'cancelled', updated_at: cancelNow }).eq('id', b.id);
+    await db.from('slots').update({ status: 'available', updated_at: cancelNow }).eq('id', b.slot_id);
+    // ปิดไม้กั้นช่องจอดลงมาทันทีเมื่อยกเลิกการจอง
+    await db.from('devices').update({ state: 'closed', updated_at: cancelNow }).eq('type', 'barrier').eq('linked_slot', b.slot_id);
     await credit(req.user.id, 'add', b.amount, `คืนเครดิตจากการยกเลิก ${b.slot_id}`);
     const u = await userById(req.user.id);
     if (u?.line_user_id) {
@@ -834,7 +886,7 @@ app.post('/api/devices/:id/toggle', auth, async (req, res) => {
       const cutoff = new Date(start.getTime() - 15 * 60 * 1000);
       if (now < cutoff) {
         const cutoffStr = cutoff.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' });
-        return res.status(403).json({ error: `ยังไม่สามารถควบคุมไม้กั้นได้ในขณะที่ยังอยู่ในช่วงเวลายกเลิกการจอง (สามารถควบคุมได้ตั้งแต่ 15 นาทีก่อนถึงเวลาจอง คือเวลา ${cutoffStr} น. เป็นต้นไป)` });
+        return res.status(403).json({ error: `ยังไม่สามารถควบคุมไม้กั้นได้ในขณะนี้ (สามารถควบคุมได้ตั้งแต่ 15 นาทีก่อนถึงเวลาจอง คือเวลา ${cutoffStr} น. เป็นต้นไป)` });
       }
       const noShowCutoff = new Date(start.getTime() + GRACE * 60000);
       if (now >= noShowCutoff && !b.entry_verified) {
@@ -1063,10 +1115,27 @@ async function processBatchTelemetry(deviceId, slotReadings) {
         barrierQuery,
       ]);
 
+      let gateOpen = barrier?.state === 'open';
+
+      // ตรวจสอบความปลอดภัย: หากช่องว่าง (ไม่มีรถจอด) และไม่มีการจองที่รอเข้าจอดหรือกำลังจอดอยู่ ไม้กั้นต้องอยู่ในสถานะปิดทุกจุด
+      if (!isOccupied && gateOpen) {
+        const { data: activeBooking } = await db.from('bookings')
+          .select('id, status')
+          .eq('slot_id', slotId)
+          .in('status', ['pending', 'active'])
+          .limit(1)
+          .maybeSingle();
+
+        if (!activeBooking) {
+          gateOpen = false;
+          await db.from('devices').update({ state: 'closed', updated_at: now }).eq('type', 'barrier').eq('linked_slot', slotId);
+        }
+      }
+
       if (barrier) {
         barrierCommands.push({
           slot_id: slotId,
-          gate_open: barrier.state === 'open',
+          gate_open: gateOpen,
         });
       }
     })
