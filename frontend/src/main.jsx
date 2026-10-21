@@ -122,7 +122,6 @@ function Login({ onLogin, theme, toggleTheme }) {
             zIndex: 10
           }}
         >
-          <span className="theme-toggle-icon">{theme === 'dark' ? '☀️' : '🌙'}</span>
           <span className="theme-toggle-label">{theme === 'dark' ? 'ธีมสว่าง' : 'ธีมมืด'}</span>
         </button>
       )}
@@ -476,7 +475,7 @@ function ChangePasswordModal({ user, onClose, notify }) {
         <div className="modal-head" style={{ marginBottom: 14 }}>
           <div>
             <p className="eyebrow" style={{ color: 'var(--cyan)' }}>ACCOUNT SECURITY</p>
-            <h2 style={{ fontSize: 18, margin: '2px 0 0' }}>🔐 เปลี่ยนรหัสผ่านการใช้งาน</h2>
+            <h2 style={{ fontSize: 18, margin: '2px 0 0' }}>เปลี่ยนรหัสผ่านการใช้งาน</h2>
           </div>
           <button type="button" className="modal-close" onClick={onClose}>×</button>
         </div>
@@ -487,7 +486,7 @@ function ChangePasswordModal({ user, onClose, notify }) {
 
         {error && (
           <div className="alert error" style={{ margin: '0 0 14px', fontSize: 12.5, padding: '8px 12px' }}>
-            <span>⚠️ {error}</span>
+            <span>{error}</span>
           </div>
         )}
 
@@ -503,7 +502,7 @@ function ChangePasswordModal({ user, onClose, notify }) {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="ระบุรหัสผ่านเดิมของคุณ"
-                style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+                style={{ width: '100%', paddingRight: 50, boxSizing: 'border-box' }}
               />
               <button
                 type="button"
@@ -516,13 +515,14 @@ function ChangePasswordModal({ user, onClose, notify }) {
                   background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
-                  fontSize: 14,
+                  fontSize: 12,
+                  fontWeight: 600,
                   color: 'var(--muted)',
-                  padding: 4
+                  padding: '4px 6px'
                 }}
                 title={showCurrent ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
               >
-                {showCurrent ? '👁️' : '🔒'}
+                {showCurrent ? 'ซ่อน' : 'แสดง'}
               </button>
             </div>
           </div>
@@ -538,7 +538,7 @@ function ChangePasswordModal({ user, onClose, notify }) {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="กำหนดรหัสผ่านใหม่"
-                style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+                style={{ width: '100%', paddingRight: 50, boxSizing: 'border-box' }}
               />
               <button
                 type="button"
@@ -551,13 +551,14 @@ function ChangePasswordModal({ user, onClose, notify }) {
                   background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
-                  fontSize: 14,
+                  fontSize: 12,
+                  fontWeight: 600,
                   color: 'var(--muted)',
-                  padding: 4
+                  padding: '4px 6px'
                 }}
                 title={showNew ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
               >
-                {showNew ? '👁️' : '🔒'}
+                {showNew ? 'ซ่อน' : 'แสดง'}
               </button>
             </div>
           </div>
@@ -573,7 +574,7 @@ function ChangePasswordModal({ user, onClose, notify }) {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
-                style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+                style={{ width: '100%', paddingRight: 50, boxSizing: 'border-box' }}
               />
               <button
                 type="button"
@@ -586,13 +587,14 @@ function ChangePasswordModal({ user, onClose, notify }) {
                   background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
-                  fontSize: 14,
+                  fontSize: 12,
+                  fontWeight: 600,
                   color: 'var(--muted)',
-                  padding: 4
+                  padding: '4px 6px'
                 }}
                 title={showConfirm ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
               >
-                {showConfirm ? '👁️' : '🔒'}
+                {showConfirm ? 'ซ่อน' : 'แสดง'}
               </button>
             </div>
           </div>
@@ -613,7 +615,7 @@ function ChangePasswordModal({ user, onClose, notify }) {
               style={{ flex: 1.5, fontWeight: 700 }}
               disabled={submitting}
             >
-              {submitting ? 'กำลังบันทึก...' : '💾 บันทึกรหัสผ่านใหม่'}
+              {submitting ? 'กำลังบันทึก...' : 'บันทึกรหัสผ่านใหม่'}
             </button>
           </div>
         </form>
@@ -697,7 +699,7 @@ function EmergencyReportModal({ target, user, onClose, notify, reload }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
           <div>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#f87171', fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
-              <span>🚨</span>
+              <span>🔴</span>
               <span>EMERGENCY REPORT</span>
             </div>
             <h3 style={{ margin: 0, fontSize: 19 }}>แจ้งปัญหาฉุกเฉิน · ช่อง {slot?.code || booking?.slot_id}</h3>
@@ -750,7 +752,7 @@ function EmergencyReportModal({ target, user, onClose, notify, reload }) {
                   onClick={() => setProblemType(p)}
                   className={`emergency-problem-btn ${problemType === p ? 'active' : ''}`}
                 >
-                  {problemType === p ? '🔘 ' : '⚪ '}
+                  {problemType === p ? '🔴 ' : '⚪ '}
                   {p}
                 </button>
               ))}
@@ -791,7 +793,7 @@ function EmergencyReportModal({ target, user, onClose, notify, reload }) {
             alignItems: 'center',
             gap: 8
           }}>
-            <span style={{ fontSize: 16 }}>⚠️</span>
+            <span style={{ fontSize: 14 }}>🔴</span>
             <span>เมื่อกดส่ง ระบบจะส่งสัญญาณฉุกเฉินระดับ CRITICAL ไปยังหน้าจอ และส่ง LINE Push แจ้งเตือนผู้ดูแลระบบทันที</span>
           </div>
 
@@ -811,7 +813,6 @@ function EmergencyReportModal({ target, user, onClose, notify, reload }) {
               style={{ flex: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontWeight: 700 }}
               disabled={submitting}
             >
-              <span>🚨</span>
               <span>{submitting ? 'กำลังส่งแจ้งเตือน...' : 'ส่งรายงานฉุกเฉินทันที'}</span>
             </button>
           </div>
@@ -1220,7 +1221,7 @@ function UserBooking({ data, user, notify, setView }) {
           gap: 12
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 24 }}>🅿️</span>
+            <span style={{ fontSize: 20 }}>🟢</span>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-strong)' }}>
                 คุณมีรายการจองช่อง {userOngoingBookings.map(b => b.slot_id).join(', ')} กำลังดำเนินการ
@@ -1483,7 +1484,7 @@ function UserBooking({ data, user, notify, setView }) {
               lineHeight: 1.45,
               color: '#94a3b8'
             }}>
-              <strong style={{ color: 'var(--cyan)', display: 'block', marginBottom: 2 }}>ℹ️ นโยบายการยกเลิกการจอง:</strong>
+              <strong style={{ color: 'var(--cyan)', display: 'block', marginBottom: 2 }}>นโยบายการยกเลิกการจอง:</strong>
               ยกเลิกและรับเงินคืนเต็มจำนวนได้ทุกเมื่อ <strong>จนถึงก่อนเวลาเริ่มจอง 15 นาที</strong>
             </div>
 
@@ -1566,7 +1567,7 @@ function UserBooking({ data, user, notify, setView }) {
                 </div>
               ) : (
                 <button className={`button primary full ${submitting ? 'is-busy' : ''}`} disabled={submitting}>
-                  {submitting ? '⏳ กำลังบันทึกการจอง...' : 'ยืนยันการจอง'}
+                  {submitting ? 'กำลังบันทึกการจอง...' : 'ยืนยันการจอง'}
                 </button>
               )}
             </div>
@@ -1835,9 +1836,9 @@ function UserControl({ data, user, notify, reload }) {
                       title={isCarPresent ? 'มีรถเข้าจอดในช่องแล้ว ไม่สามารถยกเลิกได้' : 'กดยกเลิกการจองและรับคืนเครดิต'}
                     >
                       {cancellingBookings[booking.id]
-                        ? '⏳ กำลังยกเลิกการจอง...'
+                        ? 'กำลังยกเลิกการจอง...'
                         : isCarPresent
-                          ? '🚫 ไม่สามารถยกเลิกได้ (มีรถในช่อง)'
+                          ? 'ไม่สามารถยกเลิกได้ (มีรถในช่อง)'
                           : `ยกเลิกการจอง (คืนเครดิต ฿${formatMoney(booking.amount)})`}
                     </button>
                   </div>
@@ -1880,7 +1881,7 @@ function UserControl({ data, user, notify, reload }) {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: isCarPresent ? '#f87171' : 'var(--green)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>{isCarPresent ? '🚗 เซ็นเซอร์: มีรถจอดอยู่ในช่อง' : '✅ เซ็นเซอร์: ไม่มีรถในช่อง (ช่องว่าง)'}</span>
+                    <span>{isCarPresent ? '🔴 เซ็นเซอร์: มีรถจอดอยู่ในช่อง' : '🟢 เซ็นเซอร์: ไม่มีรถในช่อง (ช่องว่าง)'}</span>
                   </span>
                   {dist !== null && (
                     <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: '"JetBrains Mono", monospace' }}>
@@ -1890,8 +1891,8 @@ function UserControl({ data, user, notify, reload }) {
                 </div>
                 <small style={{ color: 'var(--muted)', fontSize: 11 }}>
                   {isCarPresent
-                    ? '⚠️ ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้ (กรุณานำรถออกจากช่องก่อน)'
-                    : '✨ ไม่มีรถในช่องจอดแล้ว สามารถกดจบการจอดด้านล่างเพื่อตัดการจอดได้ทันที'}
+                    ? 'ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้ (กรุณานำรถออกจากช่องก่อน)'
+                    : 'ไม่มีรถในช่องจอดแล้ว สามารถกดจบการจอดด้านล่างเพื่อตัดการจอดได้ทันที'}
                 </small>
               </div>
 
@@ -1914,7 +1915,7 @@ function UserControl({ data, user, notify, reload }) {
                   }}
                   title="ไม่สามารถจบการจอดได้ เนื่องจากยังมีรถจอดอยู่ในช่อง"
                 >
-                  <span>🚫 ไม่สามารถจบการจอดได้ (มีรถจอดอยู่ในช่อง)</span>
+                  <span>ไม่สามารถจบการจอดได้ (มีรถจอดอยู่ในช่อง)</span>
                 </button>
               ) : (
                 <button
@@ -1936,8 +1937,8 @@ function UserControl({ data, user, notify, reload }) {
                 >
                   <span>
                     {finishingBookings[booking.id]
-                      ? '⏳ กำลังประมวลผลจบการจอดและส่งสลิป...'
-                      : '🏁 จบการจอด (รถออกจากช่องแล้ว · รับสลิป)'}
+                      ? 'กำลังประมวลผลจบการจอดและส่งสลิป...'
+                      : 'จบการจอด (รถออกจากช่องแล้ว · รับสลิป)'}
                   </span>
                 </button>
               )}
@@ -2018,7 +2019,7 @@ function UserControl({ data, user, notify, reload }) {
                     onClick={() => toggle(device)}
                   >
                     {busyDevices[device.id]
-                      ? (device.state === 'open' ? '⏳ กำลังสั่งปิดไม้กั้น...' : '⏳ กำลังสั่งเปิดไม้กั้น...')
+                      ? (device.state === 'open' ? 'กำลังสั่งปิดไม้กั้น...' : 'กำลังสั่งเปิดไม้กั้น...')
                       : (device.state === 'open' ? 'สั่งปิดไม้กั้น' : 'สั่งเปิดไม้กั้น')}
                   </button>
                 )
@@ -2043,7 +2044,7 @@ function UserControl({ data, user, notify, reload }) {
                 onClick={() => setEmergencyTarget({ booking, slot, device })}
                 title="รายงานปัญหาฉุกเฉินหรือไม้กั้นขัดข้องไปยังผู้ดูแลระบบและ LINE"
               >
-                <span>🚨</span>
+                <span>🔴</span>
                 <span>รายงานปัญหาฉุกเฉิน / ไม้กั้นมีปัญหา</span>
               </button>
             </div>
@@ -2297,7 +2298,7 @@ function UserHistory({ data, user, notify }) {
     <section className="panel security-panel" style={{ marginTop: 14 }}>
       <div className="panel-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 style={{ margin: 0 }}>🔐 ความปลอดภัยและรหัสผ่าน</h2>
+          <h2 style={{ margin: 0 }}>ความปลอดภัยและรหัสผ่าน</h2>
           <span className="muted" style={{ fontSize: 13 }}>จัดการรหัสผ่านบัญชีผู้ใช้ของคุณ</span>
         </div>
         <button
@@ -2306,13 +2307,12 @@ function UserHistory({ data, user, notify }) {
           onClick={() => setShowPasswordModal(true)}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
-          <span>🔑</span>
           <span>เปลี่ยนรหัสผ่าน</span>
         </button>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', marginTop: 10, background: 'var(--surface2)', padding: '12px 16px', borderRadius: 10, border: '1px solid var(--border)' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
-          <div style={{ fontSize: 13, color: 'var(--text-strong)', fontWeight: 600 }}>👤 บัญชี: {user.name} ({user.username})</div>
+          <div style={{ fontSize: 13, color: 'var(--text-strong)', fontWeight: 600 }}>บัญชี: {user.name} ({user.username})</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
             {user.email ? `อีเมล: ${user.email} · ` : ''}แนะนำให้เปลี่ยนรหัสผ่านเป็นประจำเพื่อความปลอดภัย
           </div>
@@ -2347,7 +2347,7 @@ function UserHistory({ data, user, notify }) {
               <div className="vehicle-header">
                 <span className="vehicle-plate">{v.license_plate}</span>
                 {v.is_default ? (
-                  <span className="badge available">⭐ คันหลัก</span>
+                  <span className="badge available">คันหลัก</span>
                 ) : (
                   <button
                     type="button"
@@ -2501,7 +2501,7 @@ function UserHistory({ data, user, notify }) {
       const enterCm = Number(slot?.sensor_enter_cm ?? 9.0);
       const dist = typeof sensor?.distance_cm === 'number' && sensor.distance_cm > 0 ? Math.round(sensor.distance_cm * 10) / 10 : null;
       const hasCar = Boolean((dist !== null && dist <= enterCm) || sensor?.presence === 'occupied' || sensor?.car_present === true);
-      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className={`button ${hasCar ? 'secondary' : 'primary'} compact ${actingKey === `${booking.id}-finish` ? 'is-busy' : ''}`} style={hasCar ? { color: '#f87171', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)' } : { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#10b981' }} disabled={hasCar || actingKey === `${booking.id}-finish`} onClick={() => action(booking.id, 'finish', hasCar, booking.slot_id)} title={hasCar ? 'ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้' : 'กดเพื่อจบการจอดและรับสลิป'}>{actingKey === `${booking.id}-finish` ? '⏳ กำลังจบการจอด...' : (hasCar ? '🚫 มีรถในช่อง' : '🏁 จบการจอด')}</button>{booking.status === 'pending' && (canCancel && !hasCar ? <button type="button" className={`button danger compact ${actingKey === `${booking.id}-cancel` ? 'is-busy' : ''}`} disabled={actingKey === `${booking.id}-cancel`} onClick={() => action(booking.id, 'cancel', hasCar, booking.slot_id)}>{actingKey === `${booking.id}-cancel` ? '⏳ กำลังยกเลิก...' : 'ยกเลิก (คืนเครดิต)'}</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title={hasCar ? 'มีรถเข้าจอดในช่องแล้ว ไม่สามารถยกเลิกได้' : 'ไม่สามารถยกเลิกได้'}>{hasCar ? 'มีรถในช่อง' : 'ยกเลิกไม่ได้'}</button>)}</div>}</td></tr>;
+      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className={`button ${hasCar ? 'secondary' : 'primary'} compact ${actingKey === `${booking.id}-finish` ? 'is-busy' : ''}`} style={hasCar ? { color: '#f87171', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)' } : { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#10b981' }} disabled={hasCar || actingKey === `${booking.id}-finish`} onClick={() => action(booking.id, 'finish', hasCar, booking.slot_id)} title={hasCar ? 'ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้' : 'กดเพื่อจบการจอดและรับสลิป'}>{actingKey === `${booking.id}-finish` ? 'กำลังจบการจอด...' : (hasCar ? 'มีรถในช่อง' : 'จบการจอด')}</button>{booking.status === 'pending' && (canCancel && !hasCar ? <button type="button" className={`button danger compact ${actingKey === `${booking.id}-cancel` ? 'is-busy' : ''}`} disabled={actingKey === `${booking.id}-cancel`} onClick={() => action(booking.id, 'cancel', hasCar, booking.slot_id)}>{actingKey === `${booking.id}-cancel` ? 'กำลังยกเลิก...' : 'ยกเลิก (คืนเครดิต)'}</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title={hasCar ? 'มีรถเข้าจอดในช่องแล้ว ไม่สามารถยกเลิกได้' : 'ไม่สามารถยกเลิกได้'}>{hasCar ? 'มีรถในช่อง' : 'ยกเลิกไม่ได้'}</button>)}</div>}</td></tr>;
     })}</tbody></table></div></section>
 
     {vehicleModal && (
@@ -3845,7 +3845,7 @@ function AdminDevices({ data, reload, notify }) {
                   ) : '-'}
                 </td>
                 <td>
-                  <button className="button compact" onClick={() => rename(device)}>เปลี่ยนชื่อ</button> <button className="button compact" onClick={() => link(device)}>ผูกช่อง</button> {device.type === 'barrier' && <button className={`button primary compact ${togglingId === device.id ? 'is-busy' : ''}`} disabled={togglingId === device.id} onClick={() => toggle(device)}>{togglingId === device.id ? '⏳...' : 'เปิด/ปิด'}</button>}
+                  <button className="button compact" onClick={() => rename(device)}>เปลี่ยนชื่อ</button> <button className="button compact" onClick={() => link(device)}>ผูกช่อง</button> {device.type === 'barrier' && <button className={`button primary compact ${togglingId === device.id ? 'is-busy' : ''}`} disabled={togglingId === device.id} onClick={() => toggle(device)}>{togglingId === device.id ? 'กำลังทำรายการ...' : 'เปิด/ปิด'}</button>}
                 </td>
               </tr>
             );
@@ -4645,7 +4645,7 @@ function AdminAlerts({ data, user, reload, notify }) {
             <div>
               {isDirty && (
                 <span style={{ fontSize: 13, color: 'var(--amber)', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
-                  <span>⚠️</span>
+                  <span>🟡</span>
                   <span>มีการแก้ไขที่ยังไม่ได้บันทึก (ระบบจะไม่รีเฟรชทับ)</span>
                 </span>
               )}
@@ -5183,7 +5183,7 @@ function AdminLayout({ data, reload, notify }) {
                 <div style={{ marginTop: 14, marginBottom: 10, padding: '12px 14px', background: 'rgba(56, 189, 248, 0.05)', borderRadius: 12, border: '1px solid rgba(56, 189, 248, 0.2)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>📡 เซ็นเซอร์วัดระยะอัลตราโซนิก</span>
+                      <span>เซ็นเซอร์วัดระยะอัลตราโซนิก</span>
                     </span>
                     {sensorDev && (
                       <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, background: sensorDev.status === 'online' ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.1)', color: sensorDev.status === 'online' ? '#4ade80' : 'var(--muted)' }}>
@@ -5203,7 +5203,7 @@ function AdminLayout({ data, reload, notify }) {
                       <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
                         <span style={{ color: 'var(--muted)' }}>สถานะตรวจจับ: </span>
                         <strong style={{ color: sensorDev.presence === 'occupied' ? '#f87171' : '#4ade80' }}>
-                          {sensorDev.presence === 'occupied' ? '🚗 มีรถจอด' : ' ว่าง'}
+                          {sensorDev.presence === 'occupied' ? '🔴 มีรถจอด' : '🟢 ว่าง'}
                         </strong>
                       </div>
                     </div>
@@ -5256,7 +5256,7 @@ function AdminLayout({ data, reload, notify }) {
                   </div>
 
                   <div style={{ marginTop: 8, fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
-                    💡 <em>ระบบใช้ Hysteresis (ระยะออกต้องมากกว่าระยะเข้า เช่น 9 ซม. / 11 ซม.) เพื่อป้องกันการตรวจจับสับสน</em>
+                    <em>ระบบใช้ Hysteresis (ระยะออกต้องมากกว่าระยะเข้า เช่น 9 ซม. / 11 ซม.) เพื่อป้องกันการตรวจจับสับสน</em>
                   </div>
                 </div>
               );
@@ -5582,7 +5582,6 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
           className={`settings-tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
           onClick={() => setActiveTab('profile')}
         >
-          <span>👤</span>
           <span>ข้อมูลบัญชี</span>
         </button>
         <button
@@ -5590,7 +5589,6 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
           className={`settings-tab-btn ${activeTab === 'security' ? 'active' : ''}`}
           onClick={() => setActiveTab('security')}
         >
-          <span>🔐</span>
           <span>รหัสผ่าน & ความปลอดภัย</span>
         </button>
         <button
@@ -5598,7 +5596,6 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
           className={`settings-tab-btn ${activeTab === 'theme' ? 'active' : ''}`}
           onClick={() => setActiveTab('theme')}
         >
-          <span>🎨</span>
           <span>ธีมสี & รูปลักษณ์</span>
         </button>
         <button
@@ -5606,7 +5603,6 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
           className={`settings-tab-btn ${activeTab === 'line' ? 'active' : ''}`}
           onClick={() => setActiveTab('line')}
         >
-          <span>💬</span>
           <span>การแจ้งเตือน & LINE</span>
         </button>
         <button
@@ -5614,7 +5610,6 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
           className={`settings-tab-btn ${activeTab === 'vehicles' ? 'active' : ''}`}
           onClick={() => setActiveTab('vehicles')}
         >
-          <span>🚗</span>
           <span>ยานพาหนะ ({userVehicles.length})</span>
         </button>
         {user.role === 'admin' && (
@@ -5623,7 +5618,6 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
             className={`settings-tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
             onClick={() => setActiveTab('admin')}
           >
-            <span>⚙️</span>
             <span>ระบบผู้ดูแล (Admin)</span>
           </button>
         )}
@@ -5642,7 +5636,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                   <h2 style={{ margin: 0, fontSize: 20, color: 'var(--text-strong)' }}>{user.name || user.username}</h2>
                   {user.role === 'admin' && (
                     <span className="badge available">
-                      🛡️ ผู้ดูแลระบบ
+                      ผู้ดูแลระบบ
                     </span>
                   )}
                 </div>
@@ -5758,7 +5752,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                   className={`button primary ${savingProfile ? 'is-busy' : ''}`}
                   style={{ padding: '9px 20px', fontWeight: 600 }}
                 >
-                  {savingProfile ? '⏳ กำลังบันทึกข้อมูล...' : '💾 บันทึกข้อมูลส่วนตัว'}
+                  {savingProfile ? 'กำลังบันทึกข้อมูล...' : 'บันทึกข้อมูลส่วนตัว'}
                 </button>
               </div>
             </form>
@@ -5769,7 +5763,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
       {/* TAB 2: Security & Password */}
       {activeTab === 'security' && (
         <section className="settings-card">
-          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>🔐 เปลี่ยนรหัสผ่านการใช้งาน</h3>
+          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>เปลี่ยนรหัสผ่านการใช้งาน</h3>
           <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
             แนะนำให้ตั้งรหัสผ่านที่มีความยาวอย่างน้อย 4 ตัวอักษรขึ้นไป และหมั่นเปลี่ยนรหัสผ่านเป็นประจำเพื่อความปลอดภัย
           </p>
@@ -5792,14 +5786,14 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                   value={passwordForm.currentPassword}
                   onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                   placeholder="ระบุรหัสผ่านเดิม"
-                  style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+                  style={{ width: '100%', paddingRight: 50, boxSizing: 'border-box' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--muted)', padding: 4 }}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', padding: '4px 6px' }}
                 >
-                  {showCurrentPassword ? '👁️' : '🔒'}
+                  {showCurrentPassword ? 'ซ่อน' : 'แสดง'}
                 </button>
               </div>
             </div>
@@ -5815,14 +5809,14 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                   value={passwordForm.newPassword}
                   onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                   placeholder="ระบุรหัสผ่านใหม่ (อย่างน้อย 4 ตัวอักษร)"
-                  style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+                  style={{ width: '100%', paddingRight: 50, boxSizing: 'border-box' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--muted)', padding: 4 }}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', padding: '4px 6px' }}
                 >
-                  {showNewPassword ? '👁️' : '🔒'}
+                  {showNewPassword ? 'ซ่อน' : 'แสดง'}
                 </button>
               </div>
             </div>
@@ -5838,14 +5832,14 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                   value={passwordForm.confirmPassword}
                   onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                   placeholder="พิมพ์รหัสผ่านใหม่อีกครั้ง"
-                  style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+                  style={{ width: '100%', paddingRight: 50, boxSizing: 'border-box' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--muted)', padding: 4 }}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--muted)', padding: '4px 6px' }}
                 >
-                  {showConfirmPassword ? '👁️' : '🔒'}
+                  {showConfirmPassword ? 'ซ่อน' : 'แสดง'}
                 </button>
               </div>
             </div>
@@ -5857,13 +5851,13 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                 className={`button primary ${savingPassword ? 'is-busy' : ''}`}
                 style={{ padding: '9px 20px', fontWeight: 600 }}
               >
-                {savingPassword ? '⏳ กำลังอัปเดตรหัสผ่าน...' : '🔐 ยืนยันเปลี่ยนรหัสผ่าน'}
+                {savingPassword ? 'กำลังอัปเดตรหัสผ่าน...' : 'ยืนยันเปลี่ยนรหัสผ่าน'}
               </button>
             </div>
           </form>
 
           <div style={{ marginTop: 24, padding: '12px 16px', borderRadius: 10, background: 'rgba(54, 220, 201, 0.08)', border: '1px solid rgba(54, 220, 201, 0.25)', fontSize: 12.5, lineHeight: 1.5, color: 'var(--muted)' }}>
-            <strong style={{ color: 'var(--cyan)', display: 'block', marginBottom: 2 }}>ℹ️ มาตรการความปลอดภัย:</strong>
+            <strong style={{ color: 'var(--cyan)', display: 'block', marginBottom: 2 }}>มาตรการความปลอดภัย:</strong>
             เมื่อมีการเปลี่ยนรหัสผ่านสำเร็จ ระบบจะส่งข้อความแจ้งเตือนความปลอดภัยไปยัง LINE บัญชีของคุณโดยอัตโนมัติ เพื่อป้องกันการถูกสวมรอย
           </div>
         </section>
@@ -5873,7 +5867,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
       {activeTab === 'theme' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <section className="settings-card">
-            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>🎨 เลือกธีมสีระบบ (Theme & Color Mode)</h3>
+            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>เลือกธีมสีระบบ (Theme & Color Mode)</h3>
             <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
               เลือกลักษณะการแสดงผลที่เหมาะกับสภาพแวดล้อมของคุณ โดยระบบจะจดจำการตั้งค่านี้ไว้ในเบราว์เซอร์ของคุณโดยอัตโนมัติ
             </p>
@@ -5886,7 +5880,6 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 20 }}>🌙</span>
                     <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ธีมมืด (Dark Mode)</strong>
                   </div>
                   {theme === 'dark' && (
@@ -5918,7 +5911,6 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 20 }}>☀️</span>
                     <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ธีมสว่าง (Light Mode)</strong>
                   </div>
                   {theme === 'light' && (
@@ -5946,7 +5938,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
           </section>
 
           <section className="settings-card">
-            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>🔔 เสียงแจ้งเตือน (Audio Preferences)</h3>
+            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>เสียงแจ้งเตือน (Audio Preferences)</h3>
             <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>กำหนดการส่งเสียง Chime แจ้งเตือนเมื่อมีเหตุการณ์สำคัญ</p>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 16px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
@@ -5961,7 +5953,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                   onClick={() => playAlertChime('CRITICAL')}
                   title="ทดสอบฟังเสียงแจ้งเตือน"
                 >
-                  🔊 ทดสอบเสียง
+                  ทดสอบเสียง
                 </button>
                 <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
                   <input
@@ -5980,7 +5972,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
       {/* TAB 4: LINE & Notifications */}
       {activeTab === 'line' && (
         <section className="settings-card">
-          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>💬 การเชื่อมต่อ LINE Bot (@302ypwvm)</h3>
+          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>การเชื่อมต่อ LINE Bot (@302ypwvm)</h3>
           <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
             เชื่อมต่อบัญชีกับ LINE Bot เพื่อรับการแจ้งเตือนสถานะการจอง ใบเสร็จดิจิทัล และแจ้งเตือนใกล้หมดเวลาอัตโนมัติ
           </p>
@@ -6025,7 +6017,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                     onClick={() => redirectToLine('link')}
                     style={{ background: '#06c755', borderColor: '#06c755', fontWeight: 600 }}
                   >
-                    📲 เชื่อมต่อด่วนด้วย LINE Login
+                    เชื่อมต่อด่วนด้วย LINE Login
                   </button>
                   <a
                     href="https://line.me/R/ti/p/@302ypwvm"
@@ -6034,7 +6026,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                     className="button secondary"
                     style={{ textDecoration: 'none' }}
                   >
-                    💬 เปิดแชทกับ Bot (@302ypwvm)
+                    เปิดแชทกับ Bot (@302ypwvm)
                   </a>
                 </>
               ) : (
@@ -6045,7 +6037,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                     className={`button primary ${testingLine ? 'is-busy' : ''}`}
                     onClick={handleTestLine}
                   >
-                    {testingLine ? '⏳ กำลังส่งข้อความ...' : '🔔 ทดสอบส่งข้อความเข้า LINE'}
+                    {testingLine ? 'กำลังส่งข้อความ...' : 'ทดสอบส่งข้อความเข้า LINE'}
                   </button>
                   <a
                     href="https://line.me/R/ti/p/@302ypwvm"
@@ -6054,7 +6046,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                     className="button secondary"
                     style={{ textDecoration: 'none' }}
                   >
-                    💬 เปิดห้องแชท Bot
+                    เปิดห้องแชท Bot
                   </a>
                   <button
                     type="button"
@@ -6062,7 +6054,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                     className={`button danger compact ${unlinkingLine ? 'is-busy' : ''}`}
                     onClick={handleUnlinkLine}
                   >
-                    {unlinkingLine ? '⏳ กำลังยกเลิก...' : 'ยกเลิกการเชื่อมต่อ LINE'}
+                    {unlinkingLine ? 'กำลังยกเลิก...' : 'ยกเลิกการเชื่อมต่อ LINE'}
                   </button>
                 </>
               )}
@@ -6084,7 +6076,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
         <section className="settings-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div>
-              <h3 style={{ fontSize: 16, margin: 0, color: 'var(--text-strong)' }}>🚗 ยานพาหนะของฉัน ({userVehicles.length} คัน)</h3>
+              <h3 style={{ fontSize: 16, margin: 0, color: 'var(--text-strong)' }}>ยานพาหนะของฉัน ({userVehicles.length} คัน)</h3>
               <p className="muted" style={{ fontSize: 13, margin: '2px 0 0' }}>บันทึกทะเบียนรถไว้เพื่อให้ระบบกรอกข้อมูลอัตโนมัติเมื่อทำการจอง</p>
             </div>
             <button
@@ -6098,7 +6090,6 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
 
           {userVehicles.length === 0 ? (
             <div style={{ padding: '32px 16px', textAlign: 'center', background: 'var(--surface2)', borderRadius: 10, border: '1px dashed var(--border)' }}>
-              <span style={{ fontSize: 32, display: 'block', marginBottom: 6 }}>🚗</span>
               <strong style={{ fontSize: 15, color: 'var(--text-strong)', display: 'block' }}>ยังไม่มีรายการยานพาหนะ</strong>
               <p className="muted" style={{ fontSize: 13, margin: '4px 0 14px' }}>เพิ่มยานพาหนะของคุณเพื่อความสะดวกรวดเร็วในการจองที่จอดรถ</p>
               <button
@@ -6127,7 +6118,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                       {v.license_plate}
                     </strong>
                     {v.is_default && (
-                      <span className="badge available" style={{ fontSize: 11 }}>⭐ คันหลัก</span>
+                      <span className="badge available" style={{ fontSize: 11 }}>คันหลัก</span>
                     )}
                   </div>
                   <span className="muted" style={{ fontSize: 12 }}>
@@ -6261,7 +6252,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
       {/* TAB 6: Admin System Links */}
       {activeTab === 'admin' && user.role === 'admin' && (
         <section className="settings-card">
-          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>⚙️ ทางลัดการตั้งค่าระบบผู้ดูแล (Admin Control Shortcuts)</h3>
+          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>ทางลัดการตั้งค่าระบบผู้ดูแล (Admin Control Shortcuts)</h3>
           <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>จัดการพารามิเตอร์ฮาร์ดแวร์ กฎการแจ้งเตือนความผิดพลาด และผังลานจอดรถ</p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
@@ -6270,7 +6261,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
               onClick={() => setView('alerts')}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 22 }}>🚨</span>
+                <span style={{ fontSize: 18 }}>🔴</span>
                 <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ตั้งค่าเงื่อนไขการแจ้งเตือน</strong>
               </div>
               <p className="muted" style={{ fontSize: 12, margin: 0 }}>
@@ -6431,7 +6422,7 @@ function App() {
             }
             // แจ้งเตือน Popup Banner บนหน้าจอแอดมินด้วย
             setNotice({
-              text: `🚨 ${newCriticalAlert.title}`,
+              text: `🔴 ${newCriticalAlert.title}`,
               error: true
             });
           }
