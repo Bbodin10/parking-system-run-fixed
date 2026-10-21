@@ -957,6 +957,7 @@ function UserBooking({ data, user, notify, setView }) {
   const activeMap = (data.parking_maps || []).find((item) => Number(item.floor) === Number(floor));
 
   const userVehicles = useMemo(() => (data.vehicles || []).filter((v) => v.user_id === user.id), [data.vehicles, user.id]);
+  const userOngoingBookings = useMemo(() => (data.bookings || []).filter(b => b.user_id === user.id && ['pending', 'active'].includes(b.status)), [data.bookings, user.id]);
   const defaultVehicle = useMemo(() => userVehicles.find((v) => v.is_default) || userVehicles[0] || null, [userVehicles]);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [manualPlate, setManualPlate] = useState('');
@@ -1030,6 +1031,39 @@ function UserBooking({ data, user, notify, setView }) {
         title="จองที่จอดรถ"
         description="เลือกช่องจอดที่ว่างเพื่อทำการจอง สถานะอัปเดตจากฐานข้อมูลและเซ็นเซอร์ ESP32"
       />
+      {userOngoingBookings.length > 0 && (
+        <div style={{
+          marginBottom: 16,
+          padding: '12px 16px',
+          borderRadius: 12,
+          background: 'linear-gradient(135deg, rgba(36, 187, 170, 0.12) 0%, rgba(14, 165, 233, 0.08) 100%)',
+          border: '1.5px solid rgba(54, 220, 201, 0.35)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 24 }}>🅿️</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-strong)' }}>
+                คุณมีรายการจองช่อง {userOngoingBookings.map(b => b.slot_id).join(', ')} กำลังดำเนินการ
+              </div>
+              <small style={{ color: 'var(--muted)', fontSize: 12 }}>
+                สามารถตรวจสอบเซ็นเซอร์ ควบคุมไม้กั้น หรือกดจบการจอดได้ที่หน้าควบคุมช่องจอด
+              </small>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="button primary compact"
+            onClick={() => setView('control')}
+          >
+            ⌁ ไปที่หน้าควบคุมช่องจอด / จบการจอด
+          </button>
+        </div>
+      )}
       <StatCards slots={data.slots} devices={data.devices} bookings={data.bookings} user={user} />
       <div className="floor-tabs">
         <button className={floor === 1 ? 'active' : ''} onClick={() => setFloor(1)}>ชั้น 1 (A1 - A6)</button>
@@ -1375,6 +1409,7 @@ function UserControl({ data, user, notify, reload }) {
   const cards = bookings.map((booking) => {
     const slot = data.slots.find((s) => s.id === booking.slot_id);
     const device = data.devices.find((d) => d.type === 'barrier' && d.linked_slot === booking.slot_id);
+    const sensorDevice = data.devices.find((d) => d.type === 'sensor' && d.linked_slot === booking.slot_id);
     const now = new Date();
     const start = parseThaiDateTime(booking.date, booking.time);
     const endTime = new Date(start.getTime() + Number(booking.duration) * 3600000);
@@ -1393,10 +1428,24 @@ function UserControl({ data, user, notify, reload }) {
     const overtimeHours = overtimeMinutes > 0 ? Math.ceil(overtimeMinutes / 60) : 0;
     const slotRate = Number(slot?.price_per_hour || RATE_PER_HOUR);
     const overtimeCost = overtimeHours * slotRate;
+
+    // ตรวจสอบสถานะเซ็นเซอร์ช่องจอดแบบเรียลไทม์
+    const enterCm = Number(slot?.sensor_enter_cm ?? 9.0);
+    const dist = typeof sensorDevice?.distance_cm === 'number' && sensorDevice.distance_cm > 0 ? Math.round(sensorDevice.distance_cm * 10) / 10 : null;
+    const isCarPresent = Boolean(
+      (dist !== null && dist <= enterCm) ||
+      sensorDevice?.presence === 'occupied' ||
+      sensorDevice?.car_present === true
+    );
+
     return {
       booking,
       slot,
       device,
+      sensorDevice,
+      enterCm,
+      dist,
+      isCarPresent,
       now,
       start,
       endTime,
@@ -1425,7 +1474,11 @@ function UserControl({ data, user, notify, reload }) {
     }
   }
 
-  async function cancelBooking(booking) {
+  async function cancelBooking(booking, isCarPresent) {
+    if (isCarPresent) {
+      notify(`ไม่สามารถยกเลิกการจองได้ เนื่องจากมีรถจอดอยู่ในช่อง ${booking.slot_id} แล้ว`, true);
+      return;
+    }
     const confirmMsg = `ยืนยันการยกเลิกการจองช่อง ${booking.slot_id} หรือไม่?\n\nระบบจะคืนเครดิต ฿${formatMoney(booking.amount)} เข้าบัญชีของคุณทันที`;
     if (!window.confirm(confirmMsg)) return;
     try {
@@ -1436,11 +1489,16 @@ function UserControl({ data, user, notify, reload }) {
     }
   }
 
-  async function finishBooking(booking) {
-    if (!window.confirm(`ยืนยันการจบการจอดช่อง ${booking.slot_id} หรือไม่? ระบบจะคำนวณค่าบริการและส่งสลิปให้คุณ`)) return;
+  async function finishBooking(booking, isCarPresent) {
+    if (isCarPresent) {
+      notify(`ไม่สามารถจบการจอดได้ เนื่องจากยังมีรถจอดอยู่ในช่อง ${booking.slot_id} กรุณานำรถออกจากช่องจอดก่อน`, true);
+      return;
+    }
+    const confirmMsg = `ยืนยันการจบการจอดช่อง ${booking.slot_id} หรือไม่?\n\nระบบจะตัดการจอดทันที สรุปยอดค่าบริการ และส่งสลิปไปยัง LINE ของคุณ`;
+    if (!window.confirm(confirmMsg)) return;
     try {
       await api(`/bookings/${booking.id}/finish`, { method: 'POST' });
-      notify(`จบการจอดช่อง ${booking.slot_id} สำเร็จ สรุปยอดและรับสลิปเรียบร้อย`);
+      notify(`จบการจอดช่อง ${booking.slot_id} สำเร็จ! ระบบตัดการจอดและส่งสลิปเรียบร้อยแล้ว`);
     } catch (err) {
       notify(err.message, true);
     }
@@ -1457,6 +1515,10 @@ function UserControl({ data, user, notify, reload }) {
           booking,
           slot,
           device,
+          sensorDevice,
+          enterCm,
+          dist,
+          isCarPresent,
           minutesUntilStart,
           minutesSinceStart,
           isNoShowExpired,
@@ -1572,7 +1634,7 @@ function UserControl({ data, user, notify, reload }) {
                       type="button"
                       className="button danger compact full"
                       style={{ marginTop: 8 }}
-                      onClick={() => cancelBooking(booking)}
+                      onClick={() => cancelBooking(booking, isCarPresent)}
                     >
                       ยกเลิกการจอง (คืนเครดิต ฿{formatMoney(booking.amount)})
                     </button>
@@ -1603,7 +1665,7 @@ function UserControl({ data, user, notify, reload }) {
                   <div style={{ background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: 8, padding: '8px 10px', fontSize: 12 }}>
                     <div style={{ color: '#f87171', fontWeight: 'bold', marginBottom: 4 }}>🔴 เกินเวลาจอด {overtimeMinutes} นาที</div>
                     <div style={{ color: 'var(--muted)' }}>ค่าจอดเพิ่มเติม: <strong style={{ color: '#fbbf24', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', letterSpacing: 'normal' }}>{overtimeCost.toLocaleString('th-TH')}฿</strong> (คิด {overtimeHours} ชม. × ฿{slot?.price_per_hour || RATE_PER_HOUR})</div>
-                    <div style={{ color: 'var(--muted)', marginTop: 2 }}>กดจบการจอดเพื่อหยุดคิดเงินและรับสลิป</div>
+                    <div style={{ color: 'var(--muted)', marginTop: 2 }}>กรุณานำรถออกจากช่องจอดแล้วกดจบการจอดเพื่อหยุดคิดเงินและรับสลิป</div>
                   </div>
                 ) : minutesLeft <= 15 && minutesLeft > 0 ? (
                   <div style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, padding: '6px 10px', fontSize: 12, color: '#fbbf24' }}>
@@ -1614,17 +1676,80 @@ function UserControl({ data, user, notify, reload }) {
                     🟢 กำลังจอด เหลือเวลา {Math.ceil(minutesLeft)} นาที
                   </div>
                 )}
-
-                <button
-                  type="button"
-                  className="button secondary compact full"
-                  style={{ marginTop: 8 }}
-                  onClick={() => finishBooking(booking)}
-                >
-                  จบการจอด (รับสลิปสรุปค่าบริการ)
-                </button>
               </div>
             )}
+
+            {/* กล่องตรวจสอบสถานะเซ็นเซอร์ช่องจอดและปุ่มจบการจอด */}
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{
+                padding: '9px 12px',
+                borderRadius: 8,
+                marginBottom: 8,
+                background: isCarPresent ? 'rgba(239, 68, 68, 0.12)' : 'rgba(34, 197, 94, 0.12)',
+                border: `1px solid ${isCarPresent ? 'rgba(239, 68, 68, 0.35)' : 'rgba(34, 197, 94, 0.35)'}`,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: isCarPresent ? '#f87171' : 'var(--green)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>{isCarPresent ? '🚗 เซ็นเซอร์: มีรถจอดอยู่ในช่อง' : '✅ เซ็นเซอร์: ไม่มีรถในช่อง (ช่องว่าง)'}</span>
+                  </span>
+                  {dist !== null && (
+                    <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: '"JetBrains Mono", monospace' }}>
+                      {dist} ซม.
+                    </span>
+                  )}
+                </div>
+                <small style={{ color: 'var(--muted)', fontSize: 11 }}>
+                  {isCarPresent
+                    ? '⚠️ ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้ (กรุณานำรถออกจากช่องก่อน)'
+                    : '✨ ไม่มีรถในช่องจอดแล้ว สามารถกดจบการจอดด้านล่างเพื่อตัดการจอดได้ทันที'}
+                </small>
+              </div>
+
+              {isCarPresent ? (
+                <button
+                  type="button"
+                  className="button compact full"
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1.5px dashed rgba(239, 68, 68, 0.45)',
+                    color: '#f87171',
+                    cursor: 'not-allowed',
+                    fontWeight: 600,
+                    padding: '9px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6
+                  }}
+                  onClick={() => finishBooking(booking, isCarPresent)}
+                  title="ไม่สามารถจบการจอดได้ เนื่องจากยังมีรถจอดอยู่ในช่อง"
+                >
+                  <span>🚫 ไม่สามารถจบการจอดได้ (มีรถจอดอยู่ในช่อง)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="button primary compact full"
+                  style={{
+                    padding: '9px 12px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 6,
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    borderColor: '#10b981',
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)'
+                  }}
+                  onClick={() => finishBooking(booking, isCarPresent)}
+                >
+                  <span>🏁 จบการจอด (รถออกจากช่องแล้ว · รับสลิป)</span>
+                </button>
+              )}
+            </div>
 
             {/* อุปกรณ์ควบคุมไม้กั้น */}
             <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -1835,12 +1960,20 @@ function UserHistory({ data, user, notify }) {
     }
   }
 
-  async function action(id, type) {
+  async function action(id, type, hasCar = false, slotId = '') {
+    if (type === 'finish' && hasCar) {
+      notify(`ไม่สามารถจบการจอดได้ เนื่องจากยังมีรถจอดอยู่ในช่อง ${slotId} กรุณานำรถออกจากช่องจอดก่อน`, true);
+      return;
+    }
+    if (type === 'cancel' && hasCar) {
+      notify(`ไม่สามารถยกเลิกการจองได้ เนื่องจากมีรถจอดอยู่ในช่อง ${slotId} แล้ว`, true);
+      return;
+    }
     if (type === 'cancel' && !window.confirm('คุณต้องการยกเลิกการจองและรับคืนเครดิตเข้าบัญชีใช่หรือไม่?')) return;
-    if (type === 'finish' && !window.confirm('ยืนยันจบการจอดและสรุปค่าบริการใช่หรือไม่?')) return;
+    if (type === 'finish' && !window.confirm('ยืนยันจบการจอดและสรุปค่าบริการใช่หรือไม่? ระบบจะตัดการจอดและส่งสลิปให้ทันที')) return;
     try {
       await api(`/bookings/${id}/${type}`, { method: 'POST' });
-      notify(type === 'cancel' ? 'ยกเลิกการจองและคืนเครดิตแล้ว' : 'จบการจอดแล้ว');
+      notify(type === 'cancel' ? 'ยกเลิกการจองและคืนเครดิตแล้ว' : 'จบการจอดและส่งสลิปเรียบร้อยแล้ว');
     } catch (err) {
       notify(err.message, true);
     }
@@ -2115,7 +2248,12 @@ function UserHistory({ data, user, notify }) {
     <section className="panel"><div className="panel-title"><h2>รายการจองล่าสุด</h2><span className="muted">{mine.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ยานพาหนะ</th><th>วันเวลา</th><th>ระยะเวลา</th><th>ยอดเงิน</th><th>สถานะ</th><th /></tr></thead><tbody>{mine.map((booking) => {
       const start = parseThaiDateTime(booking.date, booking.time);
       const canCancel = booking.status === 'pending' && (start.getTime() - Date.now()) >= 15 * 60 * 1000;
-      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="button primary compact" onClick={() => action(booking.id, 'finish')}>จบการจอด (รับสลิป)</button>{booking.status === 'pending' && (canCancel ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel')}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว">หมดเวลายกเลิก</button>)}</div>}</td></tr>;
+      const sensor = data.devices?.find(d => d.type === 'sensor' && d.linked_slot === booking.slot_id);
+      const slot = data.slots?.find(s => s.id === booking.slot_id);
+      const enterCm = Number(slot?.sensor_enter_cm ?? 9.0);
+      const dist = typeof sensor?.distance_cm === 'number' && sensor.distance_cm > 0 ? Math.round(sensor.distance_cm * 10) / 10 : null;
+      const hasCar = Boolean((dist !== null && dist <= enterCm) || sensor?.presence === 'occupied' || sensor?.car_present === true);
+      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className={`button ${hasCar ? 'secondary' : 'primary'} compact`} style={hasCar ? { color: '#f87171', borderColor: 'rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.08)' } : { background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', borderColor: '#10b981' }} onClick={() => action(booking.id, 'finish', hasCar, booking.slot_id)} title={hasCar ? 'ยังมีรถจอดอยู่ในช่อง ไม่สามารถจบการจอดได้' : 'กดเพื่อจบการจอดและรับสลิป'}>{hasCar ? '🚫 มีรถในช่อง' : '🏁 จบการจอด'}</button>{booking.status === 'pending' && (canCancel && !hasCar ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel', hasCar, booking.slot_id)}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title={hasCar ? 'มีรถเข้าจอดแล้ว ไม่สามารถยกเลิกได้' : 'เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว'}>{hasCar ? 'มีรถในช่อง' : 'หมดเวลายกเลิก'}</button>)}</div>}</td></tr>;
     })}</tbody></table></div></section>
 
     {vehicleModal && (
@@ -5070,20 +5208,11 @@ function App() {
     }
   }, []);
 
-  const [theme, setTheme] = useState(() => {
-    try {
-      const saved = localStorage.getItem('parking_theme');
-      if (saved === 'light' || saved === 'dark') return saved;
-      return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-    } catch {
-      return 'dark';
-    }
-  });
+  const [theme, setTheme] = useState('dark');
 
   useEffect(() => {
     try {
       document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('parking_theme', theme);
     } catch {
       // ignore
     }
@@ -5095,9 +5224,7 @@ function App() {
 
   const notify = (text, error = false) => { setNotice({ text, error }); load(); };
   const logout = () => {
-    const savedTheme = localStorage.getItem('parking_theme');
     localStorage.clear();
-    if (savedTheme) localStorage.setItem('parking_theme', savedTheme);
     setUser(null);
     setData(null);
     setLoadError('');

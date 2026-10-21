@@ -707,6 +707,19 @@ app.post('/api/bookings/:id/cancel', auth, async (req, res) => {
       });
     }
 
+    // ตรวจสอบเซ็นเซอร์ว่ามีรถเข้าจอดแล้วหรือไม่ หากมีรถจอดอยู่ห้ามยกเลิก
+    const { data: cancelSensor } = await db.from('devices').select('*').eq('type', 'sensor').eq('linked_slot', b.slot_id).limit(1).maybeSingle();
+    const cancelSlotsMeta = readSlotsMeta();
+    const { data: cancelSlot } = await db.from('slots').select('sensor_enter_cm').eq('id', b.slot_id).maybeSingle();
+    const cancelEnterCm = Number(cancelSlot?.sensor_enter_cm ?? cancelSlotsMeta[b.slot_id]?.sensor_enter_cm ?? 9.0);
+    const cancelLiveDist = liveDistances[b.slot_id] ?? (typeof cancelSensor?.distance_cm === 'number' && cancelSensor.distance_cm > 0 ? cancelSensor.distance_cm : null);
+    const cancelHasCar = (cancelLiveDist !== null && cancelLiveDist > 0 && cancelLiveDist <= cancelEnterCm) || (cancelSensor?.presence === 'occupied' || cancelSensor?.car_present === true);
+    if (cancelHasCar) {
+      return res.status(400).json({
+        error: `ไม่สามารถยกเลิกการจองได้ เนื่องจากมีรถจอดอยู่ในช่อง ${b.slot_id} แล้ว`
+      });
+    }
+
     await db.from('bookings').update({ status: 'cancelled' }).eq('id', b.id);
     await db.from('slots').update({ status: 'available' }).eq('id', b.slot_id);
     await credit(req.user.id, 'add', b.amount, `คืนเครดิตจากการยกเลิก ${b.slot_id}`);
@@ -730,7 +743,55 @@ app.post('/api/bookings/:id/cancel', auth, async (req, res) => {
     res.status(400).json({ error: e.message });
   }
 });
-app.post('/api/bookings/:id/finish', auth, async (req, res) => { const { data: b } = await db.from('bookings').select('*').eq('id', req.params.id).eq('user_id', req.user.id).maybeSingle(); if (!b || !['pending', 'active'].includes(b.status)) return res.status(400).json({ error: 'รายการจองไม่ได้อยู่ในสถานะที่จบการจอดได้' }); res.json(await finishBooking(b)); });
+app.post('/api/bookings/:id/finish', auth, async (req, res) => {
+  try {
+    const { data: b, error } = await db.from('bookings')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .maybeSingle();
+
+    if (error || !b) return res.status(404).json({ error: 'ไม่พบรายการจอง' });
+    if (!['pending', 'active'].includes(b.status)) {
+      return res.status(400).json({ error: 'รายการจองไม่ได้อยู่ในสถานะที่จบการจอดได้' });
+    }
+
+    // 1. ตรวจสอบสถานะเซ็นเซอร์ประจำช่องจอด
+    const { data: sensor } = await db.from('devices')
+      .select('*')
+      .eq('type', 'sensor')
+      .eq('linked_slot', b.slot_id)
+      .limit(1)
+      .maybeSingle();
+
+    const { data: slot } = await db.from('slots')
+      .select('*')
+      .eq('id', b.slot_id)
+      .maybeSingle();
+
+    const slotsMeta = readSlotsMeta();
+    const enterCm = Number(slot?.sensor_enter_cm ?? slotsMeta[b.slot_id]?.sensor_enter_cm ?? 9.0);
+    const liveDist = liveDistances[b.slot_id] ?? (typeof sensor?.distance_cm === 'number' && sensor.distance_cm > 0 ? sensor.distance_cm : null);
+
+    const isDistOccupied = liveDist !== null && liveDist > 0 && liveDist <= enterCm;
+    const isPresenceOccupied = sensor?.presence === 'occupied' || sensor?.car_present === true;
+
+    // หากเซ็นเซอร์ตรวจพบว่ายังมีรถจอดอยู่ในช่อง ห้ามจบการจอด
+    if (isDistOccupied || isPresenceOccupied) {
+      const distInfo = liveDist !== null ? ` (วัดระยะได้ ${liveDist} ซม.)` : '';
+      return res.status(400).json({
+        error: `ไม่สามารถจบการจอดได้ เนื่องจากยังมีรถจอดอยู่ในช่อง ${b.slot_id}${distInfo} กรุณานำรถออกจากช่องจอดก่อนกดจบการจอด`
+      });
+    }
+
+    // 2. ไม่มีรถจอดในช่องแล้ว -> สั่งจบการจอดทันที
+    const result = await finishBooking(b, 'user-finish');
+    res.json(result);
+  } catch (err) {
+    console.error('[finish booking error]', err);
+    res.status(500).json({ error: err.message || 'เกิดข้อผิดพลาดในการจบการจอด' });
+  }
+});
 app.post('/api/bookings/:id/test-remind', auth, async (req, res) => {
   try {
     const { data: b, error } = await db.from('bookings').select('*').eq('id', req.params.id).maybeSingle(); if (error || !b) return res.status(404).json({ error: 'ไม่พบรายการจอง' }); if (b.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'ไม่มีสิทธิ์' }); const u = await userById(b.user_id); if (!u?.line_user_id) return res.status(400).json({ error: 'คุณยังไม่ได้เชื่อมต่อ LINE' }); const msg = [
