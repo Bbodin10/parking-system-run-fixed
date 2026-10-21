@@ -5573,7 +5573,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
     <div className="settings-shell">
       <PageHead
         title="การตั้งค่าระบบ & บัญชีผู้ใช้งาน"
-        description="ศูนย์รวมการจัดการข้อมูลส่วนตัว ไอดีผู้ใช้งาน รหัสผ่าน ธีมสี การแจ้งเตือน LINE และยานพาหนะของคุณ"
+        description="ศูนย์รวมการจัดการข้อมูลส่วนตัว รหัสผ่าน ธีมสี การแจ้งเตือน LINE และยานพาหนะของคุณ"
       />
 
       <div className="settings-tabs">
@@ -5583,7 +5583,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
           onClick={() => setActiveTab('profile')}
         >
           <span>👤</span>
-          <span>ข้อมูลบัญชี & ไอดี</span>
+          <span>ข้อมูลบัญชี</span>
         </button>
         <button
           type="button"
@@ -5640,17 +5640,14 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
                   <h2 style={{ margin: 0, fontSize: 20, color: 'var(--text-strong)' }}>{user.name || user.username}</h2>
-                  <span className={`badge ${user.role === 'admin' ? 'available' : 'unavailable'}`}>
-                    {user.role === 'admin' ? '🛡️ ผู้ดูแลระบบ' : '👤 ลูกค้าทั่วไป'}
-                  </span>
-                  {user.tier && (
-                    <span className="badge available" style={{ background: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8', color: '#38bdf8' }}>
-                      ⭐ {user.tier}
+                  {user.role === 'admin' && (
+                    <span className="badge available">
+                      🛡️ ผู้ดูแลระบบ
                     </span>
                   )}
                 </div>
                 <p className="muted" style={{ margin: 0, fontSize: 13 }}>
-                  @{user.username} {user.email ? `· ${user.email}` : ''}
+                  {user.email || user.username}
                 </p>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -5671,22 +5668,8 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
               </div>
             </div>
 
-            <h3 style={{ fontSize: 15, margin: '0 0 12px', color: 'var(--text-strong)' }}>ข้อมูลระบุตัวตนและไอดีบัญชี (Account Identifiers)</h3>
+            <h3 style={{ fontSize: 15, margin: '0 0 12px', color: 'var(--text-strong)' }}>ข้อมูลบัญชี (Account Information)</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-              <div style={{ background: 'var(--surface2)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
-                <span className="muted" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>ไอดีผู้ใช้งาน (User ID)</span>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-                  <code style={{ fontSize: 12, color: 'var(--cyan)', wordBreak: 'break-all' }}>{user.id}</code>
-                  <button
-                    type="button"
-                    className="copy-mini-btn"
-                    onClick={() => copyText(user.id, 'id')}
-                  >
-                    {copiedId ? '✓ คัดลอกแล้ว' : 'คัดลอก'}
-                  </button>
-                </div>
-              </div>
-
               <div style={{ background: 'var(--surface2)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
                 <span className="muted" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>รหัสผูกบัญชี LINE (Link Code)</span>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
