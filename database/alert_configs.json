@@ -1,0 +1,21 @@
+{
+  "id": "default_config",
+  "offline_timeout_sec": 120,
+  "enable_offline_alert": false,
+  "offline_priority": "CRITICAL",
+  "enable_barrier_fault_alert": false,
+  "barrier_fault_priority": "CRITICAL",
+  "barrier_stuck_sec": 300,
+  "enable_sensor_flapping_alert": false,
+  "sensor_flapping_priority": "HIGH",
+  "sensor_flap_threshold": 5,
+  "enable_noshow_alert": false,
+  "noshow_priority": "HIGH",
+  "enable_overtime_alert": false,
+  "overtime_priority": "HIGH",
+  "enable_line_admin_notify": false,
+  "line_admin_min_priority": "CRITICAL",
+  "cooldown_minutes": 15,
+  "enable_sound_alert": true,
+  "updated_at": "2026-10-21T14:23:26.536Z"
+}

@@ -78,10 +78,30 @@ const DEFAULT_ALERT_CONFIG = {
   updated_at: new Date().toISOString()
 };
 
+let cachedAlertConfigs = null;
+
+async function getAlertConfigs() {
+  if (cachedAlertConfigs) return cachedAlertConfigs;
+  try {
+    const { data, error } = await db.from('alert_configs').select('*').maybeSingle();
+    if (!error && data) {
+      cachedAlertConfigs = { ...DEFAULT_ALERT_CONFIG, ...data };
+      writeAlertConfigs(cachedAlertConfigs);
+      return cachedAlertConfigs;
+    }
+  } catch (e) {
+    console.warn('[getAlertConfigs Supabase error]', e.message);
+  }
+  cachedAlertConfigs = readAlertConfigs();
+  return cachedAlertConfigs;
+}
+
 function readAlertConfigs() {
+  if (cachedAlertConfigs) return cachedAlertConfigs;
   try {
     if (fs.existsSync(ALERT_CONFIGS_FILE)) {
-      return { ...DEFAULT_ALERT_CONFIG, ...JSON.parse(fs.readFileSync(ALERT_CONFIGS_FILE, 'utf8') || '{}') };
+      cachedAlertConfigs = { ...DEFAULT_ALERT_CONFIG, ...JSON.parse(fs.readFileSync(ALERT_CONFIGS_FILE, 'utf8') || '{}') };
+      return cachedAlertConfigs;
     }
   } catch (e) {
     console.warn('[alert_configs read error]', e.message);
@@ -90,6 +110,7 @@ function readAlertConfigs() {
 }
 
 function writeAlertConfigs(cfg) {
+  cachedAlertConfigs = cfg;
   try {
     fs.mkdirSync(path.dirname(ALERT_CONFIGS_FILE), { recursive: true });
     fs.writeFileSync(ALERT_CONFIGS_FILE, JSON.stringify(cfg, null, 2), 'utf8');
@@ -127,20 +148,47 @@ const PRIORITY_RANK = {
 
 async function dispatchSystemAlert({ priority = 'NORMAL', sourceType = 'device', deviceId = null, slotId = null, title, message }) {
   try {
-    const config = readAlertConfigs();
+    const config = await getAlertConfigs();
     const now = new Date();
     const isEmergency = sourceType === 'user_emergency';
 
     // Check cooldown to prevent duplicate alerts (shorter 1-minute cooldown for user emergency)
-    const cooldownMs = isEmergency ? (60 * 1000) : ((config.cooldown_minutes || 15) * 60 * 1000);
-    const existing = readSystemAlerts();
-    const isRecentDuplicate = existing.some(a =>
-      a.status === 'active' &&
-      a.title === title &&
-      (deviceId ? a.device_id === deviceId : true) &&
-      (slotId ? a.slot_id === slotId : true) &&
-      (now.getTime() - new Date(a.created_at).getTime()) < cooldownMs
-    );
+    const cooldownMs = isEmergency ? (60 * 1000) : ((Number(config.cooldown_minutes) || 15) * 60 * 1000);
+    
+    // ดึง existing alerts จาก Supabase เพื่อให้ anti-spam ทำงานข้ามทุก instance (ทั้ง Railway และ Local)
+    let existing = [];
+    try {
+      const { data: dbAlerts } = await db.from('system_alerts')
+        .select('id, priority, source_type, device_id, slot_id, title, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (Array.isArray(dbAlerts)) existing = dbAlerts;
+      else existing = readSystemAlerts();
+    } catch (e) {
+      existing = readSystemAlerts();
+    }
+
+    // Helper เปรียบเทียบหัวข้อโดยตัดตัวเลขนาทีออก ป้องกันข้อความแจ้งเตือนซ้ำรัวทุกนาที
+    const cleanTitle = (t) => (t || '').replace(/\(\d+\s*นาที\)/g, '').replace(/\s+/g, ' ').trim();
+    const targetClean = cleanTitle(title);
+
+    const isRecentDuplicate = existing.some(a => {
+      if (a.status !== 'active') return false;
+      const timeDiff = now.getTime() - new Date(a.created_at).getTime();
+      if (timeDiff >= cooldownMs) return false;
+
+      // ถ้าเป็น alert สำหรับช่องจอดเดียวกัน
+      if (slotId && a.slot_id === slotId && a.source_type === sourceType) {
+        return true;
+      }
+      // ถ้าเป็น alert สำหรับอุปกรณ์เดียวกัน
+      if (deviceId && a.device_id === deviceId && a.source_type === sourceType) {
+        return true;
+      }
+      // ตรวจสอบชื่อหัวข้อแบบตัดตัวแปรเวลาออก
+      return cleanTitle(a.title) === targetClean;
+    });
+
     if (isRecentDuplicate) {
       return null;
     }
@@ -177,7 +225,10 @@ async function dispatchSystemAlert({ priority = 'NORMAL', sourceType = 'device',
     // LINE Admin push notification according to priority setting (or always if emergency)
     const minRank = PRIORITY_RANK[config.line_admin_min_priority || 'HIGH'] || 3;
     const currentRank = PRIORITY_RANK[priority] || 2;
-    if ((config.enable_line_admin_notify && currentRank >= minRank) || isEmergency) {
+    const isLineEnabled = config.enable_line_admin_notify === true || config.enable_line_admin_notify === 'true';
+    const shouldSendLine = (isLineEnabled && currentRank >= minRank) || isEmergency;
+
+    if (shouldSendLine) {
       try {
         const { data: admins } = await db.from('users').select('id, name, line_user_id').eq('role', 'admin');
         const iconMap = { CRITICAL: '🔴 [CRITICAL ALERT] วิกฤต!', HIGH: '🟠 [HIGH ALERT] สำคัญ!', NORMAL: '🟡 [ALERT] ทั่วไป', INFO: '🔵 [INFO] แจ้งเตือน' };
@@ -299,6 +350,7 @@ async function lifecycle() {
   lifecycleRunning = true;
   try {
     const now = new Date();
+    const alertCfg = await getAlertConfigs();
     const { data: bs, error } = await db.from('bookings').select('*').in('status', ['pending', 'active']);
     if (error) throw error;
     for (const b of bs || []) {
@@ -329,7 +381,6 @@ async function lifecycle() {
         // 3. เปลี่ยนสถานะช่องจอดกลับมาเป็นว่าง (available)
         await db.from('slots').update({ status: 'available', updated_at: now.toISOString() }).eq('id', b.slot_id);
 
-        const alertCfg = readAlertConfigs();
         if (alertCfg.enable_noshow_alert) {
           dispatchSystemAlert({
             priority: alertCfg.noshow_priority || 'HIGH',
@@ -394,7 +445,6 @@ async function lifecycle() {
       // ตรวจสอบจอดรถเกินเวลา (Overtime Alert)
       const overtimeMinutes = (now - end) / 60000;
       if (b.status === 'active' && overtimeMinutes >= 15) {
-        const alertCfg = readAlertConfigs();
         if (alertCfg.enable_overtime_alert) {
           dispatchSystemAlert({
             priority: alertCfg.overtime_priority || 'HIGH',
@@ -421,7 +471,6 @@ async function lifecycle() {
     // ─── ตรวจสอบสุขภาพอุปกรณ์ฮาร์ดแวร์ (Device Health & Fault Monitoring) ───
     try {
       const { data: allDevices } = await db.from('devices').select('*');
-      const alertCfg = readAlertConfigs();
       const offlineTimeoutMs = (alertCfg.offline_timeout_sec || 120) * 1000;
 
       for (const dev of allDevices || []) {
@@ -553,7 +602,7 @@ app.get('/api/bootstrap', auth, async (req, res) => {
     out.slots = (out.slots || []).map(s => { const meta = slotsMeta[s.id] || {}; return { ...s, price_per_hour: s.price_per_hour !== undefined && s.price_per_hour !== null ? Number(s.price_per_hour) : (meta.price_per_hour ?? 20), pos_x: s.pos_x !== undefined && s.pos_x !== null ? Number(s.pos_x) : (meta.pos_x ?? null), pos_y: s.pos_y !== undefined && s.pos_y !== null ? Number(s.pos_y) : (meta.pos_y ?? null), type: s.type || meta.type || 'ลูกค้าทั่วไป', sensor_enter_cm: s.sensor_enter_cm !== undefined && s.sensor_enter_cm !== null ? Number(s.sensor_enter_cm) : (meta.sensor_enter_cm ?? 9.0), sensor_exit_cm: s.sensor_exit_cm !== undefined && s.sensor_exit_cm !== null ? Number(s.sensor_exit_cm) : (meta.sensor_exit_cm ?? 11.0) }; });
     out.devices = (out.devices || []).map(d => { if (d.type === 'sensor' && d.linked_slot && liveDistances[d.linked_slot] !== undefined) { return { ...d, distance_cm: d.distance_cm ?? liveDistances[d.linked_slot] }; } return d; });
     for (const table of optional) { let query = db.from(table).select('*'); if (req.user.role !== 'admin' && ['credit_requests', 'vehicles'].includes(table)) query = query.eq('user_id', req.user.id); const { data, error } = await query; if (error) { console.warn(`[bootstrap] optional table ${table}:`, error.message); if (table === 'vehicles') { out[table] = readFallbackVehicles().filter(v => req.user.role === 'admin' || v.user_id === req.user.id); } else out[table] = []; } else { out[table] = data || []; if (table === 'vehicles' && out[table].length === 0) { const fallback = readFallbackVehicles().filter(v => req.user.role === 'admin' || v.user_id === req.user.id); if (fallback.length > 0) out[table] = fallback; } } }
-    const alertCfg = readAlertConfigs();
+    const alertCfg = await getAlertConfigs();
     let systemAlerts = [];
     try {
       const { data: dbAlerts, error: alErr } = await db.from('system_alerts').select('*').order('created_at', { ascending: false }).limit(100);
@@ -940,14 +989,15 @@ app.patch('/api/admin/maps/:id', auth, admin, upload.single('image'), async (req
 app.delete('/api/admin/maps/:id', auth, admin, async (req, res) => { try { const { data: map, error: fetchError } = await db.from('parking_maps').select('*').eq('id', req.params.id).maybeSingle(); if (fetchError) throw fetchError; if (!map) return res.status(404).json({ error: 'ไม่พบผังลานจอด' }); try { const url = new URL(map.image_url); const pathParts = url.pathname.split('/object/public/parking-maps/'); if (pathParts.length > 1) { const storagePath = decodeURIComponent(pathParts[1]); await db.storage.from('parking-maps').remove([storagePath]); } } catch (storageErr) { console.warn('[map delete] storage remove warning:', storageErr.message); } const { error: dbError } = await db.from('parking_maps').delete().eq('id', map.id); if (dbError) throw dbError; res.json({ ok: true }); } catch (e) { res.status(400).json({ error: e.message }); } });
 
 // ─── Admin: Alert Configuration & System Alerts ───
-app.get('/api/admin/alert-configs', auth, admin, (req, res) => {
-  res.json(readAlertConfigs());
+app.get('/api/admin/alert-configs', auth, admin, async (req, res) => {
+  res.json(await getAlertConfigs());
 });
 
 app.patch('/api/admin/alert-configs', auth, admin, async (req, res) => {
   try {
-    const current = readAlertConfigs();
+    const current = await getAlertConfigs();
     const updated = { ...current, ...req.body, updated_at: new Date().toISOString() };
+    cachedAlertConfigs = updated;
     writeAlertConfigs(updated);
     try {
       await db.from('alert_configs').upsert(updated);
