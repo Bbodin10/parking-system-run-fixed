@@ -42,7 +42,7 @@ class ErrorBoundary extends React.Component {
       return (
         <section className="panel" style={{ border: '1px solid #ef4444', background: '#201215', padding: 24, borderRadius: 12, margin: '20px auto', maxWidth: 600 }}>
           <h2 style={{ color: '#ef4444', margin: '0 0 10px' }}>เกิดข้อผิดพลาดในการแสดงผล</h2>
-          <p style={{ color: '#cbd5e1', fontSize: 14 }}>{this.state.error?.message || 'เกิดข้อผิดพลาดภายในหน้านี้'}</p>
+          <p style={{ color: 'var(--text)', fontSize: 14 }}>{this.state.error?.message || 'เกิดข้อผิดพลาดภายในหน้านี้'}</p>
           <button className="button primary compact" style={{ marginTop: 12 }} onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload(); }}>
             โหลดหน้านี้ใหม่
           </button>
@@ -286,28 +286,24 @@ function LineConnectModal({ user, onClose, notify, reload }) {
       }}
     >
       <div
-        className="booking-modal"
+        className="booking-modal line-connect-modal"
         onClick={(e) => e.stopPropagation()}
         style={{
           maxWidth: 480,
           width: '100%',
           margin: 'auto',
-          background: '#19212b',
-          border: '1.5px solid #3a4758',
           borderRadius: 14,
           padding: 24,
-          boxShadow: '0 25px 70px rgba(0, 0, 0, 0.85)',
           boxSizing: 'border-box',
-          position: 'relative',
-          color: '#f8fafc'
+          position: 'relative'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 17, color: '#f8fafc' }}>จัดการการเชื่อมต่อ LINE</h3>
+            <h3 style={{ margin: 0, fontSize: 17, color: 'var(--text-strong)' }}>จัดการการเชื่อมต่อ LINE</h3>
             <span className="muted" style={{ fontSize: 12 }}>รับการแจ้งเตือนแบบเรียลไทม์ผ่านบอท @302ypwvm</span>
           </div>
-          <button type="button" className="modal-close" onClick={onClose} style={{ fontSize: 22, cursor: 'pointer', background: 'none', border: 'none', color: '#94a3b8' }}>✕</button>
+          <button type="button" className="modal-close" onClick={onClose} style={{ fontSize: 22, cursor: 'pointer', background: 'none', border: 'none', color: 'var(--muted)' }}>✕</button>
         </div>
 
         {user?.line_user_id ? (
@@ -315,9 +311,9 @@ function LineConnectModal({ user, onClose, notify, reload }) {
             <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1.5px solid rgba(16, 185, 129, 0.4)', borderRadius: 10, padding: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <span style={{ fontSize: 18 }}>🟢</span>
-                <strong style={{ color: '#34d399', fontSize: 15 }}>เชื่อมต่อ LINE สำเร็จแล้ว</strong>
+                <strong style={{ color: 'var(--green)', fontSize: 15 }}>เชื่อมต่อ LINE สำเร็จแล้ว</strong>
               </div>
-              <p style={{ margin: 0, fontSize: 13, color: '#cbd5e1', lineHeight: 1.5 }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
                 บัญชีของคุณ (<strong>{user.name}</strong>) ได้เชื่อมโยงเข้ากับระบบเรียบร้อยแล้ว {user.role === 'admin' ? 'คุณจะได้รับแจ้งเตือนสถานะอุปกรณ์และข้อผิดพลาดของระบบอัตโนมัติ' : 'คุณจะได้รับแจ้งเตือนการจองและสรุปเวลาจอดอัตโนมัติ'}
               </p>
             </div>
@@ -359,16 +355,16 @@ function LineConnectModal({ user, onClose, notify, reload }) {
             <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid rgba(239, 68, 68, 0.35)', borderRadius: 10, padding: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <span style={{ fontSize: 18 }}>🔴</span>
-                <strong style={{ color: '#f87171', fontSize: 15 }}>ยังไม่ได้เชื่อมต่อบัญชี LINE</strong>
+                <strong style={{ color: '#ef4444', fontSize: 15 }}>ยังไม่ได้เชื่อมต่อบัญชี LINE</strong>
               </div>
-              <p style={{ margin: 0, fontSize: 13, color: '#cbd5e1', lineHeight: 1.5 }}>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
                 {user?.role === 'admin'
                   ? 'กรุณาเชื่อมต่อ LINE เพื่อรับการแจ้งเตือนเร่งด่วนเมื่ออุปกรณ์ Offline, ไม้กั้นค้าง, หรือระบบมีเหตุผิดปกติ'
                   : 'กรุณาเชื่อมต่อ LINE เพื่อรับแจ้งเตือนเมื่อจองที่จอดรถ, เตือนก่อนหมดเวลา และสรุปค่าบริการอัตโนมัติ'}
               </p>
             </div>
 
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14 }}>
+            <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
               <div style={{ fontWeight: 600, color: 'var(--cyan)', marginBottom: 8, fontSize: 13 }}>
                 วิธีที่ 1: เชื่อมต่อทันทีด้วย LINE Login (แนะนำ)
               </div>
@@ -384,21 +380,21 @@ function LineConnectModal({ user, onClose, notify, reload }) {
             </div>
 
             {user?.line_link_code && (
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 14 }}>
-                <div style={{ fontWeight: 600, color: '#fbbf24', marginBottom: 6, fontSize: 13 }}>
+              <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
+                <div style={{ fontWeight: 600, color: 'var(--amber)', marginBottom: 6, fontSize: 13 }}>
                   วิธีที่ 2: ผูกผ่าน LINE Chat Bot ด้วยรหัส
                 </div>
-                <div style={{ fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.6 }}>
-                  1. แอดเพื่อนบอท: <a href="https://line.me/R/ti/p/@302ypwvm" target="_blank" rel="noreferrer" style={{ color: '#38bdf8', fontWeight: 600 }}>@302ypwvm (Parking Alert Bot)</a><br />
+                <div style={{ fontSize: 12.5, color: 'var(--text)', lineHeight: 1.6 }}>
+                  1. แอดเพื่อนบอท: <a href="https://line.me/R/ti/p/@302ypwvm" target="_blank" rel="noreferrer" style={{ color: 'var(--cyan)', fontWeight: 600 }}>@302ypwvm (Parking Alert Bot)</a><br />
                   2. ส่งรหัสเชื่อมโยงนี้ในแชทบอท:
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, background: '#0f172a', padding: '10px 14px', borderRadius: 8, border: '1.5px solid rgba(56, 189, 248, 0.4)' }}>
-                  <code style={{ fontSize: 20, fontWeight: 700, letterSpacing: 3, color: '#38bdf8', flex: 1 }}>{user.line_link_code}</code>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, background: 'var(--surface)', padding: '10px 14px', borderRadius: 8, border: '1.5px solid var(--border)' }}>
+                  <code style={{ fontSize: 20, fontWeight: 700, letterSpacing: 3, color: 'var(--cyan)', flex: 1 }}>{user.line_link_code}</code>
                   <button
                     type="button"
-                    className="button compact"
+                    className="button compact secondary"
                     onClick={handleCopyCode}
-                    style={{ background: copied ? '#10b981' : '#334155', color: '#fff', fontSize: 12, padding: '6px 12px', borderRadius: 6 }}
+                    style={{ fontSize: 12, padding: '6px 12px', borderRadius: 6 }}
                   >
                     {copied ? '✓ คัดลอกแล้ว' : 'คัดลอกรหัส'}
                   </button>
@@ -544,18 +540,7 @@ function EmergencyReportModal({ target, user, onClose, notify, reload }) {
                   key={p}
                   type="button"
                   onClick={() => setProblemType(p)}
-                  style={{
-                    padding: '8px 10px',
-                    borderRadius: 8,
-                    fontSize: 12,
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontWeight: problemType === p ? 700 : 500,
-                    background: problemType === p ? 'rgba(239, 68, 68, 0.18)' : 'var(--surface2)',
-                    border: `1.5px solid ${problemType === p ? '#ef4444' : 'var(--border)'}`,
-                    color: problemType === p ? '#fca5a5' : 'var(--text)',
-                    transition: 'all 0.15s ease'
-                  }}
+                  className={`emergency-problem-btn ${problemType === p ? 'active' : ''}`}
                 >
                   {problemType === p ? '🔘 ' : '⚪ '}
                   {p}
@@ -906,7 +891,7 @@ function InteractiveFloorMap({ map, slots, devices, isAdmin, onSlotClick, onSlot
             title={isAdmin ? `คลิกลากช่อง ${slot.code} ไปยังตำแหน่งบนผัง หรือคลิกเพื่อแก้ไข` : `${slot.code} (${label}) - ฿${slot.price_per_hour || 20}/ชม.`}
           >
             <div className="slot-pin-header">
-              <span className="slot-pin-code" style={{ color: '#ffffff' }}>{slot.code}</span>
+              <span className="slot-pin-code">{slot.code}</span>
               <span className={`sensor-dot ${sensorDotClass}`} style={{ position: 'static', width: 7, height: 7 }} />
             </div>
             <div className="slot-pin-meta">
@@ -1180,7 +1165,7 @@ function UserBooking({ data, user, notify, setView }) {
 
             {/* ส่วนเลือกรถยนต์ที่จะเข้าจอด */}
             <div style={{ marginTop: 8, marginBottom: 8 }}>
-              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13, color: '#e2e8f0' }}>
+              <label style={{ display: 'block', marginBottom: 6, fontWeight: 600, fontSize: 13, color: 'var(--text-strong)' }}>
                 เลือกรถที่จะเข้าจอด <span style={{ color: '#f87171' }}>*</span>
               </label>
               {userVehicles.length > 0 ? (
@@ -1202,7 +1187,7 @@ function UserBooking({ data, user, notify, setView }) {
                   </select>
                   {selectedVehicleId === 'manual' && (
                     <div style={{
-                      background: 'rgba(21, 28, 38, 0.7)',
+                      background: 'var(--surface2)',
                       border: '1px solid var(--border)',
                       borderRadius: 8,
                       padding: 12,
@@ -1502,7 +1487,7 @@ function UserControl({ data, user, notify, reload }) {
 
             {/* ข้อมูลเวลา */}
             <div style={{ marginTop: 8, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ color: '#e2e8f0', fontWeight: 600 }}>
+              <div style={{ color: 'var(--text-strong)', fontWeight: 600 }}>
                 {booking.date} · {startTimeStr} - {endTimeStr} น.
               </div>
               <div style={{ color: 'var(--muted)', fontSize: 12 }}>
@@ -1700,7 +1685,7 @@ function UserControl({ data, user, notify, reload }) {
                         gap: 3
                       }}
                     >
-                      <span style={{ fontWeight: 600, fontSize: 13, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-strong)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>ควบคุมไม้กั้นได้เมื่อถึง 15 นาทีก่อนเวลาจอง</span>
                       </span>
                       <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>
@@ -2130,7 +2115,7 @@ function UserHistory({ data, user, notify }) {
     <section className="panel"><div className="panel-title"><h2>รายการจองล่าสุด</h2><span className="muted">{mine.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ยานพาหนะ</th><th>วันเวลา</th><th>ระยะเวลา</th><th>ยอดเงิน</th><th>สถานะ</th><th /></tr></thead><tbody>{mine.map((booking) => {
       const start = parseThaiDateTime(booking.date, booking.time);
       const canCancel = booking.status === 'pending' && (start.getTime() - Date.now()) >= 15 * 60 * 1000;
-      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: '#fff', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="button primary compact" onClick={() => action(booking.id, 'finish')}>จบการจอด (รับสลิป)</button>{booking.status === 'pending' && (canCancel ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel')}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว">หมดเวลายกเลิก</button>)}</div>}</td></tr>;
+      return <tr key={booking.id}><td>{booking.slot_id}</td><td>{booking.license_plate ? <div style={{ fontSize: 13 }}><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || 'รถเก๋ง (Sedan)'}</div></div> : <span className="muted">-</span>}</td><td>{booking.date} {formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{['pending', 'active'].includes(booking.status) && <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><button type="button" className="button primary compact" onClick={() => action(booking.id, 'finish')}>จบการจอด (รับสลิป)</button>{booking.status === 'pending' && (canCancel ? <button type="button" className="button danger compact" onClick={() => action(booking.id, 'cancel')}>ยกเลิก (คืนเครดิต)</button> : <button type="button" className="button compact" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }} title="เหลือน้อยกว่า 15 นาทีก่อนถึงเวลาจอง ไม่สามารถยกเลิกได้แล้ว">หมดเวลายกเลิก</button>)}</div>}</td></tr>;
     })}</tbody></table></div></section>
 
     {vehicleModal && (
@@ -2239,13 +2224,10 @@ function AdminDashboard({ data, setView }) {
       <StatCards slots={data.slots} devices={data.devices} bookings={data.bookings} user={{ role: 'admin' }} />
 
       {/* แบนเนอร์เปิดดูกราฟสถิติการใช้งาน */}
-      <div className="panel" style={{
+      <div className="panel analytics-banner-panel" style={{
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        background: 'linear-gradient(135deg, rgba(20,35,48,0.92), rgba(16,24,34,0.95))',
-        border: '1px solid #284459',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
         borderRadius: 14,
         flexWrap: 'wrap',
         gap: 14,
@@ -2266,8 +2248,8 @@ function AdminDashboard({ data, setView }) {
             ▤
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: 17, color: '#fff' }}>สถิติและการวิเคราะห์การใช้ช่องจอด</h3>
-            <p style={{ margin: '4px 0 0', color: '#93a6ba', fontSize: 13 }}>
+            <h3 style={{ margin: 0, fontSize: 17, color: 'var(--text-strong)' }}>สถิติและการวิเคราะห์การใช้ช่องจอด</h3>
+            <p style={{ margin: '4px 0 0', color: 'var(--muted)', fontSize: 13 }}>
               ดูกราฟแนวโน้มการใช้งานรายวัน รายสัปดาห์ รายเดือน และสัดส่วนแยกตามชนิดช่องจอด
             </p>
           </div>
@@ -2284,7 +2266,7 @@ function AdminDashboard({ data, setView }) {
       </div>
 
       <section className="panel"><div className="panel-title"><h2>รายได้วันนี้</h2><strong className="highlight">฿{formatMoney(revenue)}</strong></div><p className="muted">รวมจากรายการจองประจำวันที่ {today}</p></section>
-      <section className="panel"><div className="panel-title"><h2>ประวัติการจองทั้งหมด</h2><span className="muted">{bookings.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ผู้จอง</th><th>ยานพาหนะ</th><th>วันที่</th><th>เวลา</th><th>ระยะเวลา</th><th>จำนวนเงิน</th><th>สถานะ</th><th>ทำรายการเมื่อ</th></tr></thead><tbody>{bookings.length ? bookings.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{userName(booking.user_id)}</td><td>{booking.license_plate ? <div><strong style={{ color: '#fff', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || '-'}</div></div> : '-'}</td><td>{booking.date}</td><td>{formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{new Date(booking.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td></tr>) : <tr><td colSpan="9">ยังไม่มีรายการจอง</td></tr>}</tbody></table></div></section>
+      <section className="panel"><div className="panel-title"><h2>ประวัติการจองทั้งหมด</h2><span className="muted">{bookings.length} รายการ</span></div><div className="table-wrap"><table><thead><tr><th>ช่องจอด</th><th>ผู้จอง</th><th>ยานพาหนะ</th><th>วันที่</th><th>เวลา</th><th>ระยะเวลา</th><th>จำนวนเงิน</th><th>สถานะ</th><th>ทำรายการเมื่อ</th></tr></thead><tbody>{bookings.length ? bookings.map((booking) => <tr key={booking.id}><td>{booking.slot_id}</td><td>{userName(booking.user_id)}</td><td>{booking.license_plate ? <div><strong style={{ color: 'var(--text-strong)', font: '600 13px "JetBrains Mono"' }}>{booking.license_plate}</strong><div style={{ fontSize: 11, color: 'var(--cyan)' }}>{booking.vehicle_type || '-'}</div></div> : '-'}</td><td>{booking.date}</td><td>{formatThaiTime(booking.time)} น.</td><td>{booking.duration} ชั่วโมง</td><td>฿{formatMoney(booking.amount)}</td><td><span className={`badge ${booking.status}`}>{booking.status}</span></td><td>{new Date(booking.created_at).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</td></tr>) : <tr><td colSpan="9">ยังไม่มีรายการจอง</td></tr>}</tbody></table></div></section>
     </>
   );
 }
@@ -2628,7 +2610,7 @@ function AdminAnalytics({ data }) {
 
           {/* ช่วงย่อยสำหรับรายวัน */}
           {period === 'day' && (
-            <div style={{ display: 'inline-flex', gap: 4, background: '#111722', padding: 3, borderRadius: 8, border: '1px solid var(--border)' }}>
+            <div style={{ display: 'inline-flex', gap: 4, background: 'var(--surface2)', padding: 3, borderRadius: 8, border: '1px solid var(--border)' }}>
               {[7, 14, 30].map((days) => (
                 <button
                   key={days}
@@ -2857,7 +2839,7 @@ function AdminAnalytics({ data }) {
                         x={x + barWidth / 2}
                         y={y - 5}
                         textAnchor="middle"
-                        fill={isHovered ? '#ffffff' : '#cbd5e1'}
+                        fill={isHovered ? 'var(--text-strong)' : 'var(--muted)'}
                         fontSize="9.5"
                         fontWeight="700"
                         fontFamily="JetBrains Mono"
@@ -2895,28 +2877,31 @@ function AdminAnalytics({ data }) {
 
             {/* Hover Tooltip Overlay */}
             {hoveredIndex !== null && trendData[hoveredIndex] && (
-              <div style={{
-                position: 'absolute',
-                top: 8,
-                right: 12,
-                background: 'rgba(12, 18, 26, 0.96)',
-                border: '1px solid rgba(54, 220, 201, 0.4)',
-                borderRadius: 9,
-                padding: '8px 12px',
-                fontSize: 12,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-                display: 'flex',
-                gap: 12,
-                alignItems: 'center',
-                pointerEvents: 'none'
-              }}>
+              <div
+                className="chart-tooltip"
+                style={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 12,
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 9,
+                  padding: '8px 12px',
+                  fontSize: 12,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'center',
+                  pointerEvents: 'none'
+                }}
+              >
                 <div>
-                  <strong style={{ color: '#fff' }}>{trendData[hoveredIndex].fullDate}</strong>
+                  <strong style={{ color: 'var(--text-strong)' }}>{trendData[hoveredIndex].fullDate}</strong>
                 </div>
                 <div style={{ display: 'flex', gap: 10, fontFamily: 'JetBrains Mono' }}>
                   <span style={{ color: 'var(--cyan)' }}>{trendData[hoveredIndex].count} ครั้ง</span>
-                  <span style={{ color: '#fbbf24' }}>฿{trendData[hoveredIndex].revenue.toLocaleString('th-TH')}</span>
-                  <span style={{ color: '#a78bfa' }}>{trendData[hoveredIndex].hours} ชม.</span>
+                  <span style={{ color: 'var(--amber)' }}>฿{trendData[hoveredIndex].revenue.toLocaleString('th-TH')}</span>
+                  <span style={{ color: 'var(--violet)' }}>{trendData[hoveredIndex].hours} ชม.</span>
                 </div>
               </div>
             )}
@@ -2939,7 +2924,7 @@ function AdminAnalytics({ data }) {
             <div style={{ width: 170, height: 170, position: 'relative', flexShrink: 0 }}>
               <svg viewBox="0 0 180 180" style={{ transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
                 {/* Background Ring */}
-                <circle cx="90" cy="90" r="62" fill="none" stroke="#182330" strokeWidth="20" />
+                <circle cx="90" cy="90" r="62" fill="none" className="donut-bg-ring" stroke="var(--border)" strokeWidth="20" />
                 {donutArcs.length > 0 ? donutArcs.map((slice) => (
                   <circle
                     key={slice.type}
@@ -2955,7 +2940,7 @@ function AdminAnalytics({ data }) {
                     style={{ transition: 'stroke-dasharray 0.5s ease' }}
                   />
                 )) : (
-                  <circle cx="90" cy="90" r="62" fill="none" stroke="#2a384a" strokeWidth="20" strokeDasharray="10 6" />
+                  <circle cx="90" cy="90" r="62" fill="none" stroke="var(--border)" strokeWidth="20" strokeDasharray="10 6" />
                 )}
               </svg>
               {/* Donut Center Display */}
@@ -2968,7 +2953,7 @@ function AdminAnalytics({ data }) {
                 justifyContent: 'center',
                 pointerEvents: 'none'
               }}>
-                <strong style={{ fontSize: 24, color: '#fff', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>
+                <strong style={{ fontSize: 24, color: 'var(--text-strong)', fontFamily: 'JetBrains Mono', lineHeight: 1 }}>
                   {typeBreakdown.totalBookings}
                 </strong>
                 <small style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
@@ -2984,7 +2969,7 @@ function AdminAnalytics({ data }) {
                   <div className="donut-legend-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span className="donut-color-dot" style={{ background: item.color }} />
-                      <strong style={{ color: '#fff' }}>{item.type}</strong>
+                      <strong style={{ color: 'var(--text-strong)' }}>{item.type}</strong>
                     </div>
                     <div>
                       <strong style={{ color: item.color, fontFamily: 'JetBrains Mono' }}>
@@ -3084,7 +3069,7 @@ function AdminAnalytics({ data }) {
                   <div className="slot-leader-content">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <strong style={{ fontSize: 15, color: '#fff', fontFamily: 'JetBrains Mono' }}>
+                        <strong style={{ fontSize: 15, color: 'var(--text-strong)', fontFamily: 'JetBrains Mono' }}>
                           ช่อง {item.slotId}
                         </strong>
                         <span style={{ fontSize: 11, color: tColor, background: 'rgba(255,255,255,0.05)', padding: '1px 6px', borderRadius: 4 }}>
@@ -3144,7 +3129,7 @@ function AdminAnalytics({ data }) {
                       </div>
                     </td>
                     <td>{row.slotsCount} ช่อง</td>
-                    <td><strong style={{ color: '#fff', fontFamily: 'JetBrains Mono' }}>{row.count}</strong> ครั้ง</td>
+                    <td><strong style={{ color: 'var(--text-strong)', fontFamily: 'JetBrains Mono' }}>{row.count}</strong> ครั้ง</td>
                     <td>{row.hours} ชม.</td>
                     <td><strong style={{ color: '#fbbf24', fontFamily: 'JetBrains Mono' }}>฿{row.revenue.toLocaleString('th-TH')}</strong></td>
                     <td>{avgHrs} ชั่วโมง</td>
@@ -3530,19 +3515,15 @@ function AdminAlerts({ data, user, reload, notify }) {
   const selectStyle = {
     padding: '7px 12px',
     borderRadius: 7,
-    background: '#1e293b',
-    color: '#f8fafc',
-    border: '1.5px solid rgba(56, 189, 248, 0.45)',
+    background: 'var(--surface2)',
+    color: 'var(--text-strong)',
+    border: '1.5px solid var(--border)',
     fontSize: 13,
     fontWeight: 600,
     cursor: 'pointer',
-    outline: 'none',
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.35)'
+    outline: 'none'
   };
   const optionStyle = {
-    backgroundColor: '#0f172a',
-    color: '#f8fafc',
-    padding: '10px 14px',
     fontSize: 13,
     fontWeight: 500
   };
@@ -3574,16 +3555,16 @@ function AdminAlerts({ data, user, reload, notify }) {
   const normalCount = alerts.filter(a => a.status === 'active' && ['NORMAL', 'INFO'].includes(a.priority)).length;
   const resolvedCount = alerts.filter(a => a.status === 'resolved').length;
 
-  const getPriorityStyle = (p) => {
+  const getPriorityMeta = (p) => {
     switch (p) {
       case 'CRITICAL':
-        return { bg: 'rgba(239, 68, 68, 0.15)', border: 'rgba(239, 68, 68, 0.4)', color: '#f87171', label: '🔴 CRITICAL (วิกฤต)' };
+        return { className: 'priority-critical', label: '🔴 CRITICAL (วิกฤต)' };
       case 'HIGH':
-        return { bg: 'rgba(245, 158, 11, 0.15)', border: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24', label: '🟠 HIGH (สำคัญ)' };
+        return { className: 'priority-high', label: '🟠 HIGH (สำคัญ)' };
       case 'NORMAL':
-        return { bg: 'rgba(56, 189, 248, 0.15)', border: 'rgba(56, 189, 248, 0.4)', color: '#38bdf8', label: '🟡 NORMAL (ปานกลาง)' };
+        return { className: 'priority-normal', label: '🟡 NORMAL (ปานกลาง)' };
       default:
-        return { bg: 'rgba(168, 85, 247, 0.15)', border: 'rgba(168, 85, 247, 0.4)', color: '#c084fc', label: '🔵 INFO (ข้อมูลทั่วไป)' };
+        return { className: 'priority-info', label: '🔵 INFO (ข้อมูลทั่วไป)' };
     }
   };
 
@@ -3698,25 +3679,26 @@ function AdminAlerts({ data, user, reload, notify }) {
           </div>
 
           {!liveAdmin?.line_user_id && (
-            <div style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1.5px solid rgba(239, 68, 68, 0.35)',
-              borderRadius: 10,
-              padding: '12px 16px',
-              marginBottom: 16,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 12
-            }}>
+            <div
+              className="admin-line-warning-banner"
+              style={{
+                borderRadius: 10,
+                padding: '12px 16px',
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: 12
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 16 }}>🔴</span>
                 <div>
-                  <strong style={{ color: '#f87171', fontSize: 14 }}>
+                  <strong style={{ fontSize: 14 }}>
                     บัญชีแอดมินของคุณ ({liveAdmin?.name || 'Admin'}) ยังไม่ได้เชื่อมต่อ LINE
                   </strong>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: '#cbd5e1' }}>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text)' }}>
                     เมื่อเกิดเหตุฉุกเฉินหรืออุปกรณ์ออฟไลน์ บอทจะไม่สามารถส่ง LINE Push แจ้งเตือนเข้ามือถือของคุณได้
                   </p>
                 </div>
@@ -3749,7 +3731,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   placeholder="ค้นหาหัวข้อ / ข้อความ / ช่องจอด..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  style={{ minWidth: 220, padding: '6px 12px', fontSize: 13, borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+                  style={{ minWidth: 220, padding: '6px 12px', fontSize: 13, borderRadius: 6 }}
                 />
                 <select
                   value={priorityFilter}
@@ -3789,15 +3771,14 @@ function AdminAlerts({ data, user, reload, notify }) {
             {filtered.length ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {filtered.map(item => {
-                  const style = getPriorityStyle(item.priority);
+                  const meta = getPriorityMeta(item.priority);
                   return (
                     <div
                       key={item.id}
+                      className={`alert-card-item alert-status-${item.status}`}
                       style={{
                         padding: '12px 14px',
                         borderRadius: 10,
-                        background: item.status === 'resolved' ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.04)',
-                        border: `1px solid ${item.status === 'resolved' ? 'rgba(255,255,255,0.06)' : style.border}`,
                         display: 'flex',
                         flexDirection: 'column',
                         gap: 8,
@@ -3806,25 +3787,17 @@ function AdminAlerts({ data, user, reload, notify }) {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            background: style.bg,
-                            border: `1px solid ${style.border}`,
-                            color: style.color
-                          }}>
-                            {style.label}
+                          <span className={`alert-priority-pill ${meta.className}`}>
+                            {meta.label}
                           </span>
-                          <strong style={{ fontSize: 14, color: '#f1f5f9' }}>{item.title}</strong>
+                          <strong style={{ fontSize: 14, color: 'var(--text-strong)' }}>{item.title}</strong>
                           {item.slot_id && (
-                            <span style={{ background: 'rgba(56,189,248,0.1)', color: '#38bdf8', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>
+                            <span style={{ background: 'rgba(56,189,248,0.15)', color: 'var(--cyan)', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
                               ช่อง {item.slot_id}
                             </span>
                           )}
                           {item.device_id && (
-                            <span style={{ background: 'rgba(255,255,255,0.08)', color: 'var(--muted)', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>
+                            <span style={{ background: 'var(--surface2)', color: 'var(--muted)', padding: '2px 6px', borderRadius: 4, fontSize: 11, border: '1px solid var(--border)' }}>
                               {item.device_id}
                             </span>
                           )}
@@ -3840,18 +3813,18 @@ function AdminAlerts({ data, user, reload, notify }) {
                             borderRadius: 4,
                             fontWeight: 600,
                             background: item.status === 'resolved' ? 'rgba(34,197,94,0.15)' : item.status === 'acknowledged' ? 'rgba(234,179,8,0.15)' : 'rgba(239,68,68,0.15)',
-                            color: item.status === 'resolved' ? '#4ade80' : item.status === 'acknowledged' ? '#facc15' : '#f87171'
+                            color: item.status === 'resolved' ? '#16a34a' : item.status === 'acknowledged' ? '#d97706' : '#dc2626'
                           }}>
                             {item.status === 'resolved' ? '🟢 ปิดงานแล้ว' : item.status === 'acknowledged' ? '🟡 รับทราบแล้ว' : '🔴 รอตรวจสอบ'}
                           </span>
                         </div>
                       </div>
 
-                      <div style={{ fontSize: 13, color: '#cbd5e1', lineHeight: 1.5 }}>
+                      <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }} className="alert-message-text">
                         {item.message}
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px solid var(--border)' }}>
                         <span style={{ fontSize: 11, color: 'var(--muted)' }}>
                           {item.notified_line ? 'ส่งแจ้งเตือนเข้า LINE Admin แล้ว' : 'แจ้งเตือนในระบบ'}
                           {item.resolved_at && ` · ปิดงานเมื่อ ${new Date(item.resolved_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`}
@@ -3889,7 +3862,7 @@ function AdminAlerts({ data, user, reload, notify }) {
             </h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
                   <input
                     type="checkbox"
@@ -3908,7 +3881,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                       step={10}
                       value={config.offline_timeout_sec}
                       onChange={(e) => setConfig({ ...config, offline_timeout_sec: Number(e.target.value) })}
-                      style={{ width: 90, padding: '6px 10px', borderRadius: 6, background: '#1e293b', color: '#f8fafc', border: '1.5px solid rgba(255,255,255,0.2)', fontSize: 13, fontWeight: 600 }}
+                      style={{ width: 90, padding: '6px 10px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-strong)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600 }}
                     /> วินาที
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
@@ -3926,7 +3899,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
                   <input
                     type="checkbox"
@@ -3945,7 +3918,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                       step={30}
                       value={config.barrier_stuck_sec}
                       onChange={(e) => setConfig({ ...config, barrier_stuck_sec: Number(e.target.value) })}
-                      style={{ width: 90, padding: '6px 10px', borderRadius: 6, background: '#1e293b', color: '#f8fafc', border: '1.5px solid rgba(255,255,255,0.2)', fontSize: 13, fontWeight: 600 }}
+                      style={{ width: 90, padding: '6px 10px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-strong)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600 }}
                     /> วินาที ({Math.round((config.barrier_stuck_sec || 300) / 60)} นาที)
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
@@ -3962,7 +3935,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
                   <input
                     type="checkbox"
@@ -3995,7 +3968,7 @@ function AdminAlerts({ data, user, reload, notify }) {
             </h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
                   <input
                     type="checkbox"
@@ -4017,7 +3990,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
                   <input
                     type="checkbox"
@@ -4047,18 +4020,16 @@ function AdminAlerts({ data, user, reload, notify }) {
             </h3>
 
             {/* กล่องสถานะ LINE ของผู้ดูแลระบบ (Admin LINE Status & Control) */}
-            <div style={{
-              background: 'rgba(15, 23, 42, 0.75)',
-              border: liveAdmin?.line_user_id ? '1.5px solid rgba(16, 185, 129, 0.45)' : '1.5px solid rgba(239, 68, 68, 0.45)',
+            <div className="admin-line-status-box" style={{
               borderRadius: 10,
               padding: 16,
               marginBottom: 16
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 14, borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 18 }}>{liveAdmin?.line_user_id ? '🟢' : '🔴'}</span>
-                    <strong style={{ fontSize: 15, color: '#f8fafc' }}>
+                    <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>
                       สถานะ LINE ของคุณ ({liveAdmin?.name || 'Admin'}):
                     </strong>
                     <span className={`badge ${liveAdmin?.line_user_id ? 'available' : 'unavailable'}`} style={{ fontSize: 12, padding: '3px 8px' }}>
@@ -4160,14 +4131,14 @@ function AdminAlerts({ data, user, reload, notify }) {
                         alignItems: 'center',
                         padding: '8px 12px',
                         borderRadius: 6,
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)'
+                        background: 'var(--surface2)',
+                        border: '1px solid var(--border)'
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span>{a.line_user_id ? '🟢' : '🔴'}</span>
                         <div>
-                          <strong style={{ color: '#f8fafc' }}>{a.name}</strong>
+                          <strong style={{ color: 'var(--text-strong)' }}>{a.name}</strong>
                           <div className="muted" style={{ fontSize: 11 }}>{a.username}</div>
                         </div>
                       </div>
@@ -4187,7 +4158,7 @@ function AdminAlerts({ data, user, reload, notify }) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
                   <input
                     type="checkbox"
@@ -4213,7 +4184,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
                 <div style={{ fontWeight: 600, marginBottom: 8 }}>Cooldown ป้องกันส่งซ้ำ (Anti-Spam)</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
                   <div>
@@ -4224,14 +4195,14 @@ function AdminAlerts({ data, user, reload, notify }) {
                       max={120}
                       value={config.cooldown_minutes}
                       onChange={(e) => setConfig({ ...config, cooldown_minutes: Number(e.target.value) })}
-                      style={{ width: 80, padding: '6px 10px', borderRadius: 6, background: '#1e293b', color: '#f8fafc', border: '1.5px solid rgba(255,255,255,0.2)', fontSize: 13, fontWeight: 600 }}
+                      style={{ width: 80, padding: '6px 10px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-strong)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600 }}
                     /> นาที
                   </div>
                   <span className="muted">เมื่ออุปกรณ์หลุด จะไม่ยิง LINE ซ้ำจนกว่าจะพ้นระยะเวลานี้</span>
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ background: 'var(--surface2)', padding: 12, borderRadius: 8, border: '1px solid var(--border)' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
                   <input
                     type="checkbox"
@@ -4281,7 +4252,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   required
                   value={testForm.title}
                   onChange={(e) => setTestForm({ ...testForm, title: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-strong)', border: '1px solid var(--border)' }}
                 />
               </div>
 
@@ -4292,7 +4263,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   required
                   value={testForm.message}
                   onChange={(e) => setTestForm({ ...testForm, message: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.15)' }}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-strong)', border: '1px solid var(--border)' }}
                 />
               </div>
 
@@ -4496,7 +4467,7 @@ function AdminLayout({ data, reload, notify }) {
           <div style={{ marginTop: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <strong style={{ fontSize: 15, color: '#fff' }}>ผังแปลนจริงแบบลากวาง ({activeMap.name})</strong>
+                <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ผังแปลนจริงแบบลากวาง ({activeMap.name})</strong>
                 <span style={{ fontSize: 11, color: 'var(--cyan)', background: 'rgba(54,220,201,0.12)', border: '1px solid rgba(54,220,201,0.3)', padding: '2px 8px', borderRadius: 999 }}>
                   วางแล้ว {placedSlots.length}/{slots.length} ช่อง
                 </span>
@@ -4588,7 +4559,7 @@ function AdminLayout({ data, reload, notify }) {
         >
           <div onMouseDown={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ color: '#fff', fontSize: 16 }}>{lightboxMap.name}</strong>
+              <strong style={{ color: 'var(--text-strong)', fontSize: 16 }}>{lightboxMap.name}</strong>
               <button className="button compact" onClick={() => setLightboxMap(null)}>✕ ปิด</button>
             </div>
             <img
@@ -4689,7 +4660,7 @@ function AdminLayout({ data, reload, notify }) {
         <div className="modal-backdrop" onMouseDown={() => setSlotToEdit(null)}>
           <div className="slot-edit-dialog" onMouseDown={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <h3 style={{ margin: 0, fontSize: 18, color: '#fff' }}>จัดการช่องจอด {slotToEdit.code}</h3>
+              <h3 style={{ margin: 0, fontSize: 18, color: 'var(--text-strong)' }}>จัดการช่องจอด {slotToEdit.code}</h3>
               <button type="button" className="modal-close" onClick={() => setSlotToEdit(null)}>✕</button>
             </div>
 
@@ -4775,14 +4746,14 @@ function AdminLayout({ data, reload, notify }) {
                   </div>
 
                   {sensorDev && (
-                    <div style={{ display: 'flex', gap: 12, marginBottom: 12, background: 'rgba(0,0,0,0.25)', padding: '8px 12px', borderRadius: 8, fontSize: 12 }}>
+                    <div style={{ display: 'flex', gap: 12, marginBottom: 12, background: 'var(--surface2)', padding: '8px 12px', borderRadius: 8, fontSize: 12 }}>
                       <div>
                         <span style={{ color: 'var(--muted)' }}>ระยะวัดจริงล่าสุด: </span>
                         <strong style={{ color: sensorDev.distance_cm != null ? '#38bdf8' : 'var(--muted)', fontSize: 13 }}>
                           {sensorDev.distance_cm != null ? `${sensorDev.distance_cm} ซม.` : 'ยังไม่มีค่า'}
                         </strong>
                       </div>
-                      <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 12 }}>
+                      <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
                         <span style={{ color: 'var(--muted)' }}>สถานะตรวจจับ: </span>
                         <strong style={{ color: sensorDev.presence === 'occupied' ? '#f87171' : '#4ade80' }}>
                           {sensorDev.presence === 'occupied' ? '🚗 มีรถจอด' : ' ว่าง'}
@@ -4837,7 +4808,7 @@ function AdminLayout({ data, reload, notify }) {
                     </div>
                   </div>
 
-                  <div style={{ marginTop: 8, fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
+                  <div style={{ marginTop: 8, fontSize: 11, color: 'var(--muted)', lineHeight: 1.4 }}>
                     💡 <em>ระบบใช้ Hysteresis (ระยะออกต้องมากกว่าระยะเข้า เช่น 9 ซม. / 11 ซม.) เพื่อป้องกันการตรวจจับสับสน</em>
                   </div>
                 </div>
@@ -4849,7 +4820,7 @@ function AdminLayout({ data, reload, notify }) {
               const barrierDevice = (data.devices || []).find((d) => d.type === 'barrier' && (d.linked_slot === slotToEdit.id || d.linked_slot === slotToEdit.code));
               if (!barrierDevice) return null;
               return (
-                <div style={{ marginTop: 12, marginBottom: 6, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ marginTop: 12, marginBottom: 6, padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <span style={{ fontSize: 13, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span>ไม้กั้นช่อง {slotToEdit.code}:</span>

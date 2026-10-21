@@ -3193,6 +3193,69 @@ td {
   }
 }
 
+/* Base classes for Alert System & Emergency Report */
+.alert-card-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+}
+.alert-card-item.alert-status-resolved {
+  opacity: 0.75;
+}
+.alert-priority-pill {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+}
+.alert-priority-pill.priority-critical {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid #ef4444;
+  color: #f87171;
+}
+.alert-priority-pill.priority-high {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+}
+.alert-priority-pill.priority-normal {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+}
+.alert-priority-pill.priority-info {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid #a855f7;
+  color: #c084fc;
+}
+.admin-line-warning-banner {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1.5px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+.admin-line-status-box {
+  background: rgba(15, 23, 42, 0.75);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+}
+.emergency-problem-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  color: var(--text);
+  transition: all 0.15s ease;
+}
+.emergency-problem-btn.active {
+  font-weight: 700;
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+  color: #fca5a5;
+}
+
 /* --------------------------------------------------------------------------
    LIGHT MODE OVERRIDES ([data-theme="light"])
    ------------------------------------------------================---------- */
@@ -3743,6 +3806,265 @@ td {
   background: #ffffff;
   color: #0f172a;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+/* User Role, Avatar & Topbar Elements */
+[data-theme="light"] .avatar {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] .role.admin {
+  color: #6d28d9 !important;
+  background: #ede9fe !important;
+  border-color: #c4b5fd !important;
+}
+
+[data-theme="light"] .role.user {
+  color: #0f766e !important;
+  background: #ccfbf1 !important;
+  border-color: #99f6e4 !important;
+}
+
+[data-theme="light"] .logout-btn-desktop,
+[data-theme="light"] .logout-btn-mobile {
+  background: #ffffff !important;
+  color: #334155 !important;
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme="light"] .logout-btn-desktop:hover,
+[data-theme="light"] .logout-btn-mobile:hover {
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+  border-color: #fca5a5 !important;
+}
+
+/* Admin Dashboard Analytics Banner */
+[data-theme="light"] .analytics-banner-panel {
+  background: linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%) !important;
+  border-color: #ccfbf1 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05) !important;
+}
+
+/* Admin Alerts, Warnings & Cards */
+[data-theme="light"] .admin-line-warning-banner {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #b91c1c !important;
+}
+[data-theme="light"] .admin-line-warning-banner strong {
+  color: #991b1b !important;
+}
+[data-theme="light"] .admin-line-warning-banner p {
+  color: #b91c1c !important;
+}
+
+[data-theme="light"] .admin-line-status-box {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05) !important;
+}
+
+[data-theme="light"] .alert-card-item {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+[data-theme="light"] .alert-card-item.alert-status-resolved {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  opacity: 0.85 !important;
+}
+
+[data-theme="light"] .alert-priority-pill.priority-critical {
+  background: #fee2e2 !important;
+  border-color: #fca5a5 !important;
+  color: #dc2626 !important;
+}
+[data-theme="light"] .alert-priority-pill.priority-high {
+  background: #fef3c7 !important;
+  border-color: #fcd34d !important;
+  color: #b45309 !important;
+}
+[data-theme="light"] .alert-priority-pill.priority-normal {
+  background: #e0f2fe !important;
+  border-color: #bae6fd !important;
+  color: #0284c7 !important;
+}
+[data-theme="light"] .alert-priority-pill.priority-info {
+  background: #f3e8ff !important;
+  border-color: #e9d5ff !important;
+  color: #7c3aed !important;
+}
+
+[data-theme="light"] .emergency-problem-btn.active {
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  color: #dc2626 !important;
+}
+
+/* User Profile & LINE Connect Panel */
+[data-theme="light"] .line-connect-panel.is-unlinked {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05) !important;
+}
+[data-theme="light"] .line-connect-panel.is-linked {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%) !important;
+  border-color: #86efac !important;
+  box-shadow: 0 4px 16px rgba(22, 163, 74, 0.06) !important;
+}
+[data-theme="light"] .line-linked-buttons a.button {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+[data-theme="light"] .line-linked-buttons a.button:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] .line-status-avatar.offline {
+  background: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+}
+[data-theme="light"] .line-status-avatar.offline svg {
+  fill: #64748b !important;
+}
+
+/* Vehicles & User Bookings */
+[data-theme="light"] .vehicle-card {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05) !important;
+}
+[data-theme="light"] .vehicle-plate {
+  color: #0f172a !important;
+}
+[data-theme="light"] .vehicle-select-box {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Analytics Charts & Chips */
+[data-theme="light"] .analytics-chip {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+[data-theme="light"] .analytics-chip.active {
+  background: #e0f2fe !important;
+  border-color: #0284c7 !important;
+  color: #0284c7 !important;
+}
+[data-theme="light"] .chart-metric-toggle {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+[data-theme="light"] .chart-metric-btn {
+  color: #64748b !important;
+}
+[data-theme="light"] .chart-metric-btn:hover {
+  color: #0f172a !important;
+}
+[data-theme="light"] .chart-metric-btn.active {
+  background: #ffffff !important;
+  color: #0891b2 !important;
+  border-color: #a5f3fc !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .donut-bg-ring {
+  stroke: #e2e8f0 !important;
+}
+[data-theme="light"] .chart-tooltip {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12) !important;
+}
+
+/* Interactive Map, Slot Pins & Trays */
+[data-theme="light"] .map-canvas-container {
+  background: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+}
+[data-theme="light"] .slot-pin.available {
+  border-color: #16a34a !important;
+  background: linear-gradient(135deg, #dcfce7 0%, #ffffff 100%) !important;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.18) !important;
+}
+[data-theme="light"] .slot-pin.booked {
+  border-color: #dc2626 !important;
+  background: linear-gradient(135deg, #fee2e2 0%, #ffffff 100%) !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.18) !important;
+}
+[data-theme="light"] .slot-pin.unavailable {
+  border-color: #94a3b8 !important;
+  background: #f1f5f9 !important;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
+}
+[data-theme="light"] .slot-pin-code {
+  color: #0f172a !important;
+  text-shadow: none !important;
+}
+[data-theme="light"] .slot-pin-price {
+  color: #b45309 !important;
+}
+[data-theme="light"] .unplaced-tray {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+[data-theme="light"] .unplaced-badge {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] .slot-edit-dialog {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.15) !important;
+}
+[data-theme="light"] .slot-edit-label {
+  color: #475569 !important;
+}
+[data-theme="light"] .slot-edit-input {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+[data-theme="light"] .slot-edit-input:hover {
+  border-color: #94a3b8 !important;
+}
+[data-theme="light"] .slot-edit-input:focus {
+  background: #ffffff !important;
+  border-color: var(--cyan) !important;
+}
+[data-theme="light"] .slot-edit-input-group {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+[data-theme="light"] .slot-edit-input-suffix {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #64748b !important;
+}
+
+/* Chromium Normalized RGB Text & Background Contrast Overrides */
+[data-theme="light"] [style*="rgb(248, 250, 252)"],
+[data-theme="light"] [style*="rgb(241, 245, 249)"],
+[data-theme="light"] [style*="rgb(226, 232, 240)"],
+[data-theme="light"] [style*="rgb(203, 213, 225)"],
+[data-theme="light"] [style*="rgb(255, 255, 255)"] {
+  color: #0f172a !important;
+}
+[data-theme="light"] [style*="rgba(255, 255, 255"] {
+  color: #1e293b;
+}
+[data-theme="light"] div[style*="rgba(255, 255, 255, 0.0"],
+[data-theme="light"] div[style*="rgba(255,255,255,0.0"] {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
 }
 
 /* Text contrast overrides for dark-themed inline text colors */
