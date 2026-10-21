@@ -3453,18 +3453,24 @@ function playAlertChime(priority) {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
     if (priority === 'CRITICAL') {
+      // 2-tone urgent alarm pulse (880Hz -> 587Hz -> 880Hz -> 587Hz)
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.setValueAtTime(440, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime + 0.15);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime + 0.45);
+      gain.gain.setValueAtTime(0.28, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.65);
       osc.start();
-      osc.stop(ctx.currentTime + 0.35);
+      osc.stop(ctx.currentTime + 0.65);
     } else {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(659.25, ctx.currentTime);
@@ -4947,6 +4953,7 @@ function App() {
   const [notice, setNotice] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const inFlightRef = useRef(false);
+  const knownAlertIdsRef = useRef(null);
 
   async function load(isInitial = false) {
     if (!localStorage.token) { localStorage.clear(); setUser(null); return; }
@@ -4964,6 +4971,33 @@ function App() {
       setData(next);
       setLastUpdated(new Date());
       setLoadError('');
+
+      // ตรวจสอบการแจ้งเตือนฉุกเฉินใหม่สำหรับฝั่งผู้ดูแล (Audio Chime on CRITICAL alert)
+      if (user?.role === 'admin' && Array.isArray(next.system_alerts)) {
+        const activeAlerts = next.system_alerts.filter(a => a.status === 'active');
+        if (knownAlertIdsRef.current === null) {
+          // โหลดครั้งแรก: บันทึก ID ที่มีอยู่แล้วไว้ ไม่ส่งเสียงย้อนหลัง
+          knownAlertIdsRef.current = new Set(next.system_alerts.map(a => a.id));
+        } else {
+          // ตรวจหาแจ้งเตือนใหม่ที่ยังไม่เคยเห็น
+          const newCriticalAlert = activeAlerts.find(
+            a => !knownAlertIdsRef.current.has(a.id) && (a.priority === 'CRITICAL' || a.source_type === 'user_emergency')
+          );
+          if (newCriticalAlert) {
+            const soundEnabled = next.alert_configs?.enable_sound_alert !== false;
+            if (soundEnabled) {
+              playAlertChime('CRITICAL');
+            }
+            // แจ้งเตือน Popup Banner บนหน้าจอแอดมินด้วย
+            setNotice({
+              text: `🚨 ${newCriticalAlert.title}`,
+              error: true
+            });
+          }
+          // อัปเดตรายการ ID ทั้งหมดที่เห็นแล้ว
+          next.system_alerts.forEach(a => knownAlertIdsRef.current.add(a.id));
+        }
+      }
 
       const liveUser = next.users?.find((item) => item.id === user?.id);
       if (liveUser) {
@@ -4996,6 +5030,7 @@ function App() {
   }
 
   useEffect(() => {
+    knownAlertIdsRef.current = null;
     if (!user) return;
     load(true);
     // Polling ทุก 3 วินาที (จากเดิม 1 วินาที) เพื่อลดภาระและป้องกันหน้าจอกระตุก
