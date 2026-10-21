@@ -5396,7 +5396,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
   // Vehicles
   const userVehicles = useMemo(() => (data.vehicles || []).filter(v => v.user_id === user.id), [data.vehicles, user.id]);
   const [vehicleModal, setVehicleModal] = useState(false);
-  const [vehicleForm, setVehicleForm] = useState({ license_plate: '', vehicle_type: 'รถเก๋ง (Sedan)', is_default: false });
+  const [vehicleForm, setVehicleForm] = useState({ license_plate: '', vehicle_type: 'รถเก๋ง (Sedan)', brand: '', model: '', color: '', is_default: false });
   const [savingVehicle, setSavingVehicle] = useState(false);
 
   // LINE testing & unlink
@@ -5534,7 +5534,7 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
         method: 'POST',
         body: JSON.stringify(vehicleForm)
       });
-      setVehicleForm({ license_plate: '', vehicle_type: 'รถเก๋ง (Sedan)', is_default: false });
+      setVehicleForm({ license_plate: '', vehicle_type: 'รถเก๋ง (Sedan)', brand: '', model: '', color: '', is_default: false });
       setVehicleModal(false);
       notify('เพิ่มยานพาหนะเรียบร้อยแล้ว');
       await reload?.();
@@ -6132,6 +6132,8 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
                   </div>
                   <span className="muted" style={{ fontSize: 12 }}>
                     ชนิด: <strong style={{ color: 'var(--text)' }}>{v.vehicle_type || 'รถเก๋ง (Sedan)'}</strong>
+                    {(v.brand || v.model) && ` · ${[v.brand, v.model].filter(Boolean).join(' ')}`}
+                    {v.color && ` (${v.color})`}
                   </span>
                   <div style={{ display: 'flex', gap: 8, marginTop: 4, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                     {!v.is_default && (
@@ -6160,69 +6162,95 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
 
           {vehicleModal && (
             <div className="modal-backdrop" onMouseDown={() => setVehicleModal(false)}>
-              <form className="booking-modal" onSubmit={handleVehicleSubmit} onMouseDown={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+              <form className="booking-modal" onSubmit={handleVehicleSubmit} onMouseDown={(e) => e.stopPropagation()}>
                 <div className="modal-head">
                   <div>
-                    <p className="eyebrow">VEHICLE MANAGER</p>
+                    <p className="eyebrow">ADD VEHICLE</p>
                     <h2>เพิ่มยานพาหนะใหม่</h2>
                   </div>
                   <button type="button" className="modal-close" onClick={() => setVehicleModal(false)}>×</button>
                 </div>
+                <p className="muted">ระบุเลขทะเบียนและเลือกชนิดรถยนต์</p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>
-                      เลขทะเบียนรถ <span style={{ color: '#f87171' }}>*</span>
-                    </label>
+                <label>
+                  เลขทะเบียนรถ <span style={{ color: '#f87171' }}>*</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="เช่น 1กข 9999 หรือ กข 1234 กทม."
+                    value={vehicleForm.license_plate}
+                    onChange={(e) => setVehicleForm({ ...vehicleForm, license_plate: e.target.value })}
+                  />
+                </label>
+
+                <label>
+                  ชนิดรถยนต์ <span style={{ color: '#f87171' }}>*</span>
+                  <select
+                    value={vehicleForm.vehicle_type}
+                    onChange={(e) => setVehicleForm({ ...vehicleForm, vehicle_type: e.target.value })}
+                  >
+                    {VEHICLE_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <label>
+                    ยี่ห้อ (ถ้ามี)
                     <input
                       type="text"
-                      required
-                      placeholder="เช่น 1กข 9999 หรือ กข 1234 กทม."
-                      value={vehicleForm.license_plate}
-                      onChange={(e) => setVehicleForm({ ...vehicleForm, license_plate: e.target.value })}
-                      style={{ width: '100%', boxSizing: 'border-box' }}
+                      placeholder="เช่น Toyota, Honda"
+                      value={vehicleForm.brand}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value })}
                     />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>
-                      ชนิดรถยนต์
-                    </label>
-                    <select
-                      value={vehicleForm.vehicle_type}
-                      onChange={(e) => setVehicleForm({ ...vehicleForm, vehicle_type: e.target.value })}
-                      style={{ width: '100%', boxSizing: 'border-box' }}
-                    >
-                      {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', margin: '4px 0' }}>
-                    <input
-                      type="checkbox"
-                      checked={vehicleForm.is_default}
-                      onChange={(e) => setVehicleForm({ ...vehicleForm, is_default: e.target.checked })}
-                      style={{ width: 'auto' }}
-                    />
-                    <span>ตั้งเป็นรถคันหลักสำหรับการจอง</span>
                   </label>
+                  <label>
+                    รุ่น (ถ้ามี)
+                    <input
+                      type="text"
+                      placeholder="เช่น Civic, Camry"
+                      value={vehicleForm.model}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+                    />
+                  </label>
+                </div>
 
-                  <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                    <button
-                      type="submit"
-                      disabled={savingVehicle}
-                      className={`button primary full ${savingVehicle ? 'is-busy' : ''}`}
-                    >
-                      {savingVehicle ? '⏳ กำลังบันทึก...' : 'บันทึกข้อมูลรถ'}
-                    </button>
-                    <button
-                      type="button"
-                      className="button"
-                      onClick={() => setVehicleModal(false)}
-                    >
-                      ยกเลิก
-                    </button>
-                  </div>
+                <label>
+                  สีรถยนต์ (ถ้ามี)
+                  <input
+                    type="text"
+                    placeholder="เช่น ขาว, ดำ, เทา, บรอนซ์"
+                    value={vehicleForm.color}
+                    onChange={(e) => setVehicleForm({ ...vehicleForm, color: e.target.value })}
+                  />
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', margin: '8px 0' }}>
+                  <input
+                    type="checkbox"
+                    checked={vehicleForm.is_default}
+                    onChange={(e) => setVehicleForm({ ...vehicleForm, is_default: e.target.checked })}
+                    style={{ width: 'auto' }}
+                  />
+                  <span style={{ fontSize: 13 }}>ตั้งเป็นรถคันหลัก (เลือกอัตโนมัติเมื่อทำการจอง)</span>
+                </label>
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                  <button
+                    type="submit"
+                    disabled={savingVehicle}
+                    className={`button primary full ${savingVehicle ? 'is-busy' : ''}`}
+                  >
+                    {savingVehicle ? 'กำลังบันทึก...' : 'บันทึกข้อมูลรถ'}
+                  </button>
+                  <button
+                    type="button"
+                    className="button"
+                    onClick={() => setVehicleModal(false)}
+                  >
+                    ยกเลิก
+                  </button>
                 </div>
               </form>
             </div>
