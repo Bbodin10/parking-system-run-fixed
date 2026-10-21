@@ -595,6 +595,27 @@ app.post('/api/auth/change-password', auth, async (req, res) => {
     res.status(500).json({ error: e.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ' });
   }
 });
+
+app.patch('/api/auth/profile', auth, async (req, res) => {
+  try {
+    const patch = {};
+    if (typeof req.body.name === 'string' && req.body.name.trim()) {
+      patch.name = req.body.name.trim();
+    }
+    if (typeof req.body.email === 'string' && req.body.email.trim()) {
+      patch.email = req.body.email.trim().toLowerCase();
+    }
+    if (!Object.keys(patch).length) {
+      return res.status(400).json({ error: 'ไม่มีข้อมูลที่ต้องอัปเดต' });
+    }
+    patch.updated_at = new Date().toISOString();
+    const { data, error } = await db.from('users').update(patch).eq('id', req.user.id).select('id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at').single();
+    if (error) throw error;
+    res.json({ ok: true, user: data, message: 'อัปเดตข้อมูลบัญชีสำเร็จ' });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
 app.get('/api/bootstrap', auth, async (req, res) => {
   try {
     await lifecycle(); const out = {}; const required = ['slots', 'bookings', 'credit_history', 'devices']; const optional = ['credit_requests', 'maintenance_logs', 'parking_maps', 'vehicles']; const userFields = 'id,username,email,name,role,tier,credit,status,line_user_id,line_link_code,created_at'; let usersQuery = db.from('users').select(userFields); if (req.user.role !== 'admin') usersQuery = usersQuery.eq('id', req.user.id); const { data: users, error: userError } = await usersQuery; if (userError) throw userError; out.users = users || []; for (const table of required) { let query = db.from(table).select('*'); if (req.user.role !== 'admin' && ['bookings', 'credit_history'].includes(table)) query = query.eq('user_id', req.user.id); const { data, error } = await query; if (error) throw error; out[table] = data || []; }

@@ -868,10 +868,10 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
             type="button"
             className="button compact"
             style={{ padding: '6px 10px', fontSize: 13 }}
-            onClick={() => setShowPasswordModal(true)}
-            title="เปลี่ยนรหัสผ่านการใช้งาน"
+            onClick={() => setView('settings')}
+            title="การตั้งค่า"
           >
-            🔑
+            ⚙️
           </button>
           <button
             type="button"
@@ -951,13 +951,13 @@ function Header({ user, theme, toggleTheme, onLogout, lastUpdated, data, setView
             background: 'rgba(255, 255, 255, 0.05)',
             borderColor: 'var(--border)'
           }}
-          onClick={() => setShowPasswordModal(true)}
-          title="เปลี่ยนรหัสผ่านการใช้งาน"
+          onClick={() => setView('settings')}
+          title="การตั้งค่าระบบและบัญชี"
         >
-          <span>🔑</span>
-          <span>เปลี่ยนรหัสผ่าน</span>
+          <span>⚙️</span>
+          <span>ตั้งค่า</span>
         </button>
-        <span className="avatar">{user.name?.slice(0, 1)}</span>
+        <span className="avatar" style={{ cursor: 'pointer' }} onClick={() => setView('settings')} title="เปิดการตั้งค่าบัญชี">{user.name?.slice(0, 1)}</span>
         <button className="button compact logout-btn-desktop" onClick={onLogout}>ออกจากระบบ</button>
       </div>
 
@@ -988,12 +988,14 @@ function Sidebar({ user, view, setView, activeAlertCount = 0 }) {
       ['users', '♙', 'จัดการผู้ใช้'],
       ['devices', '⌁', 'อุปกรณ์ / ไม้กั้น'],
       ['alerts', activeAlertCount > 0 ? '🔴' : '●', `แจ้งเตือน & ข้อผิดพลาด${activeAlertCount > 0 ? ` (${activeAlertCount})` : ''}`],
-      ['layout', '⊞', 'จัดการผังลานจอด']
+      ['layout', '⊞', 'จัดการผังลานจอด'],
+      ['settings', '⚙️', 'การตั้งค่า']
     ]
     : [
       ['booking', 'P', 'จองที่จอดรถ'],
       ['control', '⌁', 'ควบคุมช่องจอด'],
-      ['history', '▤', 'ประวัติของฉัน']
+      ['history', '▤', 'ประวัติของฉัน'],
+      ['settings', '⚙️', 'การตั้งค่า']
     ];
   return <aside className="sidebar">{items.map(([id, icon, label]) =>
     <button key={id} className={`nav-item ${view === id ? 'active' : ''}`} onClick={() => setView(id)}><span>{icon}</span>{label}</button>
@@ -5414,6 +5416,970 @@ function AdminLayout({ data, reload, notify }) {
   );
 }
 
+function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme, onLogout, setView }) {
+  const [activeTab, setActiveTab] = useState('profile');
+  const [copiedId, setCopiedId] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Profile Form
+  const [profileForm, setProfileForm] = useState({
+    name: user.name || '',
+    email: user.email || ''
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Password Form
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState({ text: '', error: false });
+
+  // Sound preference
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('parking_sound_enabled') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleSound = (enabled) => {
+    setSoundEnabled(enabled);
+    try {
+      localStorage.setItem('parking_sound_enabled', enabled ? 'true' : 'false');
+    } catch {}
+    notify(enabled ? 'เปิดเสียงแจ้งเตือนระบบแล้ว' : 'ปิดเสียงแจ้งเตือนระบบแล้ว');
+  };
+
+  // Vehicles
+  const userVehicles = useMemo(() => (data.vehicles || []).filter(v => v.user_id === user.id), [data.vehicles, user.id]);
+  const [vehicleModal, setVehicleModal] = useState(false);
+  const [vehicleForm, setVehicleForm] = useState({ license_plate: '', vehicle_type: 'รถเก๋ง (Sedan)', is_default: false });
+  const [savingVehicle, setSavingVehicle] = useState(false);
+
+  // LINE testing & unlink
+  const [testingLine, setTestingLine] = useState(false);
+  const [unlinkingLine, setUnlinkingLine] = useState(false);
+
+  const copyText = (text, type) => {
+    if (!text) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      if (type === 'id') {
+        setCopiedId(true);
+        setTimeout(() => setCopiedId(false), 2000);
+      } else if (type === 'link') {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+      }
+      notify('คัดลอกลงคลิปบอร์ดแล้ว');
+    } catch {
+      notify('ไม่สามารถคัดลอกได้อัตโนมัติ', true);
+    }
+  };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    if (!profileForm.name.trim()) {
+      notify('กรุณาระบุชื่อ-นามสกุล', true);
+      return;
+    }
+    setSavingProfile(true);
+    try {
+      const res = await api('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(profileForm)
+      });
+      if (res.user) {
+        localStorage.user = JSON.stringify(res.user);
+      }
+      notify('บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว');
+      await reload?.();
+    } catch (err) {
+      notify(err.message || 'บันทึกข้อมูลไม่สำเร็จ', true);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordMsg({ text: '', error: false });
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      setPasswordMsg({ text: 'กรุณากรอกรหัสผ่านปัจจุบันและรหัสผ่านใหม่', error: true });
+      return;
+    }
+    if (passwordForm.newPassword.length < 4) {
+      setPasswordMsg({ text: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 4 ตัวอักษร', error: true });
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordMsg({ text: 'รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน', error: true });
+      return;
+    }
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      setPasswordMsg({ text: 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม', error: true });
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const res = await api('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword
+        })
+      });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordMsg({ text: res.message || 'เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว!', error: false });
+      notify('เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว!');
+    } catch (err) {
+      setPasswordMsg({ text: err.message || 'เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', error: true });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const handleTestLine = async () => {
+    if (!user.line_user_id) return;
+    setTestingLine(true);
+    try {
+      await api('/auth/line/test-message', { method: 'POST' });
+      notify('ส่งข้อความทดสอบเข้า LINE บัญชีของคุณเรียบร้อยแล้ว!');
+    } catch (err) {
+      notify(err.message || 'ส่งข้อความทดสอบไม่สำเร็จ', true);
+    } finally {
+      setTestingLine(false);
+    }
+  };
+
+  const handleUnlinkLine = async () => {
+    if (!window.confirm('ยืนยันยกเลิกการเชื่อมต่อ LINE กับบัญชีนี้หรือไม่?')) return;
+    setUnlinkingLine(true);
+    try {
+      const res = await api('/auth/line/unlink', { method: 'POST' });
+      if (res.user) {
+        localStorage.user = JSON.stringify(res.user);
+      }
+      notify('ยกเลิกการเชื่อมต่อ LINE เรียบร้อยแล้ว');
+      await reload?.();
+    } catch (err) {
+      notify(err.message || 'ยกเลิกการเชื่อมต่อไม่สำเร็จ', true);
+    } finally {
+      setUnlinkingLine(false);
+    }
+  };
+
+  const handleVehicleSubmit = async (e) => {
+    e.preventDefault();
+    if (!vehicleForm.license_plate.trim()) {
+      notify('กรุณาระบุเลขทะเบียนรถ', true);
+      return;
+    }
+    setSavingVehicle(true);
+    try {
+      await api('/vehicles', {
+        method: 'POST',
+        body: JSON.stringify(vehicleForm)
+      });
+      setVehicleForm({ license_plate: '', vehicle_type: 'รถเก๋ง (Sedan)', is_default: false });
+      setVehicleModal(false);
+      notify('เพิ่มยานพาหนะเรียบร้อยแล้ว');
+      await reload?.();
+    } catch (err) {
+      notify(err.message || 'บันทึกข้อมูลรถไม่สำเร็จ', true);
+    } finally {
+      setSavingVehicle(false);
+    }
+  };
+
+  const handleSetDefaultVehicle = async (vehicleId) => {
+    try {
+      await api(`/vehicles/${vehicleId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_default: true })
+      });
+      notify('ตั้งเป็นรถคันหลักเรียบร้อยแล้ว');
+      await reload?.();
+    } catch (err) {
+      notify(err.message || 'ตั้งค่าไม่สำเร็จ', true);
+    }
+  };
+
+  const handleDeleteVehicle = async (vehicleId, plate) => {
+    if (!window.confirm(`ยืนยันลบรถทะเบียน ${plate} ออกจากระบบหรือไม่?`)) return;
+    try {
+      await api(`/vehicles/${vehicleId}`, { method: 'DELETE' });
+      notify('ลบยานพาหนะเรียบร้อยแล้ว');
+      await reload?.();
+    } catch (err) {
+      notify(err.message || 'ลบไม่สำเร็จ', true);
+    }
+  };
+
+  return (
+    <div className="settings-shell">
+      <PageHead
+        title="การตั้งค่าระบบ & บัญชีผู้ใช้งาน"
+        description="ศูนย์รวมการจัดการข้อมูลส่วนตัว ไอดีผู้ใช้งาน รหัสผ่าน ธีมสี การแจ้งเตือน LINE และยานพาหนะของคุณ"
+      />
+
+      <div className="settings-tabs">
+        <button
+          type="button"
+          className={`settings-tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          <span>👤</span>
+          <span>ข้อมูลบัญชี & ไอดี</span>
+        </button>
+        <button
+          type="button"
+          className={`settings-tab-btn ${activeTab === 'security' ? 'active' : ''}`}
+          onClick={() => setActiveTab('security')}
+        >
+          <span>🔐</span>
+          <span>รหัสผ่าน & ความปลอดภัย</span>
+        </button>
+        <button
+          type="button"
+          className={`settings-tab-btn ${activeTab === 'theme' ? 'active' : ''}`}
+          onClick={() => setActiveTab('theme')}
+        >
+          <span>🎨</span>
+          <span>ธีมสี & รูปลักษณ์</span>
+        </button>
+        <button
+          type="button"
+          className={`settings-tab-btn ${activeTab === 'line' ? 'active' : ''}`}
+          onClick={() => setActiveTab('line')}
+        >
+          <span>💬</span>
+          <span>การแจ้งเตือน & LINE</span>
+        </button>
+        <button
+          type="button"
+          className={`settings-tab-btn ${activeTab === 'vehicles' ? 'active' : ''}`}
+          onClick={() => setActiveTab('vehicles')}
+        >
+          <span>🚗</span>
+          <span>ยานพาหนะ ({userVehicles.length})</span>
+        </button>
+        {user.role === 'admin' && (
+          <button
+            type="button"
+            className={`settings-tab-btn ${activeTab === 'admin' ? 'active' : ''}`}
+            onClick={() => setActiveTab('admin')}
+          >
+            <span>⚙️</span>
+            <span>ระบบผู้ดูแล (Admin)</span>
+          </button>
+        )}
+      </div>
+
+      {/* TAB 1: Profile & Account ID */}
+      {activeTab === 'profile' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <section className="settings-card">
+            <div className="settings-profile-banner">
+              <div className="settings-avatar-big">
+                {user.name?.slice(0, 1) || 'U'}
+              </div>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                  <h2 style={{ margin: 0, fontSize: 20, color: 'var(--text-strong)' }}>{user.name || user.username}</h2>
+                  <span className={`badge ${user.role === 'admin' ? 'available' : 'unavailable'}`}>
+                    {user.role === 'admin' ? '🛡️ ผู้ดูแลระบบ' : '👤 ลูกค้าทั่วไป'}
+                  </span>
+                  {user.tier && (
+                    <span className="badge available" style={{ background: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8', color: '#38bdf8' }}>
+                      ⭐ {user.tier}
+                    </span>
+                  )}
+                </div>
+                <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+                  @{user.username} {user.email ? `· ${user.email}` : ''}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span className="muted" style={{ fontSize: 12, display: 'block' }}>ยอดเครดิตคงเหลือ</span>
+                <strong style={{ fontSize: 22, color: 'var(--cyan)', fontFamily: 'JetBrains Mono' }}>
+                  ฿{formatMoney(user.credit)}
+                </strong>
+                {user.role !== 'admin' && (
+                  <button
+                    type="button"
+                    className="button primary compact"
+                    style={{ marginTop: 6, display: 'block', width: '100%' }}
+                    onClick={() => setView('history')}
+                  >
+                    + ขอเติมเครดิต
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <h3 style={{ fontSize: 15, margin: '0 0 12px', color: 'var(--text-strong)' }}>ข้อมูลระบุตัวตนและไอดีบัญชี (Account Identifiers)</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+              <div style={{ background: 'var(--surface2)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <span className="muted" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>ไอดีผู้ใช้งาน (User ID)</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                  <code style={{ fontSize: 12, color: 'var(--cyan)', wordBreak: 'break-all' }}>{user.id}</code>
+                  <button
+                    type="button"
+                    className="copy-mini-btn"
+                    onClick={() => copyText(user.id, 'id')}
+                  >
+                    {copiedId ? '✓ คัดลอกแล้ว' : 'คัดลอก'}
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface2)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <span className="muted" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>รหัสผูกบัญชี LINE (Link Code)</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                  <strong style={{ fontSize: 15, color: '#10b981', fontFamily: 'JetBrains Mono', letterSpacing: 1 }}>
+                    {user.line_link_code || '-'}
+                  </strong>
+                  {user.line_link_code && (
+                    <button
+                      type="button"
+                      className="copy-mini-btn"
+                      onClick={() => copyText(user.line_link_code, 'link')}
+                    >
+                      {copiedLink ? '✓ คัดลอกแล้ว' : 'คัดลอก'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface2)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <span className="muted" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>สถานะบัญชี (Account Status)</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, color: 'var(--green)' }}>
+                  <span>🟢 ปกติ (Active)</span>
+                </div>
+              </div>
+
+              <div style={{ background: 'var(--surface2)', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <span className="muted" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>วันที่สร้างบัญชี</span>
+                <span style={{ fontSize: 13, color: 'var(--text)' }}>
+                  {user.created_at ? new Date(user.created_at).toLocaleDateString('th-TH', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' }) : '-'}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section className="settings-card">
+            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>แก้ไขข้อมูลส่วนตัว</h3>
+            <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>อัปเดตชื่อผู้ใช้งานและอีเมลสำหรับการติดต่อ</p>
+
+            <form onSubmit={handleProfileSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 540 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                  ชื่อ-นามสกุล <span style={{ color: '#f87171' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                  placeholder="ระบุชื่อ-นามสกุลของคุณ"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                  อีเมล (Email)
+                </label>
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                  placeholder="example@domain.com"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                  ชื่อผู้ใช้ในระบบ (Username)
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={user.username || ''}
+                  style={{ width: '100%', boxSizing: 'border-box', opacity: 0.6, cursor: 'not-allowed' }}
+                />
+                <small className="muted" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                  ชื่อผู้ใช้ไม่สามารถเปลี่ยนแปลงได้หลังการลงทะเบียน
+                </small>
+              </div>
+
+              <div style={{ marginTop: 8 }}>
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className={`button primary ${savingProfile ? 'is-busy' : ''}`}
+                  style={{ padding: '9px 20px', fontWeight: 600 }}
+                >
+                  {savingProfile ? '⏳ กำลังบันทึกข้อมูล...' : '💾 บันทึกข้อมูลส่วนตัว'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {/* TAB 2: Security & Password */}
+      {activeTab === 'security' && (
+        <section className="settings-card">
+          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>🔐 เปลี่ยนรหัสผ่านการใช้งาน</h3>
+          <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
+            แนะนำให้ตั้งรหัสผ่านที่มีความยาวอย่างน้อย 4 ตัวอักษรขึ้นไป และหมั่นเปลี่ยนรหัสผ่านเป็นประจำเพื่อความปลอดภัย
+          </p>
+
+          {passwordMsg.text && (
+            <div className={`alert ${passwordMsg.error ? 'error' : 'success'}`} style={{ marginBottom: 16, padding: '10px 14px' }}>
+              <span>{passwordMsg.text}</span>
+            </div>
+          )}
+
+          <form onSubmit={handlePasswordSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 540 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                รหัสผ่านปัจจุบัน <span style={{ color: '#f87171' }}>*</span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  required
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  placeholder="ระบุรหัสผ่านเดิม"
+                  style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--muted)', padding: 4 }}
+                >
+                  {showCurrentPassword ? '👁️' : '🔒'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                รหัสผ่านใหม่ <span style={{ color: '#f87171' }}>*</span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  required
+                  value={passwordForm.newPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  placeholder="ระบุรหัสผ่านใหม่ (อย่างน้อย 4 ตัวอักษร)"
+                  style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--muted)', padding: 4 }}
+                >
+                  {showNewPassword ? '👁️' : '🔒'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                ยืนยันรหัสผ่านใหม่ <span style={{ color: '#f87171' }}>*</span>
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  required
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  placeholder="พิมพ์รหัสผ่านใหม่อีกครั้ง"
+                  style={{ width: '100%', paddingRight: 40, boxSizing: 'border-box' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: 'var(--muted)', padding: 4 }}
+                >
+                  {showConfirmPassword ? '👁️' : '🔒'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 8 }}>
+              <button
+                type="submit"
+                disabled={savingPassword}
+                className={`button primary ${savingPassword ? 'is-busy' : ''}`}
+                style={{ padding: '9px 20px', fontWeight: 600 }}
+              >
+                {savingPassword ? '⏳ กำลังอัปเดตรหัสผ่าน...' : '🔐 ยืนยันเปลี่ยนรหัสผ่าน'}
+              </button>
+            </div>
+          </form>
+
+          <div style={{ marginTop: 24, padding: '12px 16px', borderRadius: 10, background: 'rgba(54, 220, 201, 0.08)', border: '1px solid rgba(54, 220, 201, 0.25)', fontSize: 12.5, lineHeight: 1.5, color: 'var(--muted)' }}>
+            <strong style={{ color: 'var(--cyan)', display: 'block', marginBottom: 2 }}>ℹ️ มาตรการความปลอดภัย:</strong>
+            เมื่อมีการเปลี่ยนรหัสผ่านสำเร็จ ระบบจะส่งข้อความแจ้งเตือนความปลอดภัยไปยัง LINE บัญชีของคุณโดยอัตโนมัติ เพื่อป้องกันการถูกสวมรอย
+          </div>
+        </section>
+      )}
+
+      {/* TAB 3: Theme & Appearance */}
+      {activeTab === 'theme' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <section className="settings-card">
+            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>🎨 เลือกธีมสีระบบ (Theme & Color Mode)</h3>
+            <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
+              เลือกลักษณะการแสดงผลที่เหมาะกับสภาพแวดล้อมของคุณ โดยระบบจะจดจำการตั้งค่านี้ไว้ในเบราว์เซอร์ของคุณโดยอัตโนมัติ
+            </p>
+
+            <div className="theme-selector-grid">
+              {/* Dark Theme Card */}
+              <div
+                className={`theme-card ${theme === 'dark' ? 'active' : ''}`}
+                onClick={() => setTheme('dark')}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>🌙</span>
+                    <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ธีมมืด (Dark Mode)</strong>
+                  </div>
+                  {theme === 'dark' && (
+                    <span className="badge available" style={{ fontSize: 11, padding: '2px 8px' }}>✓ ใช้งานอยู่</span>
+                  )}
+                </div>
+
+                <div className="theme-preview-box dark-preview">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: '#36dcc9', fontWeight: 700 }}>SMART PARKING</span>
+                    <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.2)', color: '#4ade80', padding: '1px 5px', borderRadius: 4 }}>LIVE</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, margin: '4px 0' }}>
+                    <span style={{ fontSize: 10, background: '#1e293b', padding: '3px 8px', borderRadius: 4, color: '#94a3b8' }}>A1 ว่าง</span>
+                    <span style={{ fontSize: 10, background: '#3f1d24', padding: '3px 8px', borderRadius: 4, color: '#f87171' }}>A2 จอง</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: '#64748b' }}>โหมดกลางคืน คมชัดระดับ OLED</div>
+                </div>
+
+                <p className="muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.45 }}>
+                  โทนสีมืดไฮเทค สบายตา ลดแสงสะท้อน และช่วยประหยัดพลังงานหน้าจอ
+                </p>
+              </div>
+
+              {/* Light Theme Card */}
+              <div
+                className={`theme-card ${theme === 'light' ? 'active' : ''}`}
+                onClick={() => setTheme('light')}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 20 }}>☀️</span>
+                    <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ธีมสว่าง (Light Mode)</strong>
+                  </div>
+                  {theme === 'light' && (
+                    <span className="badge available" style={{ fontSize: 11, padding: '2px 8px' }}>✓ ใช้งานอยู่</span>
+                  )}
+                </div>
+
+                <div className="theme-preview-box light-preview">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: '#0284c7', fontWeight: 700 }}>SMART PARKING</span>
+                    <span style={{ fontSize: 10, background: '#dcfce7', color: '#16a34a', padding: '1px 5px', borderRadius: 4 }}>LIVE</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, margin: '4px 0' }}>
+                    <span style={{ fontSize: 10, background: '#e2e8f0', padding: '3px 8px', borderRadius: 4, color: '#334155' }}>A1 ว่าง</span>
+                    <span style={{ fontSize: 10, background: '#fee2e2', padding: '3px 8px', borderRadius: 4, color: '#dc2626' }}>A2 จอง</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: '#64748b' }}>โหมดสว่าง ชัดเจน คอนทราสต์สูง</div>
+                </div>
+
+                <p className="muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.45 }}>
+                  โทนสีสว่าง สะอาดตา คอนทราสต์คมชัด เหมาะสำหรับใช้งานในห้องสว่างหรือกลางแจ้ง
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section className="settings-card">
+            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>🔔 เสียงแจ้งเตือน (Audio Preferences)</h3>
+            <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>กำหนดการส่งเสียง Chime แจ้งเตือนเมื่อมีเหตุการณ์สำคัญ</p>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 16px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+              <div>
+                <strong style={{ fontSize: 14, color: 'var(--text-strong)', display: 'block', marginBottom: 2 }}>เสียงแจ้งเตือนบนเว็บ (Audio Chime)</strong>
+                <span className="muted" style={{ fontSize: 12 }}>ส่งเสียงกระดิ่งแจ้งเตือนเมื่อมีแจ้งเตือนระดับ CRITICAL หรือผู้ใช้ส่งสัญญาณฉุกเฉิน</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className="button secondary compact"
+                  onClick={() => playAlertChime('CRITICAL')}
+                  title="ทดสอบฟังเสียงแจ้งเตือน"
+                >
+                  🔊 ทดสอบเสียง
+                </button>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={soundEnabled}
+                    onChange={(e) => toggleSound(e.target.checked)}
+                    style={{ width: 18, height: 18, cursor: 'pointer' }}
+                  />
+                </label>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* TAB 4: LINE & Notifications */}
+      {activeTab === 'line' && (
+        <section className="settings-card">
+          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>💬 การเชื่อมต่อ LINE Bot (@302ypwvm)</h3>
+          <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
+            เชื่อมต่อบัญชีกับ LINE Bot เพื่อรับการแจ้งเตือนสถานะการจอง ใบเสร็จดิจิทัล และแจ้งเตือนใกล้หมดเวลาอัตโนมัติ
+          </p>
+
+          <div style={{
+            background: user.line_user_id ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.08)',
+            border: `1.5px solid ${user.line_user_id ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.3)'}`,
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 16
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20 }}>{user.line_user_id ? '🟢' : '🔴'}</span>
+                <div>
+                  <strong style={{ fontSize: 15, color: user.line_user_id ? 'var(--green)' : '#f87171' }}>
+                    {user.line_user_id ? 'เชื่อมต่อกับ LINE เรียบร้อยแล้ว' : 'ยังไม่ได้เชื่อมต่อ LINE'}
+                  </strong>
+                  <span className="muted" style={{ fontSize: 12, display: 'block' }}>
+                    {user.line_user_id ? 'พร้อมรับการแจ้งเตือนแบบเรียลไทม์' : 'กรุณาเชื่อมต่อเพื่อไม่ให้พลาดการแจ้งเตือนสำคัญ'}
+                  </span>
+                </div>
+              </div>
+              {user.line_link_code && (
+                <div className="settings-id-badge">
+                  <span>รหัสผูกบัญชี:</span>
+                  <strong style={{ color: '#10b981' }}>{user.line_link_code}</strong>
+                  <button type="button" className="copy-mini-btn" onClick={() => copyText(user.line_link_code, 'link')}>
+                    {copiedLink ? '✓' : 'คัดลอก'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+              {!user.line_user_id ? (
+                <>
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={() => redirectToLine('link')}
+                    style={{ background: '#06c755', borderColor: '#06c755', fontWeight: 600 }}
+                  >
+                    📲 เชื่อมต่อด่วนด้วย LINE Login
+                  </button>
+                  <a
+                    href="https://line.me/R/ti/p/@302ypwvm"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="button secondary"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    💬 เปิดแชทกับ Bot (@302ypwvm)
+                  </a>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    disabled={testingLine}
+                    className={`button primary ${testingLine ? 'is-busy' : ''}`}
+                    onClick={handleTestLine}
+                  >
+                    {testingLine ? '⏳ กำลังส่งข้อความ...' : '🔔 ทดสอบส่งข้อความเข้า LINE'}
+                  </button>
+                  <a
+                    href="https://line.me/R/ti/p/@302ypwvm"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="button secondary"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    💬 เปิดห้องแชท Bot
+                  </a>
+                  <button
+                    type="button"
+                    disabled={unlinkingLine}
+                    className={`button danger compact ${unlinkingLine ? 'is-busy' : ''}`}
+                    onClick={handleUnlinkLine}
+                  >
+                    {unlinkingLine ? '⏳ กำลังยกเลิก...' : 'ยกเลิกการเชื่อมต่อ LINE'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <h4 style={{ fontSize: 14, margin: '18px 0 10px', color: 'var(--text-strong)' }}>ประเภทการแจ้งเตือนที่คุณจะได้รับผ่าน LINE:</h4>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: 'var(--muted)', lineHeight: 1.8 }}>
+            <li><strong style={{ color: 'var(--text-strong)' }}>แจ้งเตือนก่อนถึงเวลาจอง 15 นาที:</strong> สามารถกดเปิดไม้กั้นล่วงหน้าได้</li>
+            <li><strong style={{ color: 'var(--text-strong)' }}>แจ้งเตือนใกล้หมดเวลาจอง:</strong> เตือนให้เตรียมนำรถออก หรือกดจบการจอดเพื่อไม่ให้เสียค่าบริการส่วนเกิน</li>
+            <li><strong style={{ color: 'var(--text-strong)' }}>ใบเสร็จ & สลิปดิจิทัล:</strong> สรุปยอดเงินและระยะเวลาจอดทันทีที่กดจบการจอดหรือรถออกจากช่อง</li>
+            <li><strong style={{ color: 'var(--text-strong)' }}>แจ้งเตือนความปลอดภัย:</strong> แจ้งเตือนเมื่อมีการเปลี่ยนรหัสผ่าน หรือมีการเข้าสู่ระบบใหม่</li>
+          </ul>
+        </section>
+      )}
+
+      {/* TAB 5: Vehicles Management */}
+      {activeTab === 'vehicles' && (
+        <section className="settings-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div>
+              <h3 style={{ fontSize: 16, margin: 0, color: 'var(--text-strong)' }}>🚗 ยานพาหนะของฉัน ({userVehicles.length} คัน)</h3>
+              <p className="muted" style={{ fontSize: 13, margin: '2px 0 0' }}>บันทึกทะเบียนรถไว้เพื่อให้ระบบกรอกข้อมูลอัตโนมัติเมื่อทำการจอง</p>
+            </div>
+            <button
+              type="button"
+              className="button primary compact"
+              onClick={() => setVehicleModal(true)}
+            >
+              + เพิ่มยานพาหนะ
+            </button>
+          </div>
+
+          {userVehicles.length === 0 ? (
+            <div style={{ padding: '32px 16px', textAlign: 'center', background: 'var(--surface2)', borderRadius: 10, border: '1px dashed var(--border)' }}>
+              <span style={{ fontSize: 32, display: 'block', marginBottom: 6 }}>🚗</span>
+              <strong style={{ fontSize: 15, color: 'var(--text-strong)', display: 'block' }}>ยังไม่มีรายการยานพาหนะ</strong>
+              <p className="muted" style={{ fontSize: 13, margin: '4px 0 14px' }}>เพิ่มยานพาหนะของคุณเพื่อความสะดวกรวดเร็วในการจองที่จอดรถ</p>
+              <button
+                type="button"
+                className="button primary compact"
+                onClick={() => setVehicleModal(true)}
+              >
+                + เพิ่มรถคันแรก
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+              {userVehicles.map(v => (
+                <div key={v.id} style={{
+                  background: 'var(--surface2)',
+                  border: `1.5px solid ${v.is_default ? 'var(--cyan)' : 'var(--border)'}`,
+                  borderRadius: 10,
+                  padding: 14,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                  position: 'relative'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: 16, color: 'var(--text-strong)', fontFamily: 'JetBrains Mono' }}>
+                      {v.license_plate}
+                    </strong>
+                    {v.is_default && (
+                      <span className="badge available" style={{ fontSize: 11 }}>⭐ คันหลัก</span>
+                    )}
+                  </div>
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    ชนิด: <strong style={{ color: 'var(--text)' }}>{v.vehicle_type || 'รถเก๋ง (Sedan)'}</strong>
+                  </span>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                    {!v.is_default && (
+                      <button
+                        type="button"
+                        className="button compact secondary"
+                        style={{ fontSize: 11, flex: 1 }}
+                        onClick={() => handleSetDefaultVehicle(v.id)}
+                      >
+                        ตั้งเป็นคันหลัก
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="button compact danger"
+                      style={{ fontSize: 11, padding: '4px 10px' }}
+                      onClick={() => handleDeleteVehicle(v.id, v.license_plate)}
+                    >
+                      ลบ
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {vehicleModal && (
+            <div className="modal-backdrop" onMouseDown={() => setVehicleModal(false)}>
+              <form className="booking-modal" onSubmit={handleVehicleSubmit} onMouseDown={(e) => e.stopPropagation()} style={{ maxWidth: 440 }}>
+                <div className="modal-head">
+                  <div>
+                    <p className="eyebrow">VEHICLE MANAGER</p>
+                    <h2>เพิ่มยานพาหนะใหม่</h2>
+                  </div>
+                  <button type="button" className="modal-close" onClick={() => setVehicleModal(false)}>×</button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>
+                      เลขทะเบียนรถ <span style={{ color: '#f87171' }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="เช่น 1กข 9999 หรือ กข 1234 กทม."
+                      value={vehicleForm.license_plate}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, license_plate: e.target.value })}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 5 }}>
+                      ชนิดรถยนต์
+                    </label>
+                    <select
+                      value={vehicleForm.vehicle_type}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, vehicle_type: e.target.value })}
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    >
+                      {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', margin: '4px 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={vehicleForm.is_default}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, is_default: e.target.checked })}
+                      style={{ width: 'auto' }}
+                    />
+                    <span>ตั้งเป็นรถคันหลักสำหรับการจอง</span>
+                  </label>
+
+                  <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                    <button
+                      type="submit"
+                      disabled={savingVehicle}
+                      className={`button primary full ${savingVehicle ? 'is-busy' : ''}`}
+                    >
+                      {savingVehicle ? '⏳ กำลังบันทึก...' : 'บันทึกข้อมูลรถ'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => setVehicleModal(false)}
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* TAB 6: Admin System Links */}
+      {activeTab === 'admin' && user.role === 'admin' && (
+        <section className="settings-card">
+          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>⚙️ ทางลัดการตั้งค่าระบบผู้ดูแล (Admin Control Shortcuts)</h3>
+          <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>จัดการพารามิเตอร์ฮาร์ดแวร์ กฎการแจ้งเตือนความผิดพลาด และผังลานจอดรถ</p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+            <div
+              style={{ background: 'var(--surface2)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
+              onClick={() => setView('alerts')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 22 }}>🚨</span>
+                <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ตั้งค่าเงื่อนไขการแจ้งเตือน</strong>
+              </div>
+              <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                กำหนด Timeout อุปกรณ์ออฟไลน์, เวลาไม้กั้นค้าง, ความถี่ส่ง LINE แอดมิน, และระดับความสำคัญ
+              </p>
+            </div>
+
+            <div
+              style={{ background: 'var(--surface2)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
+              onClick={() => setView('layout')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 22 }}>⊞</span>
+                <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>จัดการผังลานจอดรถ</strong>
+              </div>
+              <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                อัปโหลดรูปภาพผังชั้น 1 และชั้น 2, ลากวางตำแหน่งช่องจอด และสลับลำดับช่อง
+              </p>
+            </div>
+
+            <div
+              style={{ background: 'var(--surface2)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
+              onClick={() => setView('devices')}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <span style={{ fontSize: 22 }}>⌁</span>
+                <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>อุปกรณ์ & ไม้กั้นประจำช่อง</strong>
+              </div>
+              <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                ดูสถานะเซ็นเซอร์ ESP32 ทั้ง 12 ช่อง และสั่งยกไม้กั้นขึ้น/ลงแบบแมนนวล
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Danger Zone: Logout */}
+      <section className="settings-card" style={{ borderColor: 'rgba(239, 68, 68, 0.25)', background: 'rgba(239, 68, 68, 0.03)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <strong style={{ fontSize: 15, color: '#f87171', display: 'block', marginBottom: 2 }}>ออกจากระบบ (Logout)</strong>
+            <span className="muted" style={{ fontSize: 12.5 }}>เคลียร์เซสชันและออกจากระบบบนอุปกรณ์นี้</span>
+          </div>
+          <button
+            type="button"
+            className="button danger compact"
+            onClick={onLogout}
+            style={{ fontWeight: 600, padding: '8px 16px' }}
+          >
+            ออกจากระบบ
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function areDataShallowEqual(prev, next) {
   if (!prev || !next) return false;
   const pSlots = prev.slots || [];
@@ -5597,11 +6563,18 @@ function App() {
     }
   }, []);
 
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('parking_theme') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
 
   useEffect(() => {
     try {
       document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('parking_theme', theme);
     } catch {
       // ignore
     }
@@ -5630,9 +6603,35 @@ function App() {
 
   const liveUser = data.users.find((item) => item.id === user.id) || user;
   const activeAlertCount = (data?.system_alerts || []).filter(a => a.status === 'active').length;
+  const settingsElement = (
+    <SettingsPage
+      data={data}
+      user={liveUser}
+      notify={notify}
+      reload={load}
+      theme={theme}
+      setTheme={setTheme}
+      toggleTheme={toggleTheme}
+      onLogout={logout}
+      setView={setView}
+    />
+  );
   const content = liveUser.role === 'admin'
-    ? { dashboard: <AdminDashboard data={data} setView={setView} />, analytics: <AdminAnalytics data={data} />, users: <AdminUsers data={data} notify={notify} />, devices: <AdminDevices data={data} reload={load} notify={notify} />, alerts: <AdminAlerts data={data} user={liveUser} reload={load} notify={notify} />, layout: <AdminLayout data={data} reload={load} notify={notify} /> }[view]
-    : { booking: <UserBooking data={data} user={liveUser} notify={notify} setView={setView} />, control: <UserControl data={data} user={liveUser} notify={notify} reload={load} />, history: <UserHistory data={data} user={liveUser} notify={notify} /> }[view];
+    ? {
+        dashboard: <AdminDashboard data={data} setView={setView} />,
+        analytics: <AdminAnalytics data={data} />,
+        users: <AdminUsers data={data} notify={notify} />,
+        devices: <AdminDevices data={data} reload={load} notify={notify} />,
+        alerts: <AdminAlerts data={data} user={liveUser} reload={load} notify={notify} />,
+        layout: <AdminLayout data={data} reload={load} notify={notify} />,
+        settings: settingsElement
+      }[view]
+    : {
+        booking: <UserBooking data={data} user={liveUser} notify={notify} setView={setView} />,
+        control: <UserControl data={data} user={liveUser} notify={notify} reload={load} />,
+        history: <UserHistory data={data} user={liveUser} notify={notify} />,
+        settings: settingsElement
+      }[view];
   return <div className="app-shell"><Header user={liveUser} onLogout={logout} lastUpdated={lastUpdated} data={data} setView={setView} notify={notify} reload={load} theme={theme} toggleTheme={toggleTheme} /><div className="body-shell"><Sidebar user={liveUser} view={view} setView={setView} activeAlertCount={activeAlertCount} /><main className="content">{notice && <div className={`alert ${notice.error ? 'error' : 'success'}`}>{notice.text}<button onClick={() => setNotice(null)}>×</button></div>}{loadError && <div className="alert error">{loadError}<button onClick={load}>ลองใหม่</button></div>}<ErrorBoundary key={view}>{content}</ErrorBoundary></main></div></div>;
 }
 
