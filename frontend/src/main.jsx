@@ -3511,6 +3511,14 @@ function AdminAlerts({ data, user, reload, notify }) {
   };
   const [config, setConfig] = useState(initialCfg);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const isDirtyRef = useRef(false);
+  isDirtyRef.current = isDirty;
+
+  const updateConfig = (patch) => {
+    setIsDirty(true);
+    setConfig(prev => ({ ...prev, ...patch }));
+  };
 
   const selectStyle = {
     padding: '7px 12px',
@@ -3529,7 +3537,7 @@ function AdminAlerts({ data, user, reload, notify }) {
   };
 
   useEffect(() => {
-    if (data.alert_configs) {
+    if (data.alert_configs && !isDirtyRef.current) {
       setConfig(prev => ({ ...prev, ...data.alert_configs }));
     }
   }, [data.alert_configs]);
@@ -3626,6 +3634,7 @@ function AdminAlerts({ data, user, reload, notify }) {
         method: 'PATCH',
         body: JSON.stringify(config)
       });
+      setIsDirty(false);
       notify('บันทึกการตั้งค่าการแจ้งเตือนและความผิดพลาดเรียบร้อยแล้ว');
       await reload?.();
     } catch (err) {
@@ -3867,7 +3876,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   <input
                     type="checkbox"
                     checked={Boolean(config.enable_offline_alert)}
-                    onChange={(e) => setConfig({ ...config, enable_offline_alert: e.target.checked })}
+                    onChange={(e) => updateConfig({ enable_offline_alert: e.target.checked })}
                   />
                   <span>แจ้งเตือนเมื่ออุปกรณ์ออฟไลน์ (Offline Timeout)</span>
                 </label>
@@ -3880,7 +3889,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                       max={600}
                       step={10}
                       value={config.offline_timeout_sec}
-                      onChange={(e) => setConfig({ ...config, offline_timeout_sec: Number(e.target.value) })}
+                      onChange={(e) => updateConfig({ offline_timeout_sec: Number(e.target.value) })}
                       style={{ width: 90, padding: '6px 10px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-strong)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600 }}
                     /> วินาที
                   </div>
@@ -3888,7 +3897,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                     <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                     <select
                       value={config.offline_priority}
-                      onChange={(e) => setConfig({ ...config, offline_priority: e.target.value })}
+                      onChange={(e) => updateConfig({ offline_priority: e.target.value })}
                       style={selectStyle}
                     >
                       <option style={{ ...optionStyle, color: '#f87171' }} value="CRITICAL">🔴 CRITICAL (วิกฤต)</option>
@@ -3904,7 +3913,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   <input
                     type="checkbox"
                     checked={Boolean(config.enable_barrier_fault_alert)}
-                    onChange={(e) => setConfig({ ...config, enable_barrier_fault_alert: e.target.checked })}
+                    onChange={(e) => updateConfig({ enable_barrier_fault_alert: e.target.checked })}
                   />
                   <span>แจ้งเตือนเมื่อไม้กั้นเปิดค้างผิดปกติ (Barrier Stuck)</span>
                 </label>
@@ -3917,7 +3926,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                       max={1800}
                       step={30}
                       value={config.barrier_stuck_sec}
-                      onChange={(e) => setConfig({ ...config, barrier_stuck_sec: Number(e.target.value) })}
+                      onChange={(e) => updateConfig({ barrier_stuck_sec: Number(e.target.value) })}
                       style={{ width: 90, padding: '6px 10px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-strong)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600 }}
                     /> วินาที ({Math.round((config.barrier_stuck_sec || 300) / 60)} นาที)
                   </div>
@@ -3925,7 +3934,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                     <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                     <select
                       value={config.barrier_fault_priority}
-                      onChange={(e) => setConfig({ ...config, barrier_fault_priority: e.target.value })}
+                      onChange={(e) => updateConfig({ barrier_fault_priority: e.target.value })}
                       style={selectStyle}
                     >
                       <option style={{ ...optionStyle, color: '#f87171' }} value="CRITICAL">🔴 CRITICAL (วิกฤต)</option>
@@ -3940,7 +3949,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   <input
                     type="checkbox"
                     checked={Boolean(config.enable_sensor_flapping_alert)}
-                    onChange={(e) => setConfig({ ...config, enable_sensor_flapping_alert: e.target.checked })}
+                    onChange={(e) => updateConfig({ enable_sensor_flapping_alert: e.target.checked })}
                   />
                   <span>แจ้งเตือนเมื่อเซนเซอร์อ่านค่าสลับเร็ว (Flapping)</span>
                 </label>
@@ -3950,7 +3959,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                     <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                     <select
                       value={config.sensor_flapping_priority}
-                      onChange={(e) => setConfig({ ...config, sensor_flapping_priority: e.target.value })}
+                      onChange={(e) => updateConfig({ sensor_flapping_priority: e.target.value })}
                       style={selectStyle}
                     >
                       <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH (สำคัญ)</option>
@@ -3973,7 +3982,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   <input
                     type="checkbox"
                     checked={Boolean(config.enable_noshow_alert)}
-                    onChange={(e) => setConfig({ ...config, enable_noshow_alert: e.target.checked })}
+                    onChange={(e) => updateConfig({ enable_noshow_alert: e.target.checked })}
                   />
                   <span>แจ้งเตือนเมื่อตัดสิทธิ์ No-Show (เกิน 15 นาที)</span>
                 </label>
@@ -3981,7 +3990,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                   <select
                     value={config.noshow_priority}
-                    onChange={(e) => setConfig({ ...config, noshow_priority: e.target.value })}
+                    onChange={(e) => updateConfig({ noshow_priority: e.target.value })}
                     style={selectStyle}
                   >
                     <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH (สำคัญ)</option>
@@ -3995,7 +4004,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   <input
                     type="checkbox"
                     checked={Boolean(config.enable_overtime_alert)}
-                    onChange={(e) => setConfig({ ...config, enable_overtime_alert: e.target.checked })}
+                    onChange={(e) => updateConfig({ enable_overtime_alert: e.target.checked })}
                   />
                   <span>แจ้งเตือนเมื่อจอดรถเกินเวลา (Overtime เกิน 15 นาที)</span>
                 </label>
@@ -4003,7 +4012,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   <span className="muted" style={{ fontWeight: 600 }}>ระดับความสำคัญ: </span>
                   <select
                     value={config.overtime_priority}
-                    onChange={(e) => setConfig({ ...config, overtime_priority: e.target.value })}
+                    onChange={(e) => updateConfig({ overtime_priority: e.target.value })}
                     style={selectStyle}
                   >
                     <option style={{ ...optionStyle, color: '#fbbf24' }} value="HIGH">🟠 HIGH (สำคัญ)</option>
@@ -4163,7 +4172,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   <input
                     type="checkbox"
                     checked={Boolean(config.enable_line_admin_notify)}
-                    onChange={(e) => setConfig({ ...config, enable_line_admin_notify: e.target.checked })}
+                    onChange={(e) => updateConfig({ enable_line_admin_notify: e.target.checked })}
                   />
                   <span>ส่งแจ้งเตือนเข้า LINE ของแอดมิน (LINE Push)</span>
                 </label>
@@ -4172,7 +4181,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                     <span className="muted" style={{ fontWeight: 600, display: 'block', marginBottom: 4 }}>ส่งเฉพาะระดับ: </span>
                     <select
                       value={config.line_admin_min_priority}
-                      onChange={(e) => setConfig({ ...config, line_admin_min_priority: e.target.value })}
+                      onChange={(e) => updateConfig({ line_admin_min_priority: e.target.value })}
                       style={{ ...selectStyle, width: '100%' }}
                     >
                       <option style={{ ...optionStyle, color: '#f87171' }} value="CRITICAL">🔴 ส่งเฉพาะระดับ CRITICAL เท่านั้น (วิกฤต)</option>
@@ -4194,7 +4203,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                       min={1}
                       max={120}
                       value={config.cooldown_minutes}
-                      onChange={(e) => setConfig({ ...config, cooldown_minutes: Number(e.target.value) })}
+                      onChange={(e) => updateConfig({ cooldown_minutes: Number(e.target.value) })}
                       style={{ width: 80, padding: '6px 10px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text-strong)', border: '1.5px solid var(--border)', fontSize: 13, fontWeight: 600 }}
                     /> นาที
                   </div>
@@ -4207,7 +4216,7 @@ function AdminAlerts({ data, user, reload, notify }) {
                   <input
                     type="checkbox"
                     checked={Boolean(config.enable_sound_alert)}
-                    onChange={(e) => setConfig({ ...config, enable_sound_alert: e.target.checked })}
+                    onChange={(e) => updateConfig({ enable_sound_alert: e.target.checked })}
                   />
                   <span>เสียงแจ้งเตือนบนหน้าเว็บแดชบอร์ด (Audio Chime)</span>
                 </label>
@@ -4218,10 +4227,34 @@ function AdminAlerts({ data, user, reload, notify }) {
             </div>
           </section>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-            <button type="submit" className="button primary" disabled={savingConfig}>
-              {savingConfig ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่าการแจ้งเตือน'}
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
+            <div>
+              {isDirty && (
+                <span style={{ fontSize: 13, color: 'var(--amber)', display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                  <span>⚠️</span>
+                  <span>มีการแก้ไขที่ยังไม่ได้บันทึก (ระบบจะไม่รีเฟรชทับ)</span>
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              {isDirty && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={savingConfig}
+                  onClick={() => {
+                    if (data.alert_configs) setConfig({ ...data.alert_configs });
+                    setIsDirty(false);
+                    notify('คืนค่าการตั้งค่าเดิมเรียบร้อย');
+                  }}
+                >
+                  คืนค่าเดิม
+                </button>
+              )}
+              <button type="submit" className="button primary" disabled={savingConfig}>
+                {savingConfig ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่าการแจ้งเตือน'}
+              </button>
+            </div>
           </div>
         </form>
       )}
