@@ -1215,16 +1215,22 @@ async function processBatchTelemetry(deviceId, slotReadings) {
 
       let gateOpen = barrier?.state === 'open';
 
-      // ตรวจสอบความปลอดภัย: หากช่องว่าง (ไม่มีรถจอด) และไม่มีการจองที่รอเข้าจอดหรือกำลังจอดอยู่ ไม้กั้นต้องอยู่ในสถานะปิดทุกจุด
-      if (!isOccupied && gateOpen) {
+      // ตรวจสอบความปลอดภัยและการออกจากช่องจอด:
+      if (!isOccupied) {
         const { data: activeBooking } = await db.from('bookings')
-          .select('id, status')
+          .select('*')
           .eq('slot_id', slotId)
           .in('status', ['pending', 'active'])
           .limit(1)
           .maybeSingle();
 
-        if (!activeBooking) {
+        // 1. ถ้ารถเคยเข้าจอดแล้ว (active หรือ entry_verified) และตรวจไม่พบรถในช่องแล้ว -> จบการจอดทันที และปิดไม้กั้น
+        if (activeBooking && (activeBooking.status === 'active' || activeBooking.entry_verified)) {
+          gateOpen = false;
+          await db.from('devices').update({ state: 'closed', updated_at: now }).eq('type', 'barrier').eq('linked_slot', slotId);
+          await finishBooking(activeBooking, 'sensor-exit');
+        } else if (!activeBooking && gateOpen) {
+          // 2. หากไม่มีการจองค้างอยู่ และช่องว่าง ไม้กั้นต้องอยู่ในสถานะปิดเสมอ
           gateOpen = false;
           await db.from('devices').update({ state: 'closed', updated_at: now }).eq('type', 'barrier').eq('linked_slot', slotId);
         }
