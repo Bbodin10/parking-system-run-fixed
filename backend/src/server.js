@@ -1215,22 +1215,46 @@ async function processBatchTelemetry(deviceId, slotReadings) {
 
       let gateOpen = barrier?.state === 'open';
 
-      // ตรวจสอบความปลอดภัยและการออกจากช่องจอด:
-      if (!isOccupied) {
+      // จัดการสถานะการเข้าจอดและการออกจากช่องจอดแบบเรียลไทม์
+      if (isOccupied) {
+        // เมื่อตรวจพบรถในช่องจอด: ยืนยันการเข้าจอดและปรับสถานะการจองเป็น active ทันที
+        await db.from('bookings')
+          .update({
+            status: 'active',
+            entry_verified: true,
+            entry_time: now,
+          })
+          .eq('slot_id', slotId)
+          .eq('status', 'pending');
+      } else {
+        // เมื่อช่องจอดว่าง (เซ็นเซอร์ตรวจไม่พบรถ):
         const { data: activeBooking } = await db.from('bookings')
           .select('*')
           .eq('slot_id', slotId)
           .in('status', ['pending', 'active'])
+          .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        // 1. ถ้ารถเคยเข้าจอดแล้ว (active หรือ entry_verified) และตรวจไม่พบรถในช่องแล้ว -> จบการจอดทันที และปิดไม้กั้น
-        if (activeBooking && (activeBooking.status === 'active' || activeBooking.entry_verified)) {
-          gateOpen = false;
-          await db.from('devices').update({ state: 'closed', updated_at: now }).eq('type', 'barrier').eq('linked_slot', slotId);
-          await finishBooking(activeBooking, 'sensor-exit');
-        } else if (!activeBooking && gateOpen) {
-          // 2. หากไม่มีการจองค้างอยู่ และช่องว่าง ไม้กั้นต้องอยู่ในสถานะปิดเสมอ
+        if (activeBooking) {
+          // 1. ถ้ารถเคยเข้าจอดแล้ว (active หรือ entry_verified) และออกจากช่องจอดแล้ว -> จบการจอดทันที ปิดไม้กั้น และตัดการควบคุม
+          const isDeparting = activeBooking.status === 'active' || activeBooking.entry_verified;
+          if (isDeparting) {
+            gateOpen = false;
+            await db.from('devices').update({ state: 'closed', updated_at: now }).eq('type', 'barrier').eq('linked_slot', slotId);
+            await finishBooking(activeBooking, 'sensor-exit');
+          } else if (gateOpen) {
+            // 2. กรณีการจองยังเป็น pending แต่ไม้กั้นเปิดค้างไว้เกิน 20 วินาทีและตรวจไม่พบรถ -> ปิดไม้กั้นและจบการจอด
+            const barrierOpenTime = barrier?.updated_at ? new Date(barrier.updated_at).getTime() : 0;
+            const openDurationSec = (Date.now() - barrierOpenTime) / 1000;
+            if (openDurationSec > 20) {
+              gateOpen = false;
+              await db.from('devices').update({ state: 'closed', updated_at: now }).eq('type', 'barrier').eq('linked_slot', slotId);
+              await finishBooking(activeBooking, 'sensor-exit');
+            }
+          }
+        } else if (gateOpen) {
+          // 3. หากไม่มีการจองค้างอยู่ และช่องว่าง ไม้กั้นต้องอยู่ในสถานะปิดเสมอ
           gateOpen = false;
           await db.from('devices').update({ state: 'closed', updated_at: now }).eq('type', 'barrier').eq('linked_slot', slotId);
         }
