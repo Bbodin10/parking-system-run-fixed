@@ -5376,20 +5376,40 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState({ text: '', error: false });
 
-  // Sound preference
+  // Sound preference (สำหรับผู้ดูแลระบบ)
   const [soundEnabled, setSoundEnabled] = useState(() => {
     try {
+      if (data?.alert_configs?.enable_sound_alert !== undefined) {
+        return Boolean(data.alert_configs.enable_sound_alert);
+      }
       return localStorage.getItem('parking_sound_enabled') !== 'false';
     } catch {
       return true;
     }
   });
 
-  const toggleSound = (enabled) => {
+  useEffect(() => {
+    if (data?.alert_configs?.enable_sound_alert !== undefined) {
+      setSoundEnabled(Boolean(data.alert_configs.enable_sound_alert));
+    }
+  }, [data?.alert_configs?.enable_sound_alert]);
+
+  const toggleSound = async (enabled) => {
     setSoundEnabled(enabled);
     try {
       localStorage.setItem('parking_sound_enabled', enabled ? 'true' : 'false');
     } catch {}
+    if (user?.role === 'admin') {
+      try {
+        await api('/admin/alert-configs', {
+          method: 'PATCH',
+          body: JSON.stringify({ enable_sound_alert: enabled })
+        });
+        await reload?.();
+      } catch (e) {
+        console.warn('Failed to sync alert_configs sound preference', e);
+      }
+    }
     notify(enabled ? 'เปิดเสียงแจ้งเตือนระบบแล้ว' : 'ปิดเสียงแจ้งเตือนระบบแล้ว');
   };
 
@@ -5865,108 +5885,76 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
 
       {/* TAB 3: Theme & Appearance */}
       {activeTab === 'theme' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <section className="settings-card">
-            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>เลือกธีมสีระบบ (Theme & Color Mode)</h3>
-            <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
-              เลือกลักษณะการแสดงผลที่เหมาะกับสภาพแวดล้อมของคุณ โดยระบบจะจดจำการตั้งค่านี้ไว้ในเบราว์เซอร์ของคุณโดยอัตโนมัติ
-            </p>
+        <section className="settings-card">
+          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>เลือกธีมสีระบบ (Theme & Color Mode)</h3>
+          <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>
+            เลือกลักษณะการแสดงผลที่เหมาะกับสภาพแวดล้อมของคุณ โดยระบบจะจดจำการตั้งค่านี้ไว้ในเบราว์เซอร์ของคุณโดยอัตโนมัติ
+          </p>
 
-            <div className="theme-selector-grid">
-              {/* Dark Theme Card */}
-              <div
-                className={`theme-card ${theme === 'dark' ? 'active' : ''}`}
-                onClick={() => setTheme('dark')}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ธีมมืด (Dark Mode)</strong>
-                  </div>
-                  {theme === 'dark' && (
-                    <span className="badge available" style={{ fontSize: 11, padding: '2px 8px' }}>✓ ใช้งานอยู่</span>
-                  )}
+          <div className="theme-selector-grid">
+            {/* Dark Theme Card */}
+            <div
+              className={`theme-card ${theme === 'dark' ? 'active' : ''}`}
+              onClick={() => setTheme('dark')}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ธีมมืด (Dark Mode)</strong>
                 </div>
-
-                <div className="theme-preview-box dark-preview">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: '#36dcc9', fontWeight: 700 }}>SMART PARKING</span>
-                    <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.2)', color: '#4ade80', padding: '1px 5px', borderRadius: 4 }}>LIVE</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, margin: '4px 0' }}>
-                    <span style={{ fontSize: 10, background: '#1e293b', padding: '3px 8px', borderRadius: 4, color: '#94a3b8' }}>A1 ว่าง</span>
-                    <span style={{ fontSize: 10, background: '#3f1d24', padding: '3px 8px', borderRadius: 4, color: '#f87171' }}>A2 จอง</span>
-                  </div>
-                  <div style={{ fontSize: 10, color: '#64748b' }}>โหมดกลางคืน คมชัดระดับ OLED</div>
-                </div>
-
-                <p className="muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.45 }}>
-                  โทนสีมืดไฮเทค สบายตา ลดแสงสะท้อน และช่วยประหยัดพลังงานหน้าจอ
-                </p>
+                {theme === 'dark' && (
+                  <span className="badge available" style={{ fontSize: 11, padding: '2px 8px' }}>✓ ใช้งานอยู่</span>
+                )}
               </div>
 
-              {/* Light Theme Card */}
-              <div
-                className={`theme-card ${theme === 'light' ? 'active' : ''}`}
-                onClick={() => setTheme('light')}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ธีมสว่าง (Light Mode)</strong>
-                  </div>
-                  {theme === 'light' && (
-                    <span className="badge available" style={{ fontSize: 11, padding: '2px 8px' }}>✓ ใช้งานอยู่</span>
-                  )}
+              <div className="theme-preview-box dark-preview">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: '#36dcc9', fontWeight: 700 }}>SMART PARKING</span>
+                  <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.2)', color: '#4ade80', padding: '1px 5px', borderRadius: 4 }}>LIVE</span>
                 </div>
-
-                <div className="theme-preview-box light-preview">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: '#0284c7', fontWeight: 700 }}>SMART PARKING</span>
-                    <span style={{ fontSize: 10, background: '#dcfce7', color: '#16a34a', padding: '1px 5px', borderRadius: 4 }}>LIVE</span>
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, margin: '4px 0' }}>
-                    <span style={{ fontSize: 10, background: '#e2e8f0', padding: '3px 8px', borderRadius: 4, color: '#334155' }}>A1 ว่าง</span>
-                    <span style={{ fontSize: 10, background: '#fee2e2', padding: '3px 8px', borderRadius: 4, color: '#dc2626' }}>A2 จอง</span>
-                  </div>
-                  <div style={{ fontSize: 10, color: '#64748b' }}>โหมดสว่าง ชัดเจน คอนทราสต์สูง</div>
+                <div style={{ display: 'flex', gap: 6, margin: '4px 0' }}>
+                  <span style={{ fontSize: 10, background: '#1e293b', padding: '3px 8px', borderRadius: 4, color: '#94a3b8' }}>A1 ว่าง</span>
+                  <span style={{ fontSize: 10, background: '#3f1d24', padding: '3px 8px', borderRadius: 4, color: '#f87171' }}>A2 จอง</span>
                 </div>
-
-                <p className="muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.45 }}>
-                  โทนสีสว่าง สะอาดตา คอนทราสต์คมชัด เหมาะสำหรับใช้งานในห้องสว่างหรือกลางแจ้ง
-                </p>
+                <div style={{ fontSize: 10, color: '#64748b' }}>โหมดกลางคืน คมชัดระดับ OLED</div>
               </div>
+
+              <p className="muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.45 }}>
+                โทนสีมืดไฮเทค สบายตา ลดแสงสะท้อน และช่วยประหยัดพลังงานหน้าจอ
+              </p>
             </div>
-          </section>
 
-          <section className="settings-card">
-            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>เสียงแจ้งเตือน (Audio Preferences)</h3>
-            <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>กำหนดการส่งเสียง Chime แจ้งเตือนเมื่อมีเหตุการณ์สำคัญ</p>
+            {/* Light Theme Card */}
+            <div
+              className={`theme-card ${theme === 'light' ? 'active' : ''}`}
+              onClick={() => setTheme('light')}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ธีมสว่าง (Light Mode)</strong>
+                </div>
+                {theme === 'light' && (
+                  <span className="badge available" style={{ fontSize: 11, padding: '2px 8px' }}>✓ ใช้งานอยู่</span>
+                )}
+              </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 16px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
-              <div>
-                <strong style={{ fontSize: 14, color: 'var(--text-strong)', display: 'block', marginBottom: 2 }}>เสียงแจ้งเตือนบนเว็บ (Audio Chime)</strong>
-                <span className="muted" style={{ fontSize: 12 }}>ส่งเสียงกระดิ่งแจ้งเตือนเมื่อมีแจ้งเตือนระดับ CRITICAL หรือผู้ใช้ส่งสัญญาณฉุกเฉิน</span>
+              <div className="theme-preview-box light-preview">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #cbd5e1', paddingBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: '#0284c7', fontWeight: 700 }}>SMART PARKING</span>
+                  <span style={{ fontSize: 10, background: '#dcfce7', color: '#16a34a', padding: '1px 5px', borderRadius: 4 }}>LIVE</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6, margin: '4px 0' }}>
+                  <span style={{ fontSize: 10, background: '#e2e8f0', padding: '3px 8px', borderRadius: 4, color: '#334155' }}>A1 ว่าง</span>
+                  <span style={{ fontSize: 10, background: '#fee2e2', padding: '3px 8px', borderRadius: 4, color: '#dc2626' }}>A2 จอง</span>
+                </div>
+                <div style={{ fontSize: 10, color: '#64748b' }}>โหมดสว่าง ชัดเจน คอนทราสต์สูง</div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <button
-                  type="button"
-                  className="button secondary compact"
-                  onClick={() => playAlertChime('CRITICAL')}
-                  title="ทดสอบฟังเสียงแจ้งเตือน"
-                >
-                  ทดสอบเสียง
-                </button>
-                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
-                  <input
-                    type="checkbox"
-                    checked={soundEnabled}
-                    onChange={(e) => toggleSound(e.target.checked)}
-                    style={{ width: 18, height: 18, cursor: 'pointer' }}
-                  />
-                </label>
-              </div>
+
+              <p className="muted" style={{ fontSize: 12, margin: 0, lineHeight: 1.45 }}>
+                โทนสีสว่าง สะอาดตา คอนทราสต์คมชัด เหมาะสำหรับใช้งานในห้องสว่างหรือกลางแจ้ง
+              </p>
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
       )}
 
       {/* TAB 4: LINE & Notifications */}
@@ -6249,53 +6237,85 @@ function SettingsPage({ data, user, notify, reload, theme, setTheme, toggleTheme
         </section>
       )}
 
-      {/* TAB 6: Admin System Links */}
+      {/* TAB 6: Admin System Links & Preferences */}
       {activeTab === 'admin' && user.role === 'admin' && (
-        <section className="settings-card">
-          <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>ทางลัดการตั้งค่าระบบผู้ดูแล (Admin Control Shortcuts)</h3>
-          <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>จัดการพารามิเตอร์ฮาร์ดแวร์ กฎการแจ้งเตือนความผิดพลาด และผังลานจอดรถ</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <section className="settings-card">
+            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>ทางลัดการตั้งค่าระบบผู้ดูแล (Admin Control Shortcuts)</h3>
+            <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>จัดการพารามิเตอร์ฮาร์ดแวร์ กฎการแจ้งเตือนความผิดพลาด และผังลานจอดรถ</p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
-            <div
-              style={{ background: 'var(--surface2)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
-              onClick={() => setView('alerts')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 18 }}>🔴</span>
-                <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ตั้งค่าเงื่อนไขการแจ้งเตือน</strong>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+              <div
+                style={{ background: 'var(--surface2)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
+                onClick={() => setView('alerts')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontSize: 18 }}>🔴</span>
+                  <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>ตั้งค่าเงื่อนไขการแจ้งเตือน</strong>
+                </div>
+                <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                  กำหนด Timeout อุปกรณ์ออฟไลน์, เวลาไม้กั้นค้าง, ความถี่ส่ง LINE แอดมิน, และระดับความสำคัญ
+                </p>
               </div>
-              <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-                กำหนด Timeout อุปกรณ์ออฟไลน์, เวลาไม้กั้นค้าง, ความถี่ส่ง LINE แอดมิน, และระดับความสำคัญ
-              </p>
-            </div>
 
-            <div
-              style={{ background: 'var(--surface2)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
-              onClick={() => setView('layout')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 22 }}>⊞</span>
-                <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>จัดการผังลานจอดรถ</strong>
+              <div
+                style={{ background: 'var(--surface2)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
+                onClick={() => setView('layout')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontSize: 22 }}>⊞</span>
+                  <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>จัดการผังลานจอดรถ</strong>
+                </div>
+                <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                  อัปโหลดรูปภาพผังชั้น 1 และชั้น 2, ลากวางตำแหน่งช่องจอด และสลับลำดับช่อง
+                </p>
               </div>
-              <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-                อัปโหลดรูปภาพผังชั้น 1 และชั้น 2, ลากวางตำแหน่งช่องจอด และสลับลำดับช่อง
-              </p>
-            </div>
 
-            <div
-              style={{ background: 'var(--surface2)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
-              onClick={() => setView('devices')}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 22 }}>⌁</span>
-                <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>อุปกรณ์ & ไม้กั้นประจำช่อง</strong>
+              <div
+                style={{ background: 'var(--surface2)', padding: 16, borderRadius: 10, border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s' }}
+                onClick={() => setView('devices')}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <span style={{ fontSize: 22 }}>⌁</span>
+                  <strong style={{ fontSize: 15, color: 'var(--text-strong)' }}>อุปกรณ์ & ไม้กั้นประจำช่อง</strong>
+                </div>
+                <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                  ดูสถานะเซ็นเซอร์ ESP32 ทั้ง 12 ช่อง และสั่งยกไม้กั้นขึ้น/ลงแบบแมนนวล
+                </p>
               </div>
-              <p className="muted" style={{ fontSize: 12, margin: 0 }}>
-                ดูสถานะเซ็นเซอร์ ESP32 ทั้ง 12 ช่อง และสั่งยกไม้กั้นขึ้น/ลงแบบแมนนวล
-              </p>
             </div>
-          </div>
-        </section>
+          </section>
+
+          <section className="settings-card">
+            <h3 style={{ fontSize: 16, margin: '0 0 4px', color: 'var(--text-strong)' }}>เสียงแจ้งเตือนระบบผู้ดูแล (Audio Preferences)</h3>
+            <p className="muted" style={{ fontSize: 13, margin: '0 0 16px' }}>กำหนดการส่งเสียง Chime แจ้งเตือนเมื่อมีเหตุการณ์สำคัญระดับ CRITICAL หรือผู้ใช้ส่งสัญญาณฉุกเฉิน</p>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '12px 16px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+              <div>
+                <strong style={{ fontSize: 14, color: 'var(--text-strong)', display: 'block', marginBottom: 2 }}>เสียงแจ้งเตือนบนเว็บ (Audio Chime)</strong>
+                <span className="muted" style={{ fontSize: 12 }}>ส่งเสียงกระดิ่งแจ้งเตือนเมื่อมีแจ้งเตือนระดับ CRITICAL หรือผู้ใช้ส่งสัญญาณฉุกเฉิน</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  type="button"
+                  className="button secondary compact"
+                  onClick={() => playAlertChime('CRITICAL')}
+                  title="ทดสอบฟังเสียงแจ้งเตือน"
+                >
+                  ทดสอบเสียง
+                </button>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={soundEnabled}
+                    onChange={(e) => toggleSound(e.target.checked)}
+                    style={{ width: 18, height: 18, cursor: 'pointer' }}
+                  />
+                </label>
+              </div>
+            </div>
+          </section>
+        </div>
       )}
 
       {/* Danger Zone: Logout */}
@@ -6416,7 +6436,7 @@ function App() {
             a => !knownAlertIdsRef.current.has(a.id) && (a.priority === 'CRITICAL' || a.source_type === 'user_emergency')
           );
           if (newCriticalAlert) {
-            const soundEnabled = next.alert_configs?.enable_sound_alert !== false;
+            const soundEnabled = (localStorage.getItem('parking_sound_enabled') !== 'false') && (next.alert_configs?.enable_sound_alert !== false);
             if (soundEnabled) {
               playAlertChime('CRITICAL');
             }
